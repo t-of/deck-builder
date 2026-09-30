@@ -131,7 +131,7 @@ const kingdom = [
     id: 'diadem', name: '髪飾り', types: T, cost: 4, main: '+1 購入', desc: 'この手番、獲得したカードを山札の上に置いてよい。手札の財宝を 1 枚、2 回使ってよい',
     *play(g, p, pi) {
       g.turn.buys += 1;
-      g.turn.diadem = true;
+      g.turn.topdeckGains = true;
       const [i] = yield* askHand(g, pi, '2 回使う財宝を選ぶ（なしでもよい）', 0, 1, (id) => is(id, 'treasure'));
       if (i == null) return;
       const [id] = takeFromHand(p, [i]);
@@ -377,8 +377,7 @@ const firstEdition = [
 HOOKS.gain.push(function* (g, got) {
   if (got.pi !== g.current) return;
   if (g.turn.curio && is(got.id, 'action')) vp(g, g.players[got.pi], g.turn.curio);
-  if (g.turn.diadem && got.to !== 'deck' && got.to !== 'trash' && got.to !== 'gone'
-    && (yield* askYesNo(g, got.pi, `獲得した${nm(got.id)}を山札の上に置きますか？（髪飾り）`, '山札の上へ', 'そのまま', [got.id]))) yield* relocate(g, got, 'deck');
+
 });
 HOOKS.gain.push(function* (g, got) {
   const tr = g.traderoute;

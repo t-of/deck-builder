@@ -32,7 +32,8 @@ export function defineCards(setInfo, list, presets = []) {
 // setup: 対局を作ったとき (game)。拡張のカードが「このゲームでは…」を決める
 // play: 手札からアクションを使う直前 (game, id)
 // cost: コストを下げる量を返す (game, id) → 数（ふつうの関数）
-export const HOOKS = { gain: [], treasure: [], setup: [], trash: [], play: [], cost: [] };
+// buy: カードを買ったあと・獲得する前 (game, id, pi)
+export const HOOKS = { gain: [], treasure: [], setup: [], trash: [], play: [], cost: [], buy: [] };
 // 札がどの山のものか（重なった山の札は山の id）
 export const pileOf = (id) => CARDS[id].pile || id;
 
@@ -248,6 +249,9 @@ export function* receive(game, pi, id, to = 'discard') {
   if (pi === game.current) for (const c of [...game.playArea]) if (CARDS[c].whenGain && got.to !== 'gone') yield* CARDS[c].whenGain(game, got);
   for (const c of [...new Set(player.hand)]) if (CARDS[c].reactGain && got.to !== 'gone' && player.hand.includes(c)) yield* CARDS[c].reactGain(game, got);
   for (const h of HOOKS.gain) yield* h(game, got);
+  // この手番に獲得した札を山札の上に置いてよい（髪飾り・旅回りの市）
+  if (game.turn.topdeckGains && got.pi === game.current && (got.to === 'discard' || got.to === 'hand')
+    && (yield* askYesNo(game, got.pi, `獲得した「${CARDS[got.id].name}」を山札の上に置きますか？`, '山札の上へ', 'そのまま', [got.id]))) yield* relocate(game, got, 'deck');
 }
 
 // 獲得したカードを、今ある場所から dest（'discard' / 'hand' / 'deck' / 'trash' / 'gone'=呼び出し側が持つ）へ動かす
@@ -272,6 +276,15 @@ export function later(game, id, fn) {
   game.turn.stay.push(id);
   p.nextTurn.push(fn);
 }
+
+// 手番以外に使った持続（護衛兵など）にも使える later。手番の人なら later と同じ
+export function laterFor(game, pi, id, fn) {
+  if (pi === game.current) { later(game, id, fn); return; }
+  game.players[pi].nextTurn.push(fn); // 札は playOutOfTurn で inPlay にあるので、次のその人の手番まで残る
+}
+
+// 旅の印を裏返す。表になったら true
+export function flipJourney(p) { p.tokens.journey = !p.tokens.journey; return p.tokens.journey; }
 
 // ---- 問いを出す道具（yield* で使う） ----
 const handIdx = (player, pred) => player.hand.reduce((acc, id, i) => (!pred || pred(id) ? [...acc, i] : acc), []);
@@ -544,6 +557,7 @@ export function* buyCard(game, cardId) {
   const me = game.players[pi];
   for (const c of [...new Set(me.hand)]) if (CARDS[c].reactBuy && me.hand.includes(c)) yield* CARDS[c].reactBuy(game, cardId, pi);
   for (const c of [...game.playArea]) if (CARDS[c].whenBuy) yield* CARDS[c].whenBuy(game, cardId, pi);
+  for (const h of HOOKS.buy) yield* h(game, cardId, pi);
   for (let k = 0; k < (game.embargo[cardId] || 0); k++) yield* gain(game, pi, 'curse');
   yield* gain(game, pi, cardId);
   return true;
@@ -610,10 +624,13 @@ export const allCards = (player) => [...player.deck, ...player.hand, ...player.d
 
 export function score(player) {
   const all = allCards(player);
-  return all.reduce((sum, id) => {
+  let sum = all.reduce((acc, id) => {
     const c = CARDS[id];
-    return sum + (c.points || 0) + (c.pointsFn ? c.pointsFn(all) : 0);
+    return acc + (c.points || 0) + (c.pointsFn ? c.pointsFn(all) : 0);
   }, player.tokens.vp || 0);
+  // 置き場所で決まる点（果ての地など）は、札の種類ごとに 1 回数える
+  for (const id of new Set(all)) if (CARDS[id].scoreBonus) sum += CARDS[id].scoreBonus(player);
+  return sum;
 }
 
 // 点が同じなら手番の少ない人が上。それも同じなら同じ順位
