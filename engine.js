@@ -33,7 +33,9 @@ export function defineCards(setInfo, list, presets = []) {
 // play: 手札からアクションを使う直前 (game, id)
 // cost: コストを下げる量を返す (game, id) → 数（ふつうの関数）
 // buy: カードを買ったあと・獲得する前 (game, id, pi)
-export const HOOKS = { gain: [], treasure: [], setup: [], trash: [], play: [], cost: [], buy: [] };
+// buyPhase: 購入フェイズの始め (game)。endTurn: 片付けの前 (game)
+// afterCleanup: 片付けで 5 枚引いたあと (game, player, pi)
+export const HOOKS = { gain: [], treasure: [], setup: [], trash: [], play: [], cost: [], buy: [], buyPhase: [], endTurn: [], afterCleanup: [] };
 // 札がどの山のものか（重なった山の札は山の id）
 export const pileOf = (id) => CARDS[id].pile || id;
 
@@ -110,6 +112,9 @@ export function newGame(numPlayers, kingdom, names, opts = {}) {
     turn: freshTurn(),
     playArea: [],
     nonSupply: {},    // サプライ外の山（褒賞など）。{ id: 枚数 }。買えないが、効果で獲得できる
+    pileVP: {},       // 山に置かれた勝利点トークン（{ 山の id: 数 }）
+    landmarkVP: {},   // ランドマークなどに置かれた勝利点トークン（{ id: 数 }）
+    pileDebt: {},     // 山に置かれた借金トークン（買った人が受け取る）
     stacks: {},       // ちがう札が重なった山（がれき・騎士など）。{ 山の id: [id...]（末尾が一番上）}。supply[山の id] は残り枚数
     embargo: {},      // サプライの山に置かれた印の数（買うと 1 つにつき災い）
     extraTurn: false, // 今の手番が追加の手番か
@@ -213,11 +218,14 @@ export function costOf(game, id) {
   return Math.max(0, cost);
 }
 
+// 借金のコストがある札（重なった山は一番上）は「コスト X 以下」に入らない
+// ponytail: 借金のコストの札を廃棄して獲得する場面（同じ借金まで許す）は扱っていない
+const debtCost = (game, id) => { const st = game.stacks[id]; const top = st ? st.at(-1) : id; return top ? (CARDS[top].debt || 0) : 0; };
 // maxPotion: ポーションのコストをいくつまで許すか（ふつうは 0。廃棄した札にポーションがあれば、その数）
 // ponytail: 「ちょうどコスト +1」系はポーションを見ずにお金だけで比べる。ポーションの札を廃棄して使う場面は少ないので、要るときに直す
 export function supplyOptions(game, maxCost, pred, maxPotion = 0) {
   return Object.keys(game.supply)
-    .filter((id) => game.supply[id] > 0 && costOf(game, id) <= maxCost && (CARDS[id].potion || 0) <= maxPotion && (!pred || pred(id)))
+    .filter((id) => game.supply[id] > 0 && costOf(game, id) <= maxCost && (CARDS[id].potion || 0) <= maxPotion && !debtCost(game, id) && (!pred || pred(id)))
     .sort((a, b) => costOf(game, b) - costOf(game, a));
 }
 
@@ -464,6 +472,15 @@ export function* playAction(game, cardId) {
   game.turn.actions -= 1;
   log(game, `${player.name}が「${CARDS[cardId].name}」を使用。`);
   for (const h of HOOKS.play) yield* h(game, cardId);
+  // 魅入られた人（tokens.enchanted）: この手番に最初に使うアクションは、効果の代わりに +1 カード +1 アクション
+  if (player.tokens.enchanted > 0 && !game.turn.enchantUsed) {
+    game.turn.enchantUsed = true;
+    log(game, `${player.name}の「${CARDS[cardId].name}」は、魅入られて +1 カード +1 アクションになった。`);
+    game.turn.actionsPlayed += 1;
+    drawCards(player, 1);
+    game.turn.actions += 1;
+    return;
+  }
   yield* resolve(game, cardId);
   yield* offerCalls(game, game.current, 'afterAction', { id: cardId });
 }
@@ -504,6 +521,12 @@ export function playAllTreasures(game) {
 }
 
 export function startBuyPhase(game) { game.turn.phase = 'buy'; }
+// 購入フェイズに入る（購入フェイズの始めの効果を行う）。画面はこちらを使う
+export function* enterBuyPhase(game) {
+  if (game.turn.phase === 'buy') return;
+  game.turn.phase = 'buy';
+  for (const h of HOOKS.buyPhase) yield* h(game);
+}
 
 // 手番の始め: 前の手番から残っていたカードを場に戻し、その効果を行う
 export function* beginTurn(game) {
@@ -526,17 +549,32 @@ export function spendCoffers(game, n) {
   return k;
 }
 
+// 借金: player.tokens.debt。借金があるあいだは買えない。買うときに残りのお金で先に自動で返す
+const debtOf = (game) => currentPlayer(game).tokens.debt || 0;
+export function payDebt(game) {
+  const p = currentPlayer(game);
+  const k = Math.min(p.tokens.debt || 0, Math.max(0, game.turn.money));
+  p.tokens.debt = (p.tokens.debt || 0) - k;
+  game.turn.money -= k;
+  return k;
+}
+
 export function canBuy(game, cardId) {
   return game.turn.phase === 'buy' && game.turn.buys > 0 && game.supply[cardId] > 0 && !game.turn.banned.includes(cardId) && !game.turn.noBuy
     && game.turn.potions >= (CARDS[cardId].potion || 0)
-    && game.turn.money >= costOf(game, cardId) && !(CARDS[cardId].canBuy && !CARDS[cardId].canBuy(game));
+    && game.turn.money - debtOf(game) >= costOf(game, cardId) && !(CARDS[cardId].canBuy && !CARDS[cardId].canBuy(game));
 }
 
 // 買う。買ったときの効果（カード自身の onBuy、場の whenBuy、山の印）→ 獲得 の順
 export function* buyCard(game, cardId) {
   if (!canBuy(game, cardId)) return false;
+  payDebt(game);
   game.turn.buys -= 1;
   game.turn.money -= costOf(game, cardId);
+  const top = game.stacks[cardId] ? game.stacks[cardId].at(-1) : cardId;
+  const buyer = currentPlayer(game);
+  if (CARDS[top].debt) buyer.tokens.debt = (buyer.tokens.debt || 0) + CARDS[top].debt;
+  if (game.pileDebt[cardId]) { buyer.tokens.debt = (buyer.tokens.debt || 0) + game.pileDebt[cardId]; game.pileDebt[cardId] = 0; }
   game.turn.potions -= CARDS[cardId].potion || 0;
   game.turn.bought.push(cardId);
   const pi = game.current;
@@ -567,12 +605,14 @@ export function* buyCard(game, cardId) {
 export function canBuyEvent(game, id) {
   const c = CARDS[id];
   return game.landscapes.includes(id) && !!c.buy && game.turn.phase === 'buy' && game.turn.buys > 0 && !game.turn.noBuyEvents
-    && game.turn.money >= costOf(game, id) && !(c.once && game.turn.events.includes(id)) && !(c.canBuy && !c.canBuy(game));
+    && game.turn.money - debtOf(game) >= costOf(game, id) && !(c.once && game.turn.events.includes(id)) && !(c.canBuy && !c.canBuy(game));
 }
 export function* buyEvent(game, id) {
   if (!canBuyEvent(game, id)) return false;
+  payDebt(game);
   game.turn.buys -= 1;
   game.turn.money -= costOf(game, id);
+  if (CARDS[id].debt) currentPlayer(game).tokens.debt = (currentPlayer(game).tokens.debt || 0) + CARDS[id].debt;
   game.turn.events.push(id);
   const p = currentPlayer(game);
   log(game, `${p.name}がイベント「${CARDS[id].name}」を買った。`);
@@ -589,6 +629,8 @@ export function gameShouldEnd(game) {
 export function* endTurn(game) {
   const player = currentPlayer(game);
   yield* offerCalls(game, game.current, 'buyEnd');
+  payDebt(game); // 残ったお金は消えるので、借金に回す
+  for (const h of HOOKS.endTurn) yield* h(game);
   if (game.turn.money < 0) { player.tokens.minusCoin = true; game.turn.money = 0; }
   for (const id of [...game.playArea]) if (CARDS[id].onCleanup && game.playArea.includes(id)) yield* CARDS[id].onCleanup(game, player, game.current);
   for (const id of game.turn.stay) {
@@ -606,6 +648,7 @@ export function* endTurn(game) {
   if (wasPossessed) { player.discard.push(...(player.mats.possessed || []).splice(0)); game.controller = null; }
   drawCards(player, (extra && game.turn.outpost ? 3 : 5) + (game.turn.extraDraw || 0));
   if (player.mats.keep && player.mats.keep.length) player.hand.push(...player.mats.keep.splice(0)); // 取り置き
+  for (const h of HOOKS.afterCleanup) yield* h(game, player, game.current);
 
   if (gameShouldEnd(game)) { game.over = true; return; }
 
@@ -622,7 +665,8 @@ export function* endTurn(game) {
 
 export const allCards = (player) => [...player.deck, ...player.hand, ...player.discard, ...player.inPlay, ...Object.values(player.mats).flat()];
 
-export function score(player) {
+// game を渡すと、ランドマークなど対局全体で決まる点も数える
+export function score(player, game) {
   const all = allCards(player);
   let sum = all.reduce((acc, id) => {
     const c = CARDS[id];
@@ -630,13 +674,14 @@ export function score(player) {
   }, player.tokens.vp || 0);
   // 置き場所で決まる点（果ての地など）は、札の種類ごとに 1 回数える
   for (const id of new Set(all)) if (CARDS[id].scoreBonus) sum += CARDS[id].scoreBonus(player);
+  if (game) for (const id of game.landscapes) if (CARDS[id].score) sum += CARDS[id].score(game, player, all);
   return sum;
 }
 
 // 点が同じなら手番の少ない人が上。それも同じなら同じ順位
 export function finalResults(game) {
   const rows = game.players
-    .map((p, i) => ({ index: i, name: p.name, score: score(p), turns: p.turnsTaken }))
+    .map((p, i) => ({ index: i, name: p.name, score: score(p, game), turns: p.turnsTaken }))
     .sort((a, b) => b.score - a.score || a.turns - b.turns);
   rows.forEach((r, i) => {
     const prev = rows[i - 1];

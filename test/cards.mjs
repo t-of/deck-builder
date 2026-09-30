@@ -371,3 +371,39 @@ assert.equal(g.current, 0); assert.ok(g.turn.noBuy);
 // 果ての地: 酒場マットにあれば 4 点
 assert.equal(CARDS.farland.scoreBonus({ mats: { tavern: ['farland', 'farland'] } }), 8);
 console.log('ok: adventures');
+
+// ---- 帝国 ----
+await import('../cards-empires.js');
+const { payDebt, enterBuyPhase } = await import('../engine.js');
+const K10 = ['castles', 'p_settlers', 'townblock', 'villa', 'shrine', 'principal', 'gardener', 'vegmarket', 'temptress', 'mechanic'];
+const L10 = ['l_canal', 'l_wall', 'e_unify'];
+g = newGame(2, K10, null, { colony: false, landscapes: L10 });
+assert.equal(g.stacks.castles.at(-1), 'c_humble'); assert.equal(g.supply.castles, 8);
+assert.equal(g.stacks.p_settlers.at(-1), 'colonist'); assert.equal(costOf(g, 'p_settlers'), 2);
+assert.equal(g.pileVP.silver, 8);
+// 借金: 町並み（借金 8）を買うと借金 8。借金があるあいだは買えず、手番の終わりに残りのお金で返す
+Object.assign(g.players[0], { hand: [], deck: Array(10).fill('copper'), discard: [] });
+startBuyPhase(g); g.turn.money = 3; g.turn.buys = 2;
+run(buyCard(g, 'townblock'));
+assert.equal(g.players[0].tokens.debt, 8);
+assert.equal(canBuy(g, 'copper'), false);
+run(endTurn(g));
+assert.equal(g.players[0].tokens.debt, 5);
+// 用水路: 銀を獲得すると 1 つ移り、勝利点を獲得すると受け取る
+g = newGame(2, K10, null, { colony: false, landscapes: L10 });
+startBuyPhase(g); g.turn.money = 11; g.turn.buys = 2;
+run(buyCard(g, 'silver')); run(buyCard(g, 'estate'));
+assert.equal(g.pileVP.silver, 7); assert.equal(g.players[0].tokens.vp, 1);
+// 城壁: 15 枚を超えた分 -1
+assert.equal(CARDS.l_wall.score(g, g.players[0], Array(20).fill('copper')), -5);
+// 別荘: 購入フェイズに獲得すると手札に入り、アクションフェイズに戻る
+g = newGame(2, K10, null, { colony: false, landscapes: [] });
+startBuyPhase(g); g.turn.money = 4;
+run(buyCard(g, 'villa'));
+assert.equal(g.turn.phase, 'action'); assert.ok(g.players[0].hand.includes('villa'));
+// 天下統一（イベント 14）: 領地 +9
+g = newGame(2, K10, null, { colony: false, landscapes: L10 });
+startBuyPhase(g); g.turn.money = 14;
+run(buyEvent(g, 'e_unify'));
+assert.equal(g.players[0].tokens.vp, 9); // 用水路のトークンは 0 なので領地の獲得では増えない
+console.log('ok: empires');
