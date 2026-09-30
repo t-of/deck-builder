@@ -872,6 +872,7 @@ function renderQuestion(q) {
   const countEl = document.getElementById('choiceCount');
   const grid = document.getElementById('choiceGrid');
   clear(grid);
+  grid.classList.toggle('choiceGrid--pick', q.type === 'hand' || q.type === 'cards');
   const buttonsBox = document.getElementById('choiceButtons');
   clear(buttonsBox);
   const confirm = document.getElementById('choiceConfirm');

@@ -528,3 +528,27 @@ button { font: inherit; color: inherit; }
   [data-theme="card"] .cards--hand .tcgcard { width: calc(var(--cw) * 1.1); font-size: calc(var(--cw) * 1.1 / 9.5); margin-right: calc(var(--cw) * -0.35); }
   [data-theme="card"] .cards--hand .tcgcard:last-child { margin-right: 0; }
 }
+
+/* ---- 問いの画面: 札を画面いっぱいまで大きくし、効果の全文も出す。
+   --pw は札の幅。横は 5 枚が並ぶ幅、縦は見出し・ボタン（約 260px）を引いた高さに収める ---- */
+#choiceOverlay { max-width: 1400px; gap: 8px; padding: 12px; }
+#choiceGrid {
+  --pw: clamp(120px, min(calc((100vw - 90px) / 5.2), calc((100dvh - 260px) * 63 / 88)), 260px);
+  justify-content: center;
+  gap: 10px;
+}
+[data-theme="card"] #choiceGrid .tcgcard { width: var(--pw); font-size: calc(var(--pw) / 15); }
+[data-theme="card"] #choiceGrid .tcgcard__art { flex: 1 1 0; }
+[data-theme="card"] #choiceGrid .tcgcard__body { flex: 1 1 0; overflow-y: auto; gap: 0.35em; }
+[data-theme="card"] #choiceGrid .tcgcard__sub { display: block; font-size: 0.78em; }
+/* 選ぶ問いでは、選んだ札だけ明るく浮かせ、選んでいない札は暗くする */
+#choiceGrid.choiceGrid--pick > .card { filter: brightness(0.5) saturate(0.7); }
+#choiceGrid.choiceGrid--pick > .card--picked { filter: none; transform: translateY(-6px); }
+[data-theme="card"] #choiceGrid.choiceGrid--pick > .tcgcard { animation: none; }
+[data-theme="card"] #choiceGrid.choiceGrid--pick > .tcgcard.card--picked {
+  outline: none;
+  box-shadow: inset 0 0 0 0.15em var(--frame), 0 0 0 3px var(--accent), 0 0 16px 4px var(--accent), 0 4px 10px rgba(0, 0, 0, 0.6);
+}
+@media (prefers-reduced-motion: no-preference) {
+  #choiceGrid.choiceGrid--pick > .card { transition: filter 0.15s ease, transform 0.15s ease; }
+}
