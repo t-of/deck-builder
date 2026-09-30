@@ -585,6 +585,17 @@ button { font: inherit; color: inherit; }
   [data-theme="card"] #game .hud {
     background: linear-gradient(180deg, rgba(20, 46, 32, 0.97), rgba(8, 20, 14, 0.97));
   }
+  /* 札は小さくし、サプライ（組ごと）・手札・場をそれぞれ横一列に並べて横にスクロールする。
+     font-size は幅 / 9.5（.tcgcard の 76px・8px と同じ比率） */
+  .supply { flex-direction: column; flex-wrap: nowrap; }
+  [data-theme="card"] .supplyGroup__row { grid-template-rows: auto; grid-auto-columns: 68px; gap: 6px; }
+  [data-theme="card"] .supplyGroup__row .tcgcard { font-size: 7.2px; }
+  [data-theme="card"] .cards--hand, [data-theme="card"] .cards--play {
+    flex-wrap: nowrap; overflow-x: auto; justify-content: safe center; padding: 8px 2px 4px;
+  }
+  [data-theme="card"] .cards--hand .tcgcard { width: 68px; font-size: 7.2px; margin-right: -18px; }
+  [data-theme="card"] .cards--hand .tcgcard:last-child { margin-right: 0; }
+  [data-theme="card"] .cards--play .tcgcard { width: 56px; font-size: 5.9px; }
 }
 
 /* 広い画面: フェイズの欄・手札・記録を 1 行に並べ、空いた高さの分だけ札を大きくして 1 画面に収める。
