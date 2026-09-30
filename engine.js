@@ -34,8 +34,8 @@ export function defineCards(setInfo, list, presets = []) {
 // cost: コストを下げる量を返す (game, id) → 数（ふつうの関数）
 // buy: カードを買ったあと・獲得する前 (game, id, pi)
 // buyPhase: 購入フェイズの始め (game)。endTurn: 片付けの前 (game)
-// afterCleanup: 片付けで 5 枚引いたあと (game, player, pi)
-export const HOOKS = { gain: [], treasure: [], setup: [], trash: [], play: [], cost: [], buy: [], buyPhase: [], endTurn: [], afterCleanup: [] };
+// afterCleanup: 片付けで 5 枚引いたあと (game, player, pi)。turnStart: 手番の始め、持続のあと (game, player, pi)
+export const HOOKS = { gain: [], treasure: [], setup: [], trash: [], play: [], cost: [], buy: [], buyPhase: [], endTurn: [], afterCleanup: [], turnStart: [] };
 // 札がどの山のものか（重なった山の札は山の id）
 export const pileOf = (id) => CARDS[id].pile || id;
 
@@ -101,7 +101,8 @@ export function newGame(numPlayers, kingdom, names, opts = {}) {
   const players = Array.from({ length: numPlayers }, (_, i) => {
     const deck = shuffle([...Array(7).fill('copper'), ...(shelters ? ['shack', 'tombs', 'wildestate'] : Array(3).fill('estate'))]);
     // inPlay: 前の手番から場に残っているカード（持続）。nextTurn: 次の手番の始めに行う効果。mats: 脇に置いたカード。tokens: コインなどの印
-    const p = { name: (names && names[i]) || `${i + 1}人目`, deck, hand: [], discard: [], turnsTaken: 0, inPlay: [], nextTurn: [], mats: {}, tokens: { journey: true, pile: {} }, lastGains: [] };
+    // states: 状態の札（森の迷い子・ふしあわせなど）の id
+    const p = { name: (names && names[i]) || `${i + 1}人目`, deck, hand: [], discard: [], turnsTaken: 0, inPlay: [], nextTurn: [], mats: {}, tokens: { journey: true, pile: {} }, lastGains: [], states: [] };
     drawCards(p, 5);
     return p;
   });
@@ -414,7 +415,7 @@ export function* eachOther(game, fn) {
 // pi: 使う人（省略すると手番の人。手番以外に使うカードもある）
 export function* resolve(game, id, pi = game.current) {
   const card = CARDS[id];
-  if (card.types.includes('action') && pi === game.current) {
+  if (card.types.includes('action') && pi === game.current && game.turn.phase === 'action') {
     game.turn.actionsPlayed += 1;
     // 山に置いた自分の印: その山の札を使うたび、先に +1 カード / +1 アクション / +1 購入 / +1 金
     const tok = game.players[pi].tokens.pile;
@@ -497,7 +498,8 @@ export function* playTreasureGen(game, cardId) {
 
 // 場に出した財宝の効果（手札以外から出すとき・2 回使うときもこれ）
 export function* treasureEffect(game, cardId) {
-  game.turn.money += CARDS[cardId].value || 0;
+  // 妬み心の手番は、銀と金が 1 金しか出さない
+  game.turn.money += game.turn.envious && (cardId === 'silver' || cardId === 'gold') ? 1 : CARDS[cardId].value || 0;
   game.turn.potions += CARDS[cardId].potionValue || 0;
   if (cardId === 'silver' && game.turn.silverBonus) {
     game.turn.money += game.turn.silverBonus; // 両替商 1 枚につき、最初の銀で +1
@@ -521,6 +523,18 @@ export function playAllTreasures(game) {
 }
 
 export function startBuyPhase(game) { game.turn.phase = 'buy'; }
+// 夜のフェイズ: 購入のあと、片付けの前。夜行（night）の札を手札から好きなだけ使える（アクション権は使わない）
+export function enterNightPhase(game) { game.turn.phase = 'night'; }
+export const canPlayNight = (game, id) => game.turn.phase === 'night' && is(id, 'night') && currentPlayer(game).hand.includes(id);
+export function* playNight(game, cardId) {
+  if (!canPlayNight(game, cardId)) return;
+  const player = currentPlayer(game);
+  player.hand.splice(player.hand.indexOf(cardId), 1);
+  game.playArea.push(cardId);
+  log(game, `${player.name}が「${CARDS[cardId].name}」を使用（夜）。`);
+  yield* resolve(game, cardId);
+}
+
 // 購入フェイズに入る（購入フェイズの始めの効果を行う）。画面はこちらを使う
 export function* enterBuyPhase(game) {
   if (game.turn.phase === 'buy') return;
@@ -537,6 +551,7 @@ export function* beginTurn(game) {
   if (p.tokens.minusCoin) { p.tokens.minusCoin = false; game.turn.money -= 1; }
   for (const job of p.nextTurn.splice(0)) yield* job(game, p, game.current);
   yield* offerCalls(game, game.current, 'start');
+  for (const h of HOOKS.turnStart) yield* h(game, p, game.current);
   for (const id of [...new Set(p.hand)]) if (CARDS[id].atTurnStart && p.hand.includes(id)) yield* CARDS[id].atTurnStart(game, p, game.current);
 }
 
@@ -562,6 +577,7 @@ export function payDebt(game) {
 export function canBuy(game, cardId) {
   return game.turn.phase === 'buy' && game.turn.buys > 0 && game.supply[cardId] > 0 && !game.turn.banned.includes(cardId) && !game.turn.noBuy
     && game.turn.potions >= (CARDS[cardId].potion || 0)
+    && !(game.turn.noBuyActions && is(game.stacks[cardId] ? (game.stacks[cardId].at(-1) || cardId) : cardId, 'action'))
     && game.turn.money - debtOf(game) >= costOf(game, cardId) && !(CARDS[cardId].canBuy && !CARDS[cardId].canBuy(game));
 }
 
@@ -675,6 +691,7 @@ export function score(player, game) {
   // 置き場所で決まる点（果ての地など）は、札の種類ごとに 1 回数える
   for (const id of new Set(all)) if (CARDS[id].scoreBonus) sum += CARDS[id].scoreBonus(player);
   if (game) for (const id of game.landscapes) if (CARDS[id].score) sum += CARDS[id].score(game, player, all);
+  for (const id of player.states || []) sum += CARDS[id].points || 0; // 状態（ふしあわせなど）
   return sum;
 }
 

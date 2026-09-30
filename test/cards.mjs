@@ -407,3 +407,37 @@ startBuyPhase(g); g.turn.money = 14;
 run(buyEvent(g, 'e_unify'));
 assert.equal(g.players[0].tokens.vp, 9); // 用水路のトークンは 0 なので領地の獲得では増えない
 console.log('ok: empires');
+
+// ---- 夜想曲 ----
+await import('../cards-nocturne.js');
+const { enterNightPhase, playNight, canPlayNight } = await import('../engine.js');
+const K11 = ['trailer', 'minstrel', 'rookery', 'firewatch', 'wolfman', 'bloodsucker', 'hauntedvillage', 'druid', 'herdsman', 'village'];
+g = newGame(2, K11, null, { colony: false });
+assert.ok(g.boons && g.hexes && g.druidBoons.length === 3);
+const all0 = [...g.players[0].deck, ...g.players[0].hand];
+assert.ok(all0.includes('purse') && all0.includes('grazing')); assert.equal(all0.filter((x) => x === 'copper').length, 5);
+// 悪党の巣窟: 獲得すると手札へ。夜のフェイズに使い、次の手番に +2 カード
+Object.assign(g.players[0], { hand: [], deck: Array(20).fill('copper'), discard: [] });
+startBuyPhase(g); g.turn.money = 5;
+run(buyCard(g, 'rookery'));
+assert.deepEqual(g.players[0].hand, ['rookery']);
+enterNightPhase(g);
+assert.ok(canPlayNight(g, 'rookery'));
+run(playNight(g, 'rookery'));
+run(endTurn(g));
+assert.deepEqual(g.players[0].inPlay, ['rookery']);
+// 狼男: 昼は +3 カード、夜は呪詛
+g.players[1].hand = ['wolfman']; g.players[1].deck = Array(5).fill('copper');
+run(beginTurn(g));
+run(playAction(g, 'wolfman'));
+assert.equal(g.players[1].hand.length, 3);
+// 惑い: 購入フェイズの始めに返し、アクションを買えない
+g = newGame(2, K11, null, { colony: false });
+g.players[0].states.push('s_deluded');
+run(enterBuyPhase(g)); g.turn.money = 5;
+assert.equal(canBuy(g, 'village'), false); assert.ok(canBuy(g, 'silver'));
+assert.deepEqual(g.players[0].states, []);
+// ふしあわせ: -2 点
+g.players[0].states.push('s_miserable');
+assert.equal(score(g.players[0], g), 3 + 3 - 2); // 小屋 3 点 + 放牧地（小屋 3 枚で 3 点）- ふしあわせ 2
+console.log('ok: nocturne');

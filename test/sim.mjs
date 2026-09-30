@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   CARDS, SETS, kingdomPool, randomKingdom, newGame, currentPlayer, playAction, playTreasureGen,
   startBuyPhase, buyCard, endTurn, beginTurn, finalResults, is, PRESETS, allCards, canBuy, costOf, spendCoffers, landscapePool, canBuyEvent, buyEvent,
+  enterBuyPhase, enterNightPhase, playNight, canPlayNight,
 } from '../engine.js';
 import '../cards-base.js';
 import '../cards-intrigue.js';
@@ -15,6 +16,7 @@ import '../cards-alchemy.js';
 import '../cards-darkages.js';
 import '../cards-adventures.js';
 import '../cards-empires.js';
+import '../cards-nocturne.js';
 
 const rnd = (n) => Math.floor(Math.random() * n);
 function answer(q) {
@@ -56,7 +58,7 @@ export function simulate(kingdom, n, landscapes = []) {
       run(playAction(g, id));
       assert.equal(total(g), start, `カードの枚数が変わった（${id}）`);
     }
-    startBuyPhase(g);
+    run(enterBuyPhase(g));
     for (const id of [...p.hand]) {
       if (is(id, 'treasure')) run(playTreasureGen(g, id));
       assert.equal(total(g), start, `カードの枚数が変わった（財宝 ${id}）`);
@@ -71,6 +73,8 @@ export function simulate(kingdom, n, landscapes = []) {
       const best = ok.sort((a, b) => costOf(g, b) - costOf(g, a));
       assert.ok(run(buyCard(g, Math.random() < 0.6 ? best[0] : best[rnd(best.length)])));
     }
+    enterNightPhase(g);
+    for (const id of [...p.hand]) if (canPlayNight(g, id) && Math.random() < 0.8) { run(playNight(g, id)); assert.equal(total(g), start, `カードの枚数が変わった（夜 ${id}）`); }
     run(endTurn(g));
     assert.equal(total(g), start, 'カードの枚数が変わった');
   }
