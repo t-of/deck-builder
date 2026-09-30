@@ -1,5 +1,5 @@
 'use strict';
-// 拡張「略奪」のカード（王国 40 種）、戦利品 15 種、イベント 15 種、特性 14 種。名前は本家と別の言い回し。
+// 拡張「略奪」のカード（王国 40 種）、戦利品 15 種、イベント 15 種、特性 15 種。名前は本家と別の言い回し。
 // 戦利品: サプライ外の重なった山（game.nonSupply.loot / game.stacks.loot）。
 // 「次に〜したとき」の持続: hold() で場に残し、player.watch の条件で効果を出して entry.done にする。
 import {
@@ -85,9 +85,10 @@ const lootCards = [
     *play(g, p, pi) {
       yield* trashSelf(g, p, 'l_scroll');
       const id = yield* askSupply(g, pi, 'コスト 6 以下を獲得', 6);
+      const real = id && (g.stacks[id] ? g.stacks[id].at(-1) : id);
       if (!(yield* gain(g, pi, id))) return;
-      const real = p.discard.at(-1);
-      if (real && (is(real, 'action') || is(real, 'treasure')) && (yield* askYesNo(g, pi, `${nm(real)}を使いますか？`, '使う', 'しない', [real]))) { p.discard.pop(); yield* playNow(g, pi, real); }
+      const k = real ? p.discard.lastIndexOf(real) : -1; // 獲得した札（ほかの効果で動いていなければ捨て札にある）
+      if (k >= 0 && (is(real, 'action') || is(real, 'treasure')) && (yield* askYesNo(g, pi, `${nm(real)}を使いますか？`, '使う', 'しない', [real]))) { p.discard.splice(k, 1); yield* playNow(g, pi, real); }
     } },
   { id: 'l_staff', name: '仕込み杖', types: LT, cost: 7, value: 3, main: '+3 金　+1 購入', desc: '手札のアクションを 1 枚使ってよい',
     *play(g, p, pi) { g.turn.buys += 1; const [i] = yield* askHand(g, pi, '使うアクション（なしでもよい）', 0, 1, (id) => is(id, 'action')); if (i != null) yield* playNow(g, pi, takeFromHand(p, [i])[0]); } },
@@ -352,7 +353,8 @@ const events = [
       if (i != null) yield* playNow(g, pi, takeFromHand(p, [i])[0]);
       yield* gain(g, pi, 'duchy');
       yield* gain(g, pi, yield* askSupply(g, pi, 'アクションを山札の上に獲得', 99, (id) => is(id, 'action')), 'deck');
-      if ((yield* loot(g, pi)) && p.discard.length) { const id = p.discard.pop(); yield* playNow(g, pi, id); }
+      const top = g.stacks.loot && g.stacks.loot.at(-1);
+      if ((yield* loot(g, pi)) && top) { const k = p.discard.lastIndexOf(top); if (k >= 0) { p.discard.splice(k, 1); yield* playNow(g, pi, top); } }
     } },
   { id: 'pe_prosper', name: '繁盛', types: E, cost: 10, main: '戦利品と\n財宝を種類ごとに', desc: '戦利品を獲得し、ちがう名前の財宝を好きなだけ 1 枚ずつ獲得する',
     *buy(g, p, pi) {
@@ -397,9 +399,12 @@ HOOKS.setup.push((g) => {
     for (const p of g.players) {
       const c = takeFromSupply(g, g.traits.t_inherited);
       if (!c) break;
-      const i = p.deck.indexOf('estate');
-      const j = p.hand.indexOf('estate');
-      if (i >= 0) { p.deck[i] = c; returnCard(g, 'estate') || g.trash.push('estate'); } else if (j >= 0) { p.hand[j] = c; returnCard(g, 'estate') || g.trash.push('estate'); } else if (!returnCard(g, c)) g.trash.push(c);
+      // 小屋（なければ避難所、それもなければ銅）1 枚と入れ替える
+      const pickOld = (arr) => ['estate', 'wildestate', 'shack', 'tombs', 'copper'].map((x) => arr.indexOf(x)).find((k) => k >= 0);
+      const i = pickOld(p.deck);
+      const j = pickOld(p.hand);
+      const swap = (arr, k) => { const old = arr[k]; arr[k] = c; if (!returnCard(g, old)) g.trash.push(old); };
+      if (i != null) swap(p.deck, i); else if (j != null) swap(p.hand, j); else if (!returnCard(g, c)) g.trash.push(c);
     }
   }
 });
