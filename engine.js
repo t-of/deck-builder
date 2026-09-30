@@ -410,6 +410,8 @@ export function* putBackInOrder(game, pi, cards) {
 export function reveal(player, n) {
   const out = [];
   for (let i = 0; i < n; i++) { const id = takeTop(player); if (id == null) break; out.push(id); }
+  // 後ろ盾: 効果でめくられたとき +1 財源（ponytail: 山札からめくるときだけ。手札を見せる効果では数えない）
+  for (const id of out) if (id === 'backer') player.tokens.coffers = (player.tokens.coffers || 0) + 1;
   return out;
 }
 

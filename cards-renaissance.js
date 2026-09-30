@@ -125,7 +125,7 @@ const kingdom = [
     },
   },
   {
-    id: 'backer', name: '後ろ盾', types: ['action', 'reaction'], cost: 4, main: '+1 村人\n+2 金', desc: '効果で見せられたとき +1 財源（手札を見せる・山札をめくる など）',
+    id: 'backer', name: '後ろ盾', types: ['action', 'reaction'], cost: 4, main: '+1 村人\n+2 金', desc: '効果で山札からめくられたとき +1 財源',
     *play(g, p) { villagers(g, p, 1); g.turn.money += 2; },
   },
   {
