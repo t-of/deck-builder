@@ -127,7 +127,8 @@ const kingdom = [
     *reactGain(g, got) {
       if (got.id === 'silver' || g.supply[got.id] == null) return;
       if (!(yield* askYesNo(g, got.pi, `${nm(got.id)}の代わりに銀を獲得しますか？（銀の商人）`, '銀にする', 'そのまま', [got.id]))) return;
-      if (!returnCard(g, got.id) || !(yield* relocate(g, got, 'gone'))) return;
+      if (!(yield* relocate(g, got, 'gone'))) return;
+      if (!returnCard(g, got.id)) { g.players[got.pi].discard.push(got.id); return; }
       yield* gain(g, got.pi, 'silver');
     },
   },

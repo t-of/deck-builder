@@ -18,6 +18,7 @@ import '../cards-adventures.js';
 import '../cards-empires.js';
 import '../cards-nocturne.js';
 import '../cards-renaissance.js';
+import '../cards-menagerie.js';
 
 const rnd = (n) => Math.floor(Math.random() * n);
 function answer(q) {

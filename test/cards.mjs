@@ -473,3 +473,37 @@ assert.equal(g.over, false); assert.equal(g.current, 1);
 run(endTurn(g));
 assert.equal(g.over, true);
 console.log('ok: renaissance');
+
+// ---- 移動動物園 ----
+await import('../cards-menagerie.js');
+const K13 = ['stablehand', 'bountyman', 'snowvillage', 'beastfair', 'warder', 'village', 'smithy', 'market', 'herddog', 'hoardpile'];
+const L13 = ['w_ox', 'm_ride'];
+g = newGame(2, K13, null, { colony: false, landscapes: L13 });
+assert.equal(g.nonSupply.pony, 30);
+// 習性: 鍛冶場を牛のならいで使うと +2 アクション
+Object.assign(g.players[0], { hand: ['smithy', 'snowvillage'], deck: Array(10).fill('copper'), discard: [] });
+run(playAction(g, 'smithy'), ['w_ox']);
+assert.equal(g.turn.actions, 2); assert.equal(g.players[0].hand.length, 1);
+// 雪の里: このあとの +アクションは無効
+run(playAction(g, 'snowvillage'), [null]);
+assert.equal(g.turn.actions, 5);
+g.players[0].hand.push('village');
+run(playAction(g, 'village'), [null]);
+assert.equal(g.turn.actions, 4);
+// 懸賞稼ぎ: 追放に同じ札がなければ +3 金
+g = newGame(2, K13, null, { colony: false, landscapes: [] });
+g.players[0].hand = ['bountyman', 'estate'];
+run(playAction(g, 'bountyman'));
+assert.deepEqual(g.players[0].mats.exile, ['estate']); assert.equal(g.turn.money, 3);
+// 追放の札は、同じ札を獲得したとき捨て札に戻せる
+startBuyPhase(g); g.turn.money = 2;
+run(buyCard(g, 'estate'), [true]);
+assert.deepEqual(g.players[0].mats.exile, []); assert.equal(g.players[0].discard.filter((x) => x === 'estate').length, 2);
+// 獣の市: お金の代わりにアクションを廃棄して買える
+g = newGame(2, K13, null, { colony: false, landscapes: [] });
+g.players[0].hand = ['village'];
+startBuyPhase(g);
+assert.ok(canBuy(g, 'beastfair'));
+run(buyCard(g, 'beastfair'));
+assert.ok(g.trash.includes('village')); assert.ok(g.players[0].discard.includes('beastfair'));
+console.log('ok: menagerie');

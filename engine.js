@@ -196,6 +196,7 @@ export function* trashCards(game, player, ids) {
   game.trash.push(...ids);
   log(game, `${player.name}が「${ids.map((id) => CARDS[id].name).join('」「')}」を廃棄。`);
   const pi = game.players.indexOf(player);
+  if (pi === game.current && game.turn) game.turn.trashed = (game.turn.trashed || 0) + ids.length;
   for (const id of ids) {
     if (CARDS[id].onTrash) yield* CARDS[id].onTrash(game, player, pi, id);
     for (const h of HOOKS.trash) yield* h(game, player, pi, id);
@@ -490,6 +491,16 @@ export function* playAction(game, cardId) {
     game.turn.actions += 1;
     return;
   }
+  // 習性（way）: 対局に習性があれば、札の効果の代わりに習性の効果で使ってよい
+  const ways = game.landscapes.filter((id) => CARDS[id].types.includes('way'));
+  const way = ways.length ? yield* askChoose(game, game.current, `「${CARDS[cardId].name}」をどう使いますか？`,
+    [{ value: null, label: 'ふつうに使う' }, ...ways.map((w) => ({ value: w, label: CARDS[w].name }))], [cardId]) : null;
+  if (way) {
+    log(game, `${player.name}が「${CARDS[cardId].name}」を${CARDS[way].name}で使った。`);
+    game.turn.actionsPlayed += 1;
+    yield* CARDS[way].use(game, player, game.current, cardId);
+    return;
+  }
   yield* resolve(game, cardId);
   game.turn.handActions = (game.turn.handActions || 0) + 1;
   if (game.turn.handActions === 1 && player.projects.includes('j_citadel') && game.playArea.includes(cardId)) {
@@ -597,6 +608,8 @@ export function payDebt(game) {
 }
 
 export function canBuy(game, cardId) {
+  const alt = CARDS[cardId].altCost && CARDS[cardId].altCost(game);
+  if (alt && game.turn.phase === 'buy' && game.turn.buys > 0 && game.supply[cardId] > 0 && !game.turn.noBuy && !debtOf(game)) return true;
   return game.turn.phase === 'buy' && game.turn.buys > 0 && game.supply[cardId] > 0 && !game.turn.banned.includes(cardId) && !game.turn.noBuy
     && game.turn.potions >= (CARDS[cardId].potion || 0)
     && !(game.turn.noBuyActions && is(game.stacks[cardId] ? (game.stacks[cardId].at(-1) || cardId) : cardId, 'action'))
@@ -608,7 +621,12 @@ export function* buyCard(game, cardId) {
   if (!canBuy(game, cardId)) return false;
   payDebt(game);
   game.turn.buys -= 1;
-  game.turn.money -= costOf(game, cardId);
+  // 別の払い方（動物の市: 手札のアクションを廃棄して払う）
+  const altOk = CARDS[cardId].altCost && CARDS[cardId].altCost(game);
+  const canPay = game.turn.money >= costOf(game, cardId);
+  if (altOk && (!canPay || (yield* askYesNo(game, game.current, `「${CARDS[cardId].name}」: お金の代わりに手札のアクションを廃棄して払いますか？`, '廃棄して払う', 'お金で払う', [cardId])))) {
+    yield* CARDS[cardId].payAlt(game, currentPlayer(game), game.current);
+  } else game.turn.money -= costOf(game, cardId);
   const top = game.stacks[cardId] ? game.stacks[cardId].at(-1) : cardId;
   const buyer = currentPlayer(game);
   if (CARDS[top].debt) buyer.tokens.debt = (buyer.tokens.debt || 0) + CARDS[top].debt;
@@ -680,7 +698,8 @@ export function* endTurn(game) {
   game.playArea = [];
   if (!game.extraTurn) player.turnsTaken += 1;
   player.lastGains = game.turn.gained;
-  const extra = (game.turn.outpost || game.turn.mission) && !game.extraTurn;
+  player.lastTrashed = game.turn.trashed || 0;
+  const extra = (game.turn.outpost || game.turn.mission || game.turn.seize) && !game.extraTurn;
   const possess = !extra && !game.extraTurn && game.turn.possess;
   const wasPossessed = game.controller != null;
   if (wasPossessed) { player.discard.push(...(player.mats.possessed || []).splice(0)); game.controller = null; }
@@ -708,7 +727,7 @@ export function* endTurn(game) {
   if (!extra && !wasPossessed) game.current = (game.current + 1) % game.players.length;
   if (possess) game.controller = (game.current - 1 + game.players.length) % game.players.length;
   game.extraTurn = extra || possess;
-  const noBuy = extra && game.turn.mission && !game.turn.outpost;
+  const noBuy = extra && game.turn.mission && !game.turn.outpost && !game.turn.seize;
   game.turn = freshTurn();
   game.turn.noBuy = noBuy; // 使いの旅の追加の手番は買えない
   const who = possess ? `${game.players[game.controller].name}が操作する${currentPlayer(game).name}の追加の` : `${currentPlayer(game).name}の${extra ? '追加の' : ''}`;
