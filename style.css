@@ -514,11 +514,11 @@ button { font: inherit; color: inherit; }
 
 /* 広い画面: フェイズの欄・手札・記録を 1 行に並べ、空いた高さの分だけ札を大きくして 1 画面に収める。
    --ch はサプライの札の高さ。画面の高さから札以外（見出し・フェイズの欄など約 440px）を引き、
-   場（0.7 段）＋サプライ（2 段）で割る。横はサプライの 9 列が入る幅までにする */
+   サプライ（2 段）と少しの余りで割る。横はサプライの 9 列が入る幅までにする */
 @media (min-width: 720px) {
   .app { height: 100dvh; }
   .game {
-    --ch: clamp(100px, calc((100dvh - 440px) / 2.2), 220px);
+    --ch: clamp(100px, calc((100dvh - 440px) / 2.5), 220px);
     --cw: min(calc(var(--ch) * 63 / 88), calc((100vw - 110px) / 9.4));
   }
   .sectionLabel--supply { display: none; }
