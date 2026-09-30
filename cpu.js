@@ -7,7 +7,7 @@
 import {
   CARDS, is, costOf, canBuy, canBuyEvent, canPlayAction, canPlayNight, shadowsInDeck, currentPlayer, allCards, emptyPiles, pileOf,
   newGame, beginTurn, playAction, playShadow, spendVillager, enterBuyPhase, playTreasureGen, spendCoffers, buyCard, buyEvent,
-  enterNightPhase, playNight, endTurn, finalResults, turnController,
+  enterNightPhase, playNight, endTurn, finalResults, turnController, isTreasureNow,
 } from './engine.js';
 
 export const LEVELS = [
@@ -354,7 +354,7 @@ export function nextMove(game, level = 'strong') {
   }
   if (t.phase === 'buy') {
     const limited = t.handPlayLimit != null && (t.handPlays || 0) >= t.handPlayLimit; // 船出の手番は手札から 3 枚まで
-    const tr = limited ? [] : p.hand.filter((id) => is(id, 'treasure'));
+    const tr = limited ? [] : p.hand.filter((id) => isTreasureNow(game, id));
     if (tr.length) return { type: 'treasure', id: tr[0] };
     if (t.buys > 0) {
       const id = buyChoice(game, level);
