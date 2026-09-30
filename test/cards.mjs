@@ -551,3 +551,33 @@ g.players[1].hand = ['silver', 'silver'];
 startBuyPhase(g); playTreasure(g, 'silver'); playTreasure(g, 'silver');
 assert.equal(g.turn.money, 2);
 console.log('ok: allies');
+
+// ---- 略奪 ----
+await import('../cards-plunder.js');
+const K16 = ['plenty', 'lootsack', 'crew', 'search', 'village', 'smithy', 'market', 'swampshacks', 'longship', 'grotto'];
+g = newGame(2, K16, null, { colony: false, landscapes: ['t_rich', 'pe_looting'] });
+assert.equal(g.nonSupply.loot, 30); assert.equal(g.stacks.loot.length, 30);
+assert.ok(g.traits.t_rich && g.kingdom.includes(g.traits.t_rich));
+// 分捕り袋: 戦利品を獲得（重なった山の札）
+Object.assign(g.players[0], { hand: ['lootsack'], deck: Array(10).fill('copper'), discard: [] });
+startBuyPhase(g); playTreasure(g, 'lootsack');
+assert.equal(CARDS[g.players[0].discard.at(-1)].pile, 'loot'); assert.equal(g.nonSupply.loot, 29);
+// 実り: 次にアクションを獲得したら +1 購入 +3 金。それまで場に残る
+g = newGame(2, K16, null, { colony: false, landscapes: [] });
+Object.assign(g.players[0], { hand: ['plenty'], deck: Array(20).fill('copper'), discard: [] });
+startBuyPhase(g); playTreasure(g, 'plenty');
+run(endTurn(g));
+assert.deepEqual(g.players[0].inPlay, ['plenty']);
+run(endTurn(g)); run(beginTurn(g));
+startBuyPhase(g); g.turn.money = 3;
+run(buyCard(g, 'village'));
+assert.equal(g.turn.money, 3); assert.equal(g.turn.buys, 1);
+run(endTurn(g));
+assert.ok(g.players[0].discard.includes('plenty')); // 効いたので捨てられた
+// 金持ちの（特性）: その山の札を獲得すると銀も
+g = newGame(2, K16, null, { colony: false, landscapes: ['t_rich'] });
+const richPile = g.traits.t_rich;
+startBuyPhase(g); g.turn.money = 10;
+run(buyCard(g, richPile));
+assert.ok(g.players[0].discard.includes('silver'));
+console.log('ok: plunder');

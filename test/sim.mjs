@@ -21,6 +21,7 @@ import '../cards-renaissance.js';
 import '../cards-menagerie.js';
 import '../cards-promo.js';
 import '../cards-allies.js';
+import '../cards-plunder.js';
 
 const rnd = (n) => Math.floor(Math.random() * n);
 function answer(q) {
@@ -43,13 +44,23 @@ function run(gen) {
   }
   return step.value;
 }
-const total = (g) => g.players.reduce((s, p) => s + allCards(p).length, 0)
-  + g.trash.length + g.playArea.length + Object.values(g.supply).reduce((a, b) => a + b, 0) + Object.values(g.nonSupply).reduce((a, b) => a + b, 0) + (g.blackMarket || []).length - Object.keys(g.stacks).reduce((a, k) => a + g.supply[k] - g.stacks[k].length, 0);
+const total = (g) => {
+  const parts = {
+    players: g.players.reduce((s, p) => s + allCards(p).length, 0), trash: g.trash.length, play: g.playArea.length,
+    supply: Object.values(g.supply).reduce((a, b) => a + b, 0), non: Object.values(g.nonSupply).reduce((a, b) => a + b, 0),
+    bm: (g.blackMarket || []).length,
+    stacks: -Object.keys(g.stacks).reduce((a, k) => a + (k in g.supply ? g.supply[k] : g.nonSupply[k]) - g.stacks[k].length, 0),
+  };
+  const t = Object.values(parts).reduce((a, b) => a + b, 0);
+  if (!Number.isFinite(t)) console.error('NAN', JSON.stringify(parts), JSON.stringify(g.supply), JSON.stringify(g.nonSupply), Object.keys(g.stacks));
+  return t;
+}
 
 const stalls = [];
 export function simulate(kingdom, n, landscapes = []) {
   const g = newGame(n, kingdom, null, { landscapes });
   const start = total(g);
+  assert.ok(Number.isFinite(start), '枚数が数えられない');
   for (let turns = 0; !g.over; turns++) {
     // でたらめに廃棄して山札がなくなると終わらないことがある。まれなら数えるだけ
     if (turns >= 3000) { stalls.push(kingdom.join(',') + ' + ' + landscapes.join(',') + ' debt=' + g.players.map((p) => p.tokens.debt || 0).join('/') + ' deck=' + g.players.map((p) => allCards(p).length).join('/')); return g; }

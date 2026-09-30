@@ -116,6 +116,7 @@ export function newGame(numPlayers, kingdom, names, opts = {}) {
     playArea: [],
     nonSupply: {},    // サプライ外の山（褒賞など）。{ id: 枚数 }。買えないが、効果で獲得できる
     artifacts: {},    // アーティファクトの持ち主（{ id: 席の番号 }）
+    traits: {},       // 特性がついた山（{ 特性の id: 山の id }）
     pileVP: {},       // 山に置かれた勝利点トークン（{ 山の id: 数 }）
     landmarkVP: {},   // ランドマークなどに置かれた勝利点トークン（{ id: 数 }）
     pileDebt: {},     // 山に置かれた借金トークン（買った人が受け取る）
@@ -298,6 +299,13 @@ export function later(game, id, fn) {
   p.nextTurn.push(fn);
 }
 
+// 「次に〜したとき」まで場に残る札。entry.done を true にすると、次のその人の片付けで捨てられる
+export function hold(game, pi, id) {
+  const e = { id, done: false };
+  (game.players[pi].holds = game.players[pi].holds || []).push(e);
+  return e;
+}
+
 // 手番以外に使った持続（護衛兵など）にも使える later。手番の人なら later と同じ
 export function laterFor(game, pi, id, fn) {
   if (pi === game.current) { later(game, id, fn); return; }
@@ -411,7 +419,7 @@ export function takeFromSupply(game, id) {
 // 札を元の山に戻す（どこから取り出したかは呼び出し側が消しておく）。戻す山がなければ false
 export function returnCard(game, id) {
   const pile = CARDS[id].pile;
-  if (pile && game.stacks[pile]) { game.stacks[pile].push(id); game.supply[pile] += 1; return true; }
+  if (pile && game.stacks[pile]) { game.stacks[pile].push(id); if (pile in game.supply) game.supply[pile] += 1; else game.nonSupply[pile] += 1; return true; }
   if (id in game.nonSupply) { game.nonSupply[id] += 1; return true; }
   if (id in game.supply) { game.supply[id] += 1; return true; }
   return false;
@@ -435,6 +443,15 @@ export function* eachOther(game, fn) {
 // pi: 使う人（省略すると手番の人。手番以外に使うカードもある）
 export function* resolve(game, id, pi = game.current) {
   const card = CARDS[id];
+  // 向こう見ずな（特性）: 効果を 2 回使う
+  const times = game.traits && game.traits.t_reckless && pileOf(id) === game.traits.t_reckless && !game.turn.recklessInner ? 2 : 1;
+  if (times === 2) {
+    game.turn.recklessInner = true;
+    yield* resolve(game, id, pi);
+    yield* resolve(game, id, pi);
+    game.turn.recklessInner = false;
+    return;
+  }
   if (card.types.includes('action') && pi === game.current && game.turn.phase === 'action') {
     game.turn.actionsPlayed += 1;
     // 山に置いた自分の印: その山の札を使うたび、先に +1 カード / +1 アクション / +1 購入 / +1 金
@@ -547,7 +564,8 @@ export function* playTreasureGen(game, cardId) {
 // 場に出した財宝の効果（手札以外から出すとき・2 回使うときもこれ）
 export function* treasureEffect(game, cardId) {
   // 妬み心の手番は、銀と金が 1 金しか出さない
-  game.turn.money += game.turn.envious && (cardId === 'silver' || cardId === 'gold') ? 1 : CARDS[cardId].value || 0;
+  const reck = game.traits && game.traits.t_reckless && pileOf(cardId) === game.traits.t_reckless ? 2 : 1;
+  game.turn.money += reck * (game.turn.envious && (cardId === 'silver' || cardId === 'gold') ? 1 : CARDS[cardId].value || 0);
   game.turn.potions += CARDS[cardId].potionValue || 0;
   if (cardId === 'silver' && game.turn.silverBonus) {
     game.turn.money += game.turn.silverBonus; // 両替商 1 枚につき、最初の銀で +1
@@ -715,6 +733,11 @@ export function* endTurn(game) {
   for (const id of [...game.playArea]) if (CARDS[id].onCleanup && game.playArea.includes(id)) yield* CARDS[id].onCleanup(game, player, game.current);
   for (const id of game.turn.stay) {
     const i = game.playArea.indexOf(id);
+    if (i >= 0) player.inPlay.push(...game.playArea.splice(i, 1));
+  }
+  player.holds = (player.holds || []).filter((e) => !e.done);
+  for (const e of player.holds) {
+    const i = game.playArea.indexOf(e.id);
     if (i >= 0) player.inPlay.push(...game.playArea.splice(i, 1));
   }
   player.discard.push(...player.hand, ...game.playArea);
