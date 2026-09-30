@@ -173,6 +173,12 @@ export function takeTop(player) {
 }
 
 export function drawCards(player, n) {
+  // カメレオンのならい: この札の効果の +カード は +金 に入れ替わる
+  const g0 = player.game;
+  if (n > 0 && g0 && g0.turn && g0.turn.swapCardsCoins && player === g0.players[g0.current]) { g0.turn.swapCardsCoins.money += n; return []; }
+  return drawRaw(player, n);
+}
+function drawRaw(player, n) {
   const drawn = [];
   // -1 カードの印: 次に引くとき 1 枚少なく引いて、印を外す
   if (n > 0 && player.tokens.minusCard) { player.tokens.minusCard = false; n -= 1; }
@@ -512,7 +518,8 @@ export function* playOutOfTurn(game, pi, id) {
 export function canPlayAction(game, cardId) {
   const player = currentPlayer(game);
   const enlightened = game.enlightened && is(cardId, 'treasure'); // 悟り: 財宝もアクションとして使える
-  if (game.turn.phase !== 'action' || game.turn.actions <= 0 || !(is(cardId, 'action') || enlightened) || !player.hand.includes(cardId)) return false;
+  const inherited = cardId === 'estate' && player.tokens.inherit; // 家督: 自分の小屋は、脇に置いたアクションとしても使える
+  if (game.turn.phase !== 'action' || game.turn.actions <= 0 || !(is(cardId, 'action') || enlightened || inherited) || !player.hand.includes(cardId)) return false;
   if (player.tokens.warlorded > 0 && game.playArea.filter((id) => id === cardId).length >= 2) return false;
   if (game.turn.handPlayLimit != null && (game.turn.handPlays || 0) >= game.turn.handPlayLimit) return false;
   return true;
@@ -542,6 +549,12 @@ export function* playAction(game, cardId) {
   game.playArea.push(cardId);
   game.turn.actions -= 1;
   log(game, `${player.name}が「${CARDS[cardId].name}」を使用。`);
+  if (cardId === 'estate' && player.tokens.inherit) {
+    log(game, `小屋が「${CARDS[player.tokens.inherit].name}」として働く。`);
+    game.turn.actionsPlayed += 1;
+    yield* resolve(game, player.tokens.inherit);
+    return;
+  }
   // 悟り: アクションフェイズに使った財宝（アクションでないもの）は、効果の代わりに +1 カード +1 アクション
   if (game.enlightened && is(cardId, 'treasure') && !is(cardId, 'action')) {
     drawCards(player, 1);
@@ -579,10 +592,18 @@ export function* playAction(game, cardId) {
 }
 
 // 財宝を出す。効果（ジェネレータ）を持つ財宝は、問いがあれば yield する
+// 資本主義: 自分の手番、効果に「+N 金」のあるアクションは財宝としても使える
+export function isTreasureNow(game, id) {
+  if (is(id, 'treasure')) return true;
+  const p = currentPlayer(game);
+  const c = CARDS[id];
+  return !!(p.projects && p.projects.includes('j_capitalism') && c.types.includes('action') && /\+\d+ 金/.test(`${c.main || ''} ${c.desc || ''}`));
+}
+
 export function* playTreasureGen(game, cardId) {
   const player = currentPlayer(game);
   const idx = player.hand.indexOf(cardId);
-  if (idx === -1 || !is(cardId, 'treasure')) return;
+  if (idx === -1 || !isTreasureNow(game, cardId)) return;
   if (game.turn.handPlayLimit != null && (game.turn.handPlays || 0) >= game.turn.handPlayLimit) return;
   game.turn.handPlays = (game.turn.handPlays || 0) + 1;
   player.hand.splice(idx, 1);

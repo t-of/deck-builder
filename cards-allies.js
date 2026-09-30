@@ -453,6 +453,8 @@ const allies = [
   al('x_shopkeepers', '商店組合', '連携で +金 ほか', '連携の札を使ったあと、好意 5 以上なら +1 金、10 以上ならさらに +1 アクション +1 購入'),
   al('x_markettowns', '市場町', '好意 1 で\nアクションを使う', '購入フェイズの始めに、好意 1 ごとに手札のアクションを 1 枚使ってよい'),
   al('x_mountain', '峰の民', '好意 5 で +3 カード', '手番の始めに、好意 5 で +3 カード'),
+  al('x_astrologers', '星読みの会', '混ぜたら好意で\n札を一番上に', '山札を混ぜたとき、好意 1 ごとに 1 枚を一番上に置いてよい（好意 1 で、いちばん高い札を自動で上にする）'),
+  al('x_masons', '石工の会', '混ぜたら好意で\n2 枚を捨て札に', '山札を混ぜたとき、好意 1 ごとに 2 枚を捨て札に置いてよい（要らない札があれば、好意 1 で 2 枚まで自動で）'),
   al('x_cult', 'おだやか教', '好意で廃棄', '購入フェイズの始めに、好意 1 ごとに手札を 1 枚廃棄してよい'),
   al('x_shepherds', '高原の牧人', '好意とコスト 2 の組で\n2 点', 'ゲームの終わりに、好意 1 とコスト 2 の札 1 枚の組 1 つにつき 2 点'),
   al('x_trappers', 'わな師の小屋', '好意 1 で\n獲得を山札の上に', '札を獲得したとき、好意 1 でそれを山札の上に置いてよい'),
@@ -477,6 +479,21 @@ HOOKS.setup.push((g) => {
   void n;
 });
 HOOKS.cost.push((g, id) => (g.pileFavor ? g.pileFavor[pileOf(id)] || g.pileFavor[id] || 0 : 0));
+HOOKS.shuffle.push((p, g) => {
+  if (!g || !(p.tokens.favors > 0) || p.deck.length < 2) return;
+  if (ally(g, 'x_astrologers')) {
+    let best = 0;
+    p.deck.forEach((id, i) => { if (CARDS[id].cost > CARDS[p.deck[best]].cost) best = i; });
+    p.tokens.favors -= 1;
+    p.deck.push(...p.deck.splice(best, 1));
+  }
+  if (ally(g, 'x_masons')) {
+    const junk = p.deck.map((id, i) => ({ id, i })).filter((x) => x.id === 'curse' || (is(x.id, 'victory') && !is(x.id, 'action') && !is(x.id, 'treasure'))).slice(0, 2);
+    if (!junk.length) return;
+    p.tokens.favors -= 1;
+    for (const x of [...junk].reverse()) p.discard.push(...p.deck.splice(x.i, 1));
+  }
+});
 HOOKS.turnStart.push(function* (g, p, pi) {
   if (ally(g, 'x_pickpockets') && p.hand.length > 4 && !(yield* spend(g, pi, 1, 'すりの一味: 好意を払って手札を捨てずにすませますか？'))) yield* discardDownTo(g, pi, 4);
   if (ally(g, 'x_mountain') && (yield* spend(g, pi, 5, '峰の民: +3 カードにしますか？'))) drawCards(p, 3);

@@ -365,6 +365,14 @@ const ways = [
     yield* gain(g, pi, yield* askSupply(g, pi, `ちょうどコスト ${c} を獲得`, c, (x) => costOf(g, x) === c));
   }, 'その札を山に戻してよい。そうしたら、ちょうどコスト +1 の札を獲得する'),
   way('w_camel', '駱駝のならい', '金を追放', function* (g, p) { exileFromSupply(g, p, 'gold'); }),
+  way('w_chameleon', 'カメレオンのならい', '札の効果で\n+カードと+金を入れ替え', function* (g, p, pi, card) {
+    // この札の効果のあいだだけ、+カード は +金、+金 は +カード になる
+    const t = g.turn;
+    const proxy = new Proxy(t, { set(o, k, v) { if (k === 'money' && v > o.money) { const d = v - o.money; o.swapCardsCoins = null; drawCards(p, d); o.swapCardsCoins = o; return true; } o[k] = v; return true; } });
+    t.swapCardsCoins = t;
+    g.turn = proxy;
+    try { yield* resolve(g, card); } finally { g.turn = t; t.swapCardsCoins = null; }
+  }, 'この札の効果で得る +カード は +金 に、+金 は +カード になる'),
   way('w_frog', '蛙のならい', '+1 アクション\n山札の上に戻る', function* (g, p, pi, card) { g.turn.actions += 1; (g.turn.frog = g.turn.frog || []).push(card); }, 'この手番、これを場から捨てるとき山札の上に置く'),
   way('w_goat', '山羊のならい', '1 枚廃棄', function* (g, p, pi) { yield* trashCards(g, p, takeFromHand(p, yield* askHand(g, pi, '廃棄する 1 枚', 1, 1))); }),
   way('w_horse', '馬のならい', '+2 カード　+1 アクション\n山に戻す', function* (g, p, pi, card) { drawCards(p, 2); g.turn.actions += 1; returnToPile(g, card); }),

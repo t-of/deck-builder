@@ -1,6 +1,6 @@
 // カードごとの決まった場面のチェック。 node test/cards.mjs
 import assert from 'node:assert/strict';
-import { CARDS, newGame, playAction, score, startBuyPhase, playTreasure, buyCard, finalResults } from '../engine.js';
+import { CARDS, newGame, playAction, score, startBuyPhase, playTreasure, playTreasureGen, buyCard, finalResults } from '../engine.js';
 import '../cards-base.js';
 
 const K = ['warehouse', 'moat', 'village', 'command', 'sentinel', 'sorcerer', 'meadow', 'official', 'highwayman', 'moneylender'];
@@ -607,3 +607,32 @@ g.players[0].hand.push('meister'); g.turn.actions = 1;
 run(playAction(g, 'meister'), ['silver']);
 assert.equal(g.players[0].tokens.debt, 2);
 console.log('ok: risingsun');
+
+// ---- あとから入れた効果（資本主義・家督・カメレオンのならい） ----
+{
+  const { isTreasureNow } = await import('../engine.js');
+  const K = ['market', 'smithy', 'village', 'moneylender', 'workshop', 'fair', 'alembic', 'moat', 'warehouse', 'remodel'];
+  let g = newGame(2, K, null, { colony: false, landscapes: ['j_capitalism', 'e_inherit', 'w_chameleon'] });
+  // 資本主義: 露店（+1 金）を財宝として出せる
+  g.players[0].projects.push('j_capitalism');
+  g.players[0].hand = ['market'];
+  assert.ok(isTreasureNow(g, 'market'));
+  startBuyPhase(g);
+  run(playTreasureGen(g, 'market'), []);
+  assert.equal(g.turn.money, 1); assert.equal(g.turn.buys, 2);
+  // 家督: 小屋が鍛冶場として働く
+  g = newGame(2, K, null, { colony: false, landscapes: ['e_inherit'] });
+  startBuyPhase(g); g.turn.money = 7;
+  run(buyEvent(g, 'e_inherit'), ['smithy']);
+  assert.equal(g.players[0].tokens.inherit, 'smithy');
+  run(endTurn(g)); run(endTurn(g)); run(beginTurn(g));
+  Object.assign(g.players[0], { hand: ['estate'], deck: Array(10).fill('copper') });
+  run(playAction(g, 'estate'));
+  assert.equal(g.players[0].hand.length, 3);
+  // カメレオンのならい: 鍛冶場の +3 カードが +3 金になる
+  g = newGame(2, K, null, { colony: false, landscapes: ['w_chameleon'] });
+  Object.assign(g.players[0], { hand: ['smithy'], deck: Array(10).fill('copper') });
+  run(playAction(g, 'smithy'), ['w_chameleon']);
+  assert.equal(g.turn.money, 3); assert.equal(g.players[0].hand.length, 0);
+  console.log('ok: extras');
+}

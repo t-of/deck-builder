@@ -6,7 +6,7 @@ import {
   CARDS, HOOKS, defineCards, is, drawCards, takeTop, putOnDeck, takeFromHand, trashCards, discardCards,
   gain, costOf, askHand, askSupply, askCards, askChoose, askYesNo, attackOthers, eachOther, resolve, reveal,
   putBackInOrder, playOutOfTurn, treasureEffect, later, laterFor, flipJourney, toTavern, offerCalls,
-  returnCard, supplyOptions, pileOf, currentPlayer, playTreasureGen,
+  returnCard, supplyOptions, pileOf, currentPlayer, playTreasureGen, takeFromSupply,
 } from './engine.js';
 
 const log = (g, text) => g.log.push(text);
@@ -483,6 +483,16 @@ const events = [
       for (let k = 0; k < ids.length; k++) yield* gain(g, pi, 'silver');
     },
   },
+  { id: 'e_inherit', name: '家督', types: E, cost: 7, main: '小屋にアクションを\n継がせる', desc: '1 ゲームに 1 度: サプライのコスト 4 以下の勝利点でないアクションを 1 枚脇に置く。自分の小屋は、そのアクションとしても使える',
+    canBuy: (g) => !g.players[g.current].tokens.inherit,
+    *buy(g, p, pi) {
+      const id = yield* askSupply(g, pi, '小屋に継がせるアクション（コスト 4 以下）', 4, (x) => is(x, 'action') && !is(x, 'victory') && !is(x, 'command'));
+      const c = id && takeFromSupply(g, id);
+      if (!c) return;
+      (p.mats.inherit = p.mats.inherit || []).push(c);
+      p.tokens.inherit = c;
+      log(g, `${p.name}の小屋は、これから${CARDS[c].name}としても使える。`);
+    } },
   { id: 'e_secretart', name: '秘伝', types: E, cost: 6, main: '+1 アクションの印', desc: '+1 アクションの印をアクションの山に置く', buy: pileToken('action', '+1 アクション') },
   { id: 'e_practice', name: '修練', types: E, cost: 6, main: '+1 金の印', desc: '+1 金の印をアクションの山に置く', buy: pileToken('coin', '+1 金') },
   { id: 'e_signpost', name: '道しるべ', types: E, cost: 8, main: '+1 カードの印', desc: '+1 カードの印をアクションの山に置く', buy: pileToken('card', '+1 カード') },
