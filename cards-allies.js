@@ -551,8 +551,9 @@ HOOKS.gain.push(function* (g, got) {
     const c = costOf(g, got.id) - 1;
     yield* gain(g, got.pi, yield* askSupply(g, got.pi, `コスト ${c} 以下（勝利点以外）を獲得`, c, (x) => !is(x, 'victory')));
   }
-  if (ally(g, 'x_nomads') && mine && costOf(g, got.id) >= 3 && (yield* spend(g, got.pi, 1, '渡りの民: +1 カード・+1 アクション・+1 購入のどれかを得ますか？'))) {
-    const v = yield* askChoose(g, got.pi, '1 つ選ぶ', [{ value: 'c', label: '+1 カード' }, { value: 'a', label: '+1 アクション' }, { value: 'b', label: '+1 購入' }]);
+  if (ally(g, 'x_nomads') && costOf(g, got.id) >= 3 && (yield* spend(g, got.pi, 1, '渡りの民: +1 カード・+1 アクション・+1 購入のどれかを得ますか？'))) {
+    // 自分の手番でなければ、+アクション・+購入は意味がないので +1 カードだけ
+    const v = !mine ? 'c' : yield* askChoose(g, got.pi, '1 つ選ぶ', [{ value: 'c', label: '+1 カード' }, { value: 'a', label: '+1 アクション' }, { value: 'b', label: '+1 購入' }]);
     if (v === 'c') drawCards(p, 1); else if (v === 'a') g.turn.actions += 1; else g.turn.buys += 1;
   }
   if (ally(g, 'x_citystate') && mine && is(got.id, 'action') && got.to !== 'gone' && (yield* spend(g, got.pi, 2, `都市の民: 獲得した${nm(got.id)}を使いますか？`))) {

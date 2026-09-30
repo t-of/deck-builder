@@ -4,7 +4,7 @@
 import {
   CARDS, HOOKS, defineCards, is, drawCards, takeTop, putOnDeck, takeFromHand, trashCards, discardCards,
   gain, costOf, askHand, askSupply, askCards, askChoose, askYesNo, attackOthers, resolve, reveal,
-  putBackInOrder, supplyOptions, later, relocate, currentPlayer, takeFromSupply, returnCard,
+  putBackInOrder, supplyOptions, later, relocate, currentPlayer, treasureEffect, takeFromSupply, returnCard,
 } from './engine.js';
 
 const log = (g, text) => g.log.push(text);
@@ -312,13 +312,13 @@ HOOKS.treasure.push(function* (g, id) {
 
 // 水夫: この手番に 1 度、持続カードを獲得したら使ってよい
 kingdom.find((c) => c.id === 'deckhand').whenGain = function* (g, got) {
-  if (!(g.turn.deckhand > 0) || got.pi !== g.current || !is(got.id, 'duration') || !is(got.id, 'action')) return;
+  if (!(g.turn.deckhand > 0) || got.pi !== g.current || !is(got.id, 'duration')) return;
   if (!(yield* askYesNo(g, got.pi, `獲得した${nm(got.id)}を今すぐ使いますか？`, '使う', '使わない', [got.id]))) return;
   if (!(yield* relocate(g, got, 'gone'))) return;
   g.turn.deckhand -= 1;
   g.playArea.push(got.id);
   log(g, `${currentPlayer(g).name}が${nm(got.id)}を使用。`);
-  yield* resolve(g, got.id);
+  if (is(got.id, 'action')) yield* resolve(g, got.id); else yield* treasureEffect(g, got.id);
 };
 
 const firstEdition = [

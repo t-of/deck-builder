@@ -329,10 +329,13 @@ const events = [
     } },
   { id: 'm_bargain', name: '掘り出し物', types: E, cost: 4, main: 'コスト 5 以下', desc: 'コスト 5 以下の勝利点以外を獲得する。他の人は駒を獲得する',
     *buy(g, p, pi) { yield* gain(g, pi, yield* askSupply(g, pi, 'コスト 5 以下（勝利点以外）を獲得', 5, (id) => !is(id, 'victory'))); yield* eachOther(g, (ti) => horses(g, ti, 1)); } },
-  { id: 'm_invest', name: '肩入れ', types: E, cost: 4, main: 'アクションを追放', desc: 'サプライのアクションを 1 枚追放する。それが追放にあるあいだ、他の人が同じ札を獲得するたびに +2 カード',
+  { id: 'm_invest', name: '肩入れ', types: E, cost: 4, main: 'アクションを追放', desc: 'サプライのアクションを 1 枚追放する。それが追放にあるあいだ、他の人が同じ札を獲得するか肩入れするたびに +2 カード',
     *buy(g, p, pi) {
       const id = exileFromSupply(g, p, yield* askSupply(g, pi, '肩入れするアクション', 99, (x) => is(x, 'action')));
-      if (id) (p.tokens.invest = p.tokens.invest || []).push(id);
+      if (!id) return;
+      (p.tokens.invest = p.tokens.invest || []).push(id);
+      // 他の人がすでに同じ札に肩入れしていれば、その人は +2 カード
+      g.players.forEach((q, k) => { if (k !== pi && (q.tokens.invest || []).includes(id) && exileOf(q).includes(id)) drawCards(q, 2); });
     } },
   { id: 'm_seize', name: 'この日をつかめ', types: E, cost: 4, main: '追加の手番', desc: '1 ゲームに 1 度: この手番のあとに追加の手番を行う',
     canBuy: (g) => !g.players[g.current].tokens.seized,

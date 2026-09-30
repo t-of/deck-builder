@@ -81,7 +81,7 @@ const boons = [
   { id: 'b_moon', name: '月の加護', types: B, cost: 0, notSupply: true, main: '捨て札を山札に', desc: '捨て札を見て、1 枚を山札の上に置いてよい',
     *receive(g, p, pi) { const [i] = yield* askCards(g, pi, '山札の上に置く 1 枚（なしでもよい）', [...p.discard], 0, 1); if (i != null) putOnDeck(p, p.discard.splice(i, 1)[0]); } },
   { id: 'b_mountain', name: '峰の加護', types: B, cost: 0, notSupply: true, main: '銀を獲得', desc: '', *receive(g, p, pi) { yield* gain(g, pi, 'silver'); } },
-  { id: 'b_river', name: '流れの加護', types: B, cost: 0, notSupply: true, main: '手番の終わりに\n+1 カード', desc: '', *receive(g, p, pi) { if (pi === g.current) g.turn.extraDraw = (g.turn.extraDraw || 0) + 1; else drawCards(p, 1); } },
+  { id: 'b_river', name: '流れの加護', types: B, cost: 0, notSupply: true, main: '手番の終わりに\n+1 カード', desc: '', *receive(g, p, pi) { if (pi === g.current) g.turn.extraDraw = (g.turn.extraDraw || 0) + 1; } },
   { id: 'b_sea', name: '潮の加護', types: B, cost: 0, notSupply: true, main: '+1 カード', desc: '', *receive(g, p) { drawCards(p, 1); } },
   { id: 'b_sky', name: '天の加護', types: B, cost: 0, notSupply: true, main: '3 枚捨てて金', desc: '手札を 3 枚捨てて、金を獲得してよい',
     *receive(g, p, pi) {
