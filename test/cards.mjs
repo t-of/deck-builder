@@ -542,8 +542,8 @@ assert.equal(g.turn.money, 1);
 g.players[1].tokens.skip = 1;
 run(endTurn(g));
 assert.equal(g.current, 0);
-// 辻斬り: 相手が最初に出した財宝は何もしない
-g = newGame(2, K15, null, { colony: false, landscapes: [] });
+// 辻斬り: 相手が最初に出した財宝は何もしない（同盟はランダムに入るので、効果のないものに決める）
+g = newGame(2, K15, null, { colony: false, landscapes: ['x_shepherds'] });
 g.players[0].hand = ['waylayer'];
 run(playAction(g, 'waylayer'));
 run(endTurn(g)); run(beginTurn(g));
