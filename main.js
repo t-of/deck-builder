@@ -682,6 +682,17 @@ function renderTurn() {
     group.appendChild(row);
     supply.appendChild(group);
   }
+  // イベント・プロジェクト・ランドマークなど（王国のカードと廃棄置き場の間に置く札）。買えれば押せる
+  if (game.landscapes.length || game.boons || game.hexes) {
+    const landscapesBox = el('div', { class: 'cards supplyGroup__row' });
+    for (const id of game.landscapes) {
+      const buyable = humanControls && t.phase === 'buy' && canBuyEvent(game, id);
+      landscapesBox.appendChild(gcNode(id, buyable, () => run(buyEvent(game, id), (ok) => { if (ok) soundBuy(); backToTurn(); })));
+    }
+    if (game.boons) landscapesBox.appendChild(pileButton('恵みの山', game.boons));
+    if (game.hexes) landscapesBox.appendChild(pileButton('呪詛の山', game.hexes));
+    supply.appendChild(el('div', { class: 'supplyGroup' }, [el('h3', { class: 'supplyGroup__label', text: 'イベントなど' }), landscapesBox]));
+  }
   // 廃棄置き場: 王国のカードの右に、色を変えた枠で枚数と中身を出す
   supply.appendChild(el('div', { class: 'supplyGroup' }, [
     el('h3', { class: 'supplyGroup__label', text: '廃棄置き場' }),
@@ -690,17 +701,6 @@ function renderTurn() {
       el('p', { class: 'trashBox__list', text: counts(game.trash) }),
     ]),
   ]));
-
-  // イベント・プロジェクト・ランドマークなど（サプライの横に置く札）。買えれば押せる
-  document.getElementById('landscapesLabel').hidden = game.landscapes.length === 0 && !game.boons && !game.hexes;
-  const landscapesBox = document.getElementById('landscapes');
-  clear(landscapesBox);
-  for (const id of game.landscapes) {
-    const buyable = humanControls && t.phase === 'buy' && canBuyEvent(game, id);
-    landscapesBox.appendChild(gcNode(id, buyable, () => run(buyEvent(game, id), (ok) => { if (ok) soundBuy(); backToTurn(); })));
-  }
-  if (game.boons) landscapesBox.appendChild(pileButton('恵みの山', game.boons));
-  if (game.hexes) landscapesBox.appendChild(pileButton('呪詛の山', game.hexes));
 
   // サプライ外の山（褒賞・賞品など）。買えない、タップで説明だけ
   const nonSupplyIds = Object.keys(game.nonSupply).filter((id) => game.nonSupply[id] > 0);
