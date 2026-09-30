@@ -27,6 +27,9 @@
   <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap">
   <link rel="stylesheet" href="./webapp-kit/webapp-kit.css">
   <link rel="stylesheet" href="./style.css">
 </head>
@@ -37,6 +40,7 @@
       <div class="bar__actions">
         <button class="pill" data-wak="install" hidden>アプリにする</button>
         <button class="pill" data-wak="share">共有</button>
+        <button class="pill" id="themeBtn">見た目: シンプル</button>
       </div>
     </header>
 
@@ -101,6 +105,7 @@
   </main>
 
   <script src="./webapp-kit/webapp-kit.js"></script>
+  <script src="./pixel-cards.js"></script>
   <script type="module" src="./main.js"></script>
 </body>
 </html>

@@ -106,9 +106,53 @@ button { font: inherit; color: inherit; }
 .card--active { border-color: var(--accent); background: rgba(255, 211, 92, 0.14); }
 .card--picked { outline: 2px solid var(--accent); }
 .card--peek .card__desc { white-space: normal; }
+.card__icon { width: 16px; height: 16px; flex: none; }
 .card__name { font-size: 13px; font-weight: 700; }
 .card__cost { color: var(--muted); }
 .card__count { color: var(--muted); }
 .card__desc { color: var(--muted); font-size: 10px; overflow: hidden; text-overflow: ellipsis; }
 
 /* 全画面のオーバーレイは opacity ではなく display: none で隠す */
+
+/* ---- 見た目「シンプル」: 紙色・墨色の2色＋最小限の差し色。種類は形で見分ける ---- */
+[data-theme="simple"] { --bg: #f4f1e6; --fg: #1d1f22; --muted: #6b675c; --accent: #b8452f; }
+[data-theme="simple"] .card, [data-theme="simple"] .pill, [data-theme="simple"] .playercount button, [data-theme="simple"] .otherCard {
+  border: 1px solid var(--fg);
+  border-radius: 2px;
+  background: transparent;
+}
+[data-theme="simple"] .card--active { background: rgba(184, 69, 47, 0.1); }
+[data-theme="simple"] .pill--accent { background: var(--fg); color: var(--bg); }
+[data-theme="simple"] .card__icon { background: var(--fg); }
+[data-theme="simple"] .card[data-type="treasure"] .card__icon { border-radius: 50%; }
+[data-theme="simple"] .card[data-type="victory"] .card__icon { clip-path: polygon(50% 0%, 0% 100%, 100% 100%); }
+[data-theme="simple"] .card[data-type="action"] .card__icon { clip-path: none; }
+[data-theme="simple"] .card[data-type="action-attack"] .card__icon { clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); background: var(--accent); }
+[data-theme="simple"] .card[data-type="action-reaction"] .card__icon { clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); }
+
+/* ---- 見た目「ドット絵」: RPG の窓のような枠、ドット文字、角ばったボタン ---- */
+[data-theme="pixel"] { --bg: #14162b; --fg: #f4f0e0; --muted: #9aa0c0; --accent: #f2d45c; --panel: #1e2244; --ink: #2a2018; }
+[data-theme="pixel"] body { font-family: 'DotGothic16', monospace; }
+[data-theme="pixel"] canvas { image-rendering: pixelated; }
+[data-theme="pixel"] .bar__title { font-weight: 400; letter-spacing: 2px; color: var(--accent); }
+[data-theme="pixel"] .pill,
+[data-theme="pixel"] .playercount button,
+[data-theme="pixel"] .card,
+[data-theme="pixel"] .otherCard {
+  border: 2px solid var(--fg);
+  border-radius: 4px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 2px #2a2e55, 0 3px 0 #0a0b18;
+  color: var(--fg);
+}
+[data-theme="pixel"] .pill:active, [data-theme="pixel"] .playercount button:active, [data-theme="pixel"] .card:active {
+  transform: translateY(2px); box-shadow: inset 0 0 0 2px #2a2e55, 0 1px 0 #0a0b18;
+}
+[data-theme="pixel"] .pill--accent { background: var(--accent); color: var(--ink); border-color: var(--fg); box-shadow: inset 0 0 0 2px #c79a28, 0 3px 0 #0a0b18; }
+[data-theme="pixel"] .card--active { box-shadow: inset 0 0 0 2px #2a2e55, 0 0 0 2px var(--accent), 0 3px 0 #0a0b18; }
+[data-theme="pixel"] .card--picked { outline: 2px solid var(--accent); outline-offset: 2px; }
+[data-theme="pixel"] .card { width: 100px; min-height: 92px; }
+[data-theme="pixel"] .card__icon { width: 32px; height: 32px; }
+[data-theme="pixel"] .card__icon canvas { width: 32px; height: 32px; }
+[data-theme="pixel"] .panel__lead { color: var(--fg); font-size: 18px; letter-spacing: 1px; }
+[data-theme="pixel"] .log { border-top: 2px solid var(--fg); }

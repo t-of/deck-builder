@@ -7,15 +7,41 @@ import {
 } from './engine.js';
 
 // localStorage はほかのアプリと共有される（同じ t-of.github.io のため）。
-// キーは必ず 'deck-builder.' で始める。今回は対局中の状態しか使わないので保存はしない。
+// キーは必ず 'deck-builder.' で始める。対局中の状態は保存しないが、見た目（テーマ）は保存する。
 const STORE = 'deck-builder.';
-void STORE;
+function load(key, fallback) {
+  try {
+    const v = localStorage.getItem(STORE + key);
+    return v == null ? fallback : JSON.parse(v);
+  } catch { return fallback; }
+}
+function save(key, value) {
+  try { localStorage.setItem(STORE + key, JSON.stringify(value)); } catch { /* 保存できなくても遊べる */ }
+}
 
 WebAppKit.init({ title: 'deck-builder', text: '財宝・王国カードを買い集めて点を競う、1台を回して遊ぶデッキ構築の試作' });
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
 }
+
+// ---- 見た目: 'simple'（線と面だけ）/ 'pixel'（RPG 風のドット絵。絵は pixel-cards.js） ----
+const themeBtn = document.getElementById('themeBtn');
+let theme = load('theme', 'simple') === 'pixel' ? 'pixel' : 'simple';
+const PIXEL_FONT = "'DotGothic16', monospace";
+function applyTheme() {
+  document.documentElement.dataset.theme = theme;
+  document.querySelector('meta[name="theme-color"]').content = theme === 'pixel' ? '#14162b' : '#2b2320';
+  themeBtn.textContent = theme === 'pixel' ? '見た目: ドット絵' : '見た目: シンプル';
+}
+themeBtn.addEventListener('click', () => {
+  theme = theme === 'pixel' ? 'simple' : 'pixel';
+  save('theme', theme);
+  applyTheme();
+  if (game) renderTurn();
+});
+applyTheme();
+if (document.fonts) document.fonts.load(`16px ${PIXEL_FONT}`).then(() => { if (game) renderTurn(); }, () => {});
 
 function setAudioSession(soundOn) {
   try { if (navigator.audioSession) navigator.audioSession.type = soundOn ? 'playback' : 'auto'; } catch { /* 対応していない */ }
@@ -150,7 +176,18 @@ function renderTurn() {
 function cardNode(id, clickable, onClick, count) {
   const card = CARDS[id];
   // 押せないカードもタップで説明が開けるよう button の disabled にはしない
-  const node = el('button', { class: `card${clickable ? ' card--active' : ''}` });
+  const node = el('button', { class: `card${clickable ? ' card--active' : ''}`, 'data-type': card.type });
+  if (theme === 'pixel' && window.PixelCards) {
+    node.style.borderColor = window.PixelCards.frameColor(card.type);
+    const icon = el('span', { class: 'card__icon' });
+    const canvas = document.createElement('canvas');
+    canvas.width = 32; canvas.height = 32;
+    window.PixelCards.draw(canvas.getContext('2d'), id);
+    icon.appendChild(canvas);
+    node.appendChild(icon);
+  } else {
+    node.appendChild(el('span', { class: 'card__icon' }));
+  }
   node.appendChild(el('span', { class: 'card__name', text: card.name }));
   node.appendChild(el('span', { class: 'card__cost', text: `コスト${card.cost}` }));
   if (count != null) node.appendChild(el('span', { class: 'card__count', text: `残り${count}` }));
