@@ -152,6 +152,8 @@ export function takeTop(player) {
     player.deck = shuffle(player.discard);
     player.discard = [];
     // 星の地図: 混ぜたとき 1 枚を一番上に置いてよい。ponytail: 問わずに、いちばん高い札を上にする（混ぜるのは問いを出せない場所なので）
+    // 隠し財布: 混ぜたとき好きな位置に入れてよい。ponytail: 問わずに一番上にする
+    for (let i = player.deck.length - 1; i >= 0; i--) if (player.deck[i] === 'nestegg') player.deck.push(...player.deck.splice(i, 1));
     if (player.projects && player.projects.includes('j_starchart') && player.deck.length > 1) {
       let best = 0;
       player.deck.forEach((id, i) => { if (CARDS[id].cost > CARDS[player.deck[best]].cost) best = i; });

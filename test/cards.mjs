@@ -507,3 +507,18 @@ assert.ok(canBuy(g, 'beastfair'));
 run(buyCard(g, 'beastfair'));
 assert.ok(g.trash.includes('village')); assert.ok(g.players[0].discard.includes('beastfair'));
 console.log('ok: menagerie');
+
+// ---- プロモ ----
+await import('../cards-promo.js');
+const K14 = ['darkmarket', 'youngload', 'p_sauna', 'fencedvillage', 'village', 'smithy', 'market', 'bugyo', 'borderland', 'dismantle'];
+g = newGame(2, K14, null, { colony: false, landscapes: [] });
+assert.equal(g.blackMarket.length, 15); assert.equal(g.stacks.p_sauna.at(-1), 'steambath');
+// 若殿: 村と一緒に脇に置き、次の手番から毎回使う
+Object.assign(g.players[0], { hand: ['youngload', 'village'], deck: Array(20).fill('copper'), discard: [] });
+run(playAction(g, 'youngload'), [[0]]);
+assert.deepEqual(g.players[0].mats.princed, ['village']); assert.deepEqual(g.players[0].mats.youngload, ['youngload']);
+run(endTurn(g)); run(endTurn(g)); run(beginTurn(g));
+assert.equal(g.turn.actions, 3); // 村: +2
+run(endTurn(g));
+assert.deepEqual(g.players[0].mats.princed, ['village']); // また脇へ
+console.log('ok: promo');

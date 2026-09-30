@@ -19,6 +19,7 @@ import '../cards-empires.js';
 import '../cards-nocturne.js';
 import '../cards-renaissance.js';
 import '../cards-menagerie.js';
+import '../cards-promo.js';
 
 const rnd = (n) => Math.floor(Math.random() * n);
 function answer(q) {
@@ -42,7 +43,7 @@ function run(gen) {
   return step.value;
 }
 const total = (g) => g.players.reduce((s, p) => s + allCards(p).length, 0)
-  + g.trash.length + g.playArea.length + Object.values(g.supply).reduce((a, b) => a + b, 0) + Object.values(g.nonSupply).reduce((a, b) => a + b, 0) - Object.keys(g.stacks).reduce((a, k) => a + g.supply[k] - g.stacks[k].length, 0);
+  + g.trash.length + g.playArea.length + Object.values(g.supply).reduce((a, b) => a + b, 0) + Object.values(g.nonSupply).reduce((a, b) => a + b, 0) + (g.blackMarket || []).length - Object.keys(g.stacks).reduce((a, k) => a + g.supply[k] - g.stacks[k].length, 0);
 
 const stalls = [];
 export function simulate(kingdom, n, landscapes = []) {
