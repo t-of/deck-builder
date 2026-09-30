@@ -522,7 +522,8 @@ button { font: inherit; color: inherit; }
 [data-theme="card"] .tcgcard__cost--down { outline: 0.15em solid #4ecb6b; outline-offset: 0.05em; }
 [data-theme="card"] .tcgcard.card--active { box-shadow: inset 0 0 0 0.15em var(--frame), 0 0 0 2px var(--accent), 0 2px 5px rgba(0, 0, 0, 0.5); }
 /* 手札は少し重ねて並べ、360px 幅でも5枚が横一列に収まるようにする */
-[data-theme="card"] .cards--hand { flex-wrap: nowrap; overflow-x: auto; padding: 2px; }
+/* 横にスクロールさせず、入りきらない札は下の段へ折り返す */
+[data-theme="card"] .cards--hand { flex-wrap: wrap; row-gap: 8px; padding: 2px; }
 [data-theme="card"] .cards--hand .tcgcard { margin-right: -30px; }
 [data-theme="card"] .cards--hand .tcgcard:last-child { margin-right: 0; }
 /* 選ばれた10種のプレビューも同じように少し重ねて、扇のように見せる */
@@ -532,7 +533,8 @@ button { font: inherit; color: inherit; }
 [data-theme="card"] .cards--hand > * {
   --mid: calc((var(--n, 1) - 1) / 2);
   --off: calc(var(--i, 0) - var(--mid));
-  transform: rotate(calc(var(--off) * 3deg)) translateY(calc(var(--off) * var(--off) * 3px + var(--sink)));
+  /* --fan は main.js が入れる。折り返すほど多いときは 0 にして平らに並べる */
+  transform: rotate(calc(var(--off) * 3deg * var(--fan, 1))) translateY(calc(var(--off) * var(--off) * 3px * var(--fan, 1) + var(--sink)));
   transform-origin: bottom center;
 }
 [data-theme="card"] .screenCard__eyebrow { color: var(--accent); }

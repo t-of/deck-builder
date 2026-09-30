@@ -733,6 +733,8 @@ function renderTurn() {
   // 手札を扇のように並べるための位置（--i/--n）と、新しく引いた札の見分け（山札から来た合図でスライドイン）
   const handNew = newnessMarks(prevRender && prevRender.pi === game.current ? prevRender.hand : [], p.hand);
   hand.style.setProperty('--n', String(p.hand.length));
+  // ponytail: 8 枚以上は折り返す前提で扇をやめる。本当に折り返したかは見ていない
+  hand.style.setProperty('--fan', p.hand.length > 7 ? '0' : '1');
   p.hand.forEach((id, i) => {
     const playableAction = humanControls && t.phase === 'action' && canPlayAction(game, id);
     const playableTreasure = humanControls && t.phase === 'buy' && isTreasureNow(game, id);
