@@ -23,7 +23,7 @@ import {
   newGame, currentPlayer, turnController, playAction, playTreasureGen, playAllTreasures,
   enterBuyPhase, canBuy, buyCard, beginTurn, endTurn, spendCoffers, payDebt, finalResults,
   landscapePool, canBuyEvent, buyEvent, enterNightPhase, canPlayNight, playNight, spendVillager,
-  canPlayAction, shadowsInDeck, playShadow,
+  canPlayAction, shadowsInDeck, playShadow, isTreasureNow,
 } from './engine.js';
 // CPU（1台の端末で人の代わりに席に着く）。画面からはこの3つだけ使う
 import { LEVELS as CPU_LEVELS, nextMove as cpuNextMove, answer as cpuAnswer, planFor as cpuPlanFor } from './cpu.js';
@@ -679,7 +679,7 @@ function renderTurn() {
   clear(hand);
   p.hand.forEach((id) => {
     const playableAction = humanControls && t.phase === 'action' && canPlayAction(game, id);
-    const playableTreasure = humanControls && t.phase === 'buy' && is(id, 'treasure');
+    const playableTreasure = humanControls && t.phase === 'buy' && isTreasureNow(game, id);
     const playableNight = humanControls && t.phase === 'night' && canPlayNight(game, id);
     const onClick = playableAction ? () => run(playAction(game, id))
       : playableTreasure ? () => run(playTreasureGen(game, id))
