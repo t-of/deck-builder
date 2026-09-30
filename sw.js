@@ -9,7 +9,7 @@
 // ブラウザの HTTP キャッシュを通さない（install は reload、fetch は no-cache）。古い main.js と新しい index.html が混ざって動かなくなるのを防ぐ。
 
 const PREFIX = 'deck-builder-';
-const VERSION = 'v19';
+const VERSION = 'v20';
 const CACHE = `${PREFIX}${VERSION}`;
 const FONT_CACHE = `${PREFIX}fonts`;
 
@@ -38,7 +38,6 @@ const SHELL = [
   './cards-allies.js',
   './cards-plunder.js',
   './cards-risingsun.js',
-  './pixel-cards.js',
   './manifest.webmanifest',
   './webapp-kit/webapp-kit.css',
   './webapp-kit/webapp-kit.js',

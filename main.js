@@ -47,27 +47,6 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
 }
 
-// ---- 見た目: 'simple'（線と面だけ）/ 'pixel'（RPG 風のドット絵。絵は pixel-cards.js）/ 'card'（トレーディングカード風。絵は art/*.png） ----
-const themeBtn = document.getElementById('themeBtn');
-const THEMES = ['simple', 'pixel', 'card'];
-const THEME_LABEL = { simple: '見た目: シンプル', pixel: '見た目: ドット絵', card: '見た目: カード' };
-const THEME_COLOR = { simple: '#2b2320', pixel: '#14162b', card: '#0e2a1c' };
-let theme = THEMES.includes(load('theme', 'card')) ? load('theme', 'card') : 'card';
-const PIXEL_FONT = "'DotGothic16', monospace";
-function applyTheme() {
-  document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]').content = THEME_COLOR[theme];
-  themeBtn.textContent = THEME_LABEL[theme];
-}
-themeBtn.addEventListener('click', () => {
-  theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
-  save('theme', theme);
-  applyTheme();
-  rerender();
-});
-applyTheme();
-if (document.fonts) document.fonts.load(`16px ${PIXEL_FONT}`).then(() => rerender(), () => {});
-
 function setAudioSession(soundOn) {
   try { if (navigator.audioSession) navigator.audioSession.type = soundOn ? 'playback' : 'auto'; } catch { /* 対応していない */ }
 }
@@ -164,54 +143,32 @@ function cardNode(id, clickable, onClick, count, cost, badge) {
   else if (isLandscape(id)) type = 'event';
   const showCost = cost != null ? cost : card.cost;
   const discounted = showCost !== card.cost;
-  const costClass = `card__cost${discounted ? ' card__cost--down' : ''}`;
   const potionText = card.potion ? ` ⚗${card.potion > 1 ? `×${card.potion}` : ''}` : '';
   const debtText = card.debt ? ` 借${card.debt}` : '';
-  const node = el('button', { class: `card${clickable ? ' card--active' : ''}`, 'data-type': type });
-  if (theme === 'pixel' && window.PixelCards) {
-    node.style.borderColor = window.PixelCards.frameColor(type);
-    const icon = el('span', { class: 'card__icon' });
-    const canvas = document.createElement('canvas');
-    canvas.width = 32; canvas.height = 32;
-    window.PixelCards.draw(canvas.getContext('2d'), id);
-    icon.appendChild(canvas);
-    node.appendChild(icon);
-  } else if (theme === 'card') {
-    node.classList.add('tcgcard');
-    const name = el('div', { class: 'tcgcard__name', text: card.name });
-    name.style.setProperty('--len', [...card.name].length);
-    node.appendChild(name);
-    const art = el('div', { class: 'tcgcard__art' });
-    const img = document.createElement('img');
-    img.src = `./art/${id}.png`;
-    img.alt = card.name;
-    img.onerror = () => { img.remove(); }; // まだ絵がないカードは無地の枠のまま
-    art.appendChild(img);
-    node.appendChild(art);
-    const body = el('div', { class: 'tcgcard__body' });
-    const mainClass = card.main.includes('\n') ? 'tcgcard__main tcgcard__main--small' : 'tcgcard__main';
-    const main = el('span', { class: mainClass, text: card.main });
-    main.style.setProperty('--w', Math.max(...card.main.split('\n').map(textWidth)));
-    body.appendChild(main);
-    if (card.desc) body.appendChild(el('span', { class: 'tcgcard__sub', text: card.desc }));
-    node.appendChild(body);
-    node.appendChild(el('div', { class: 'tcgcard__bottom' }, [
-      el('span', { class: `tcgcard__cost${discounted ? ' tcgcard__cost--down' : ''}`, text: `${showCost}${potionText}${debtText}` }),
-      el('span', { class: 'tcgcard__type' }, card.types.map((t, i) => el('span', { text: (i ? '・' : '') + (TYPE_WORD[t] || t) }))),
-    ]));
-    if (count != null) node.appendChild(el('span', { class: 'tcgcard__count', text: `残り${count}` }));
-    if (badge) node.appendChild(el('span', { class: 'tcgcard__embargo', text: badge }));
-    bindCard(node, onClick);
-    return node;
-  } else {
-    node.appendChild(el('span', { class: 'card__icon' }));
-  }
-  node.appendChild(el('span', { class: 'card__name', text: card.name }));
-  node.appendChild(el('span', { class: costClass, text: `コスト${showCost}${potionText}${debtText}` }));
-  if (count != null) node.appendChild(el('span', { class: 'card__count', text: `残り${count}` }));
-  if (badge) node.appendChild(el('span', { class: 'card__count', text: badge }));
-  if (card.main) node.appendChild(el('span', { class: 'card__desc', text: card.main }));
-  if (card.desc) node.appendChild(el('span', { class: 'card__desc', text: card.desc }));
+  const node = el('button', { class: `card tcgcard${clickable ? ' card--active' : ''}`, 'data-type': type });
+  const name = el('div', { class: 'tcgcard__name', text: card.name });
+  name.style.setProperty('--len', [...card.name].length);
+  node.appendChild(name);
+  const art = el('div', { class: 'tcgcard__art' });
+  const img = document.createElement('img');
+  img.src = `./art/${id}.png`;
+  img.alt = card.name;
+  img.onerror = () => { img.remove(); }; // まだ絵がないカードは無地の枠のまま
+  art.appendChild(img);
+  node.appendChild(art);
+  const body = el('div', { class: 'tcgcard__body' });
+  const mainClass = card.main.includes('\n') ? 'tcgcard__main tcgcard__main--small' : 'tcgcard__main';
+  const main = el('span', { class: mainClass, text: card.main });
+  main.style.setProperty('--w', Math.max(...card.main.split('\n').map(textWidth)));
+  body.appendChild(main);
+  if (card.desc) body.appendChild(el('span', { class: 'tcgcard__sub', text: card.desc }));
+  node.appendChild(body);
+  node.appendChild(el('div', { class: 'tcgcard__bottom' }, [
+    el('span', { class: `tcgcard__cost${discounted ? ' tcgcard__cost--down' : ''}`, text: `${showCost}${potionText}${debtText}` }),
+    el('span', { class: 'tcgcard__type' }, card.types.map((t, i) => el('span', { text: (i ? '・' : '') + (TYPE_WORD[t] || t) }))),
+  ]));
+  if (count != null) node.appendChild(el('span', { class: 'tcgcard__count', text: `残り${count}` }));
+  if (badge) node.appendChild(el('span', { class: 'tcgcard__embargo', text: badge }));
   bindCard(node, onClick);
   return node;
 }
