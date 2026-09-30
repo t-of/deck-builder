@@ -106,22 +106,22 @@ button { font: inherit; color: inherit; }
 .game { display: flex; flex-direction: column; gap: 8px; }
 /* 中身がないときの枠は詰める（.cards の min-height で隙間が空かないように） */
 #matsRow:empty, #shadowRow:empty { display: none; }
+/* 廃棄置き場: 上のバーの真ん中に横長で出す。対局中だけ */
 .trashBox {
-  width: var(--cw, 112px);
-  aspect-ratio: 63 / 88;
-  margin-top: 2px;
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 8px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
   border: 2px dashed rgba(255, 255, 255, 0.25);
   border-radius: 8px;
   background: rgba(60, 20, 20, 0.55);
-  overflow-y: auto;
 }
+.app:has(#game[hidden]) .trashBox { display: none; }
 .trashBox p { margin: 0; }
-.trashBox__count { font-size: 16px; font-weight: 800; text-align: center; }
-.trashBox__list { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.trashBox__count { flex: none; font-size: 13px; font-weight: 800; }
+.trashBox__list { min-width: 0; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .othersRow { display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--muted); }
 .otherCard { border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 4px 8px; }
 .hud { display: flex; flex-direction: column; gap: 6px; background: rgba(255, 255, 255, 0.04); border-radius: 10px; padding: 8px 10px; }

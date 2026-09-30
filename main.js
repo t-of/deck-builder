@@ -712,14 +712,11 @@ function renderTurn() {
     for (const id of nonSupplyIds) nonSupplyBox.appendChild(gcNode(id, false, null, game.nonSupply[id]));
     supply.appendChild(el('div', { class: 'supplyGroup' }, [el('h3', { class: 'supplyGroup__label', text: 'サプライ外' }), nonSupplyBox]));
   }
-  // 廃棄置き場: 王国のカードの右に、色を変えた枠で枚数と中身を出す
-  supply.appendChild(el('div', { class: 'supplyGroup' }, [
-    el('h3', { class: 'supplyGroup__label', text: '廃棄置き場' }),
-    el('div', { class: 'trashBox' }, [
-      el('p', { class: 'trashBox__count', text: `${game.trash.length} 枚` }),
-      el('p', { class: 'trashBox__list', text: counts(game.trash) }),
-    ]),
-  ]));
+  // 廃棄置き場: 上のバーの真ん中に、横長の枠で枚数と中身を出す
+  const trashBox = document.getElementById('trashBox');
+  trashBox.querySelector('.trashBox__count').textContent = `廃棄 ${game.trash.length} 枚`;
+  trashBox.querySelector('.trashBox__list').textContent = counts(game.trash);
+  trashBox.title = counts(game.trash);
 
   // 影の札（山札にある影）: アクションフェイズに手札の横に並べる
   const shadowLabel = document.getElementById('shadowLabel');
