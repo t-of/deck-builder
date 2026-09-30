@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   CARDS, SETS, kingdomPool, randomKingdom, newGame, currentPlayer, playAction, playTreasureGen,
   startBuyPhase, buyCard, endTurn, beginTurn, finalResults, is, PRESETS, allCards, canBuy, costOf, spendCoffers, landscapePool, canBuyEvent, buyEvent,
-  enterBuyPhase, enterNightPhase, playNight, canPlayNight,
+  enterBuyPhase, enterNightPhase, playNight, canPlayNight, spendVillager,
 } from '../engine.js';
 import '../cards-base.js';
 import '../cards-intrigue.js';
@@ -17,6 +17,7 @@ import '../cards-darkages.js';
 import '../cards-adventures.js';
 import '../cards-empires.js';
 import '../cards-nocturne.js';
+import '../cards-renaissance.js';
 
 const rnd = (n) => Math.floor(Math.random() * n);
 function answer(q) {
@@ -51,7 +52,7 @@ export function simulate(kingdom, n, landscapes = []) {
     if (turns >= 3000) { stalls.push(kingdom.join(',') + ' + ' + landscapes.join(',') + ' debt=' + g.players.map((p) => p.tokens.debt || 0).join('/') + ' deck=' + g.players.map((p) => allCards(p).length).join('/')); return g; }
     const p = currentPlayer(g);
     run(beginTurn(g));
-    while (g.turn.actions > 0) {
+    while (g.turn.actions > 0 || (p.tokens.villagers > 0 && spendVillager(g))) {
       const acts = p.hand.filter((id) => is(id, 'action'));
       if (!acts.length || Math.random() < 0.1) break;
       const id = acts[rnd(acts.length)];

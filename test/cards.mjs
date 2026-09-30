@@ -441,3 +441,35 @@ assert.deepEqual(g.players[0].states, []);
 g.players[0].states.push('s_miserable');
 assert.equal(score(g.players[0], g), 3 + 3 - 2); // 小屋 3 点 + 放牧地（小屋 3 枚で 3 点）- ふしあわせ 2
 console.log('ok: nocturne');
+
+// ---- ルネサンス ----
+await import('../cards-renaissance.js');
+const { spendVillager } = await import('../engine.js');
+const K12 = ['troupe', 'flagbearer', 'gatekeeper', 'lackeys', 'village', 'smithy', 'market', 'student', 'spices', 'carver'];
+const L12 = ['j_barracks', 'j_fleet'];
+g = newGame(2, K12, null, { colony: false, landscapes: L12 });
+// 旅一座: +4 村人、自分を廃棄。村人で +1 アクション
+Object.assign(g.players[0], { hand: ['troupe'], deck: Array(10).fill('copper'), discard: [] });
+run(playAction(g, 'troupe'));
+assert.equal(g.players[0].tokens.villagers, 4); assert.ok(g.trash.includes('troupe'));
+assert.ok(spendVillager(g)); assert.equal(g.turn.actions, 1);
+// プロジェクト: 兵営を買うと、次の手番の始めに +1 アクション。2 度は買えない
+startBuyPhase(g); g.turn.money = 12; g.turn.buys = 2;
+run(buyEvent(g, 'j_barracks'));
+assert.equal(canBuyEvent(g, 'j_barracks'), false);
+// 旗持ち: 獲得するとのぼり旗を取り、手札を 6 枚引く
+run(buyCard(g, 'flagbearer'));
+assert.equal(g.artifacts.a_flag, 0);
+run(endTurn(g));
+assert.equal(g.players[0].hand.length, 6);
+run(endTurn(g)); run(beginTurn(g));
+assert.equal(g.turn.actions, 2);
+// 船団: 終わるとき、持っている人が追加の手番をする
+g = newGame(2, K12, null, { colony: false, landscapes: L12 });
+g.players[1].projects.push('j_fleet');
+g.supply.province = 0;
+run(endTurn(g));
+assert.equal(g.over, false); assert.equal(g.current, 1);
+run(endTurn(g));
+assert.equal(g.over, true);
+console.log('ok: renaissance');

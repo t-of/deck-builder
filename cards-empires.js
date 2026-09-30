@@ -316,7 +316,7 @@ const kingdom = [
     },
   },
   {
-    id: 'scepter', name: '王笏', types: ['action', 'treasure'], cost: 5, main: '2 回使う', desc: 'アクションフェイズなら手札のアクションを 1 枚 2 回、購入フェイズなら手札の財宝を 1 枚 2 回使ってよい',
+    id: 'scepter', name: '玉冠', types: ['action', 'treasure'], cost: 5, main: '2 回使う', desc: 'アクションフェイズなら手札のアクションを 1 枚 2 回、購入フェイズなら手札の財宝を 1 枚 2 回使ってよい',
     *play(g, p, pi) {
       if (g.turn.phase === 'action') { if (yield* playTwice(g, p, pi, '2 回使うアクション（なしでもよい）', (id) => is(id, 'action'))) g.turn.stay.push('scepter'); }
       else yield* playTwice(g, p, pi, '2 回使う財宝（なしでもよい）', (id) => is(id, 'treasure'));

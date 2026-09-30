@@ -102,7 +102,8 @@ export function newGame(numPlayers, kingdom, names, opts = {}) {
     const deck = shuffle([...Array(7).fill('copper'), ...(shelters ? ['shack', 'tombs', 'wildestate'] : Array(3).fill('estate'))]);
     // inPlay: 前の手番から場に残っているカード（持続）。nextTurn: 次の手番の始めに行う効果。mats: 脇に置いたカード。tokens: コインなどの印
     // states: 状態の札（森の迷い子・ふしあわせなど）の id
-    const p = { name: (names && names[i]) || `${i + 1}人目`, deck, hand: [], discard: [], turnsTaken: 0, inPlay: [], nextTurn: [], mats: {}, tokens: { journey: true, pile: {} }, lastGains: [], states: [] };
+    // projects: 買ったプロジェクトの id
+    const p = { name: (names && names[i]) || `${i + 1}人目`, deck, hand: [], discard: [], turnsTaken: 0, inPlay: [], nextTurn: [], mats: {}, tokens: { journey: true, pile: {} }, lastGains: [], states: [], projects: [] };
     drawCards(p, 5);
     return p;
   });
@@ -113,6 +114,7 @@ export function newGame(numPlayers, kingdom, names, opts = {}) {
     turn: freshTurn(),
     playArea: [],
     nonSupply: {},    // サプライ外の山（褒賞など）。{ id: 枚数 }。買えないが、効果で獲得できる
+    artifacts: {},    // アーティファクトの持ち主（{ id: 席の番号 }）
     pileVP: {},       // 山に置かれた勝利点トークン（{ 山の id: 数 }）
     landmarkVP: {},   // ランドマークなどに置かれた勝利点トークン（{ id: 数 }）
     pileDebt: {},     // 山に置かれた借金トークン（買った人が受け取る）
@@ -149,6 +151,12 @@ export function takeTop(player) {
     if (player.discard.length === 0) return null;
     player.deck = shuffle(player.discard);
     player.discard = [];
+    // 星の地図: 混ぜたとき 1 枚を一番上に置いてよい。ponytail: 問わずに、いちばん高い札を上にする（混ぜるのは問いを出せない場所なので）
+    if (player.projects && player.projects.includes('j_starchart') && player.deck.length > 1) {
+      let best = 0;
+      player.deck.forEach((id, i) => { if (CARDS[id].cost > CARDS[player.deck[best]].cost) best = i; });
+      player.deck.push(...player.deck.splice(best, 1));
+    }
   }
   return player.deck.pop();
 }
@@ -483,6 +491,11 @@ export function* playAction(game, cardId) {
     return;
   }
   yield* resolve(game, cardId);
+  game.turn.handActions = (game.turn.handActions || 0) + 1;
+  if (game.turn.handActions === 1 && player.projects.includes('j_citadel') && game.playArea.includes(cardId)) {
+    log(game, `山城で「${CARDS[cardId].name}」をもう一度使う。`);
+    yield* resolve(game, cardId);
+  }
   yield* offerCalls(game, game.current, 'afterAction', { id: cardId });
 }
 
@@ -553,6 +566,15 @@ export function* beginTurn(game) {
   yield* offerCalls(game, game.current, 'start');
   for (const h of HOOKS.turnStart) yield* h(game, p, game.current);
   for (const id of [...new Set(p.hand)]) if (CARDS[id].atTurnStart && p.hand.includes(id)) yield* CARDS[id].atTurnStart(game, p, game.current);
+}
+
+// 村人を使って +1 アクションにする（アクションフェイズ）
+export function spendVillager(game) {
+  const p = currentPlayer(game);
+  if (!(p.tokens.villagers > 0) || game.turn.phase !== 'action') return false;
+  p.tokens.villagers -= 1;
+  game.turn.actions += 1;
+  return true;
 }
 
 // 財源（コイントークン）を使ってお金にする（購入フェイズ）
@@ -666,7 +688,21 @@ export function* endTurn(game) {
   if (player.mats.keep && player.mats.keep.length) player.hand.push(...player.mats.keep.splice(0)); // 取り置き
   for (const h of HOOKS.afterCleanup) yield* h(game, player, game.current);
 
-  if (gameShouldEnd(game)) { game.over = true; return; }
+  if (gameShouldEnd(game) || game.fleet) {
+    // 船団: 終わるとき、船団を持つ人は順に 1 回ずつ追加の手番をする
+    if (!game.fleet) {
+      const n = game.players.length;
+      game.fleet = [];
+      for (let k = 1; k <= n; k++) { const i = (game.current + k) % n; if (game.players[i].projects.includes('j_fleet')) game.fleet.push(i); }
+    }
+    if (!game.fleet.length) { game.over = true; return; }
+    game.current = game.fleet.shift();
+    game.controller = null;
+    game.extraTurn = true;
+    game.turn = freshTurn();
+    log(game, `${currentPlayer(game).name}の船団の手番です。`);
+    return;
+  }
 
   // 乗っ取りの手番のあとは、同じ人のふつうの手番
   if (!extra && !wasPossessed) game.current = (game.current + 1) % game.players.length;
