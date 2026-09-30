@@ -315,7 +315,14 @@ function buyChoice(game, level) {
   // 王国カード（つよい・さいきょう）: 対局の始めに自己対局で決めた「狙いの札と枚数」を買う
   if (SMART(level)) {
     const plan = planFor(game, pi, level);
-    for (const { pile, limit } of plan) {
+    for (const { pile, limit, event } of plan) {
+      if (event) {
+        // イベント・プロジェクト: 買える回数（limit）まで、ほかに買う札がないお金で
+        game.cpuEvents = game.cpuEvents || {};
+        const key = `${pi}:${pile}`;
+        if ((game.cpuEvents[key] || 0) < limit && canBuyEvent(game, pile) && money < 8) { game.cpuEvents[key] = (game.cpuEvents[key] || 0) + 1; return `event:${pile}`; }
+        continue;
+      }
       if (!has(pile)) continue;
       const mine = info.all.filter((id) => pileOf(id) === pile || id === pile).length;
       const cost = costOf(game, pile);
@@ -363,6 +370,7 @@ export function nextMove(game, level = 'strong') {
         const need = [8, 6].find((c) => t.money < c && t.money + p.tokens.coffers >= c);
         if (need) return { type: 'coffers', n: need - t.money };
       }
+      if (id && id.startsWith('event:')) return { type: 'event', id: id.slice(6) };
       if (id) return { type: 'buy', id };
     }
     if (p.hand.some((id) => is(id, 'night'))) return { type: 'nightPhase' };
@@ -425,6 +433,12 @@ function candidates(game) {
     if (c.types.includes('ruins') || c.potion || c.debt || c.cost > 7) continue;
     const terminal = c.types.includes('action') && feats(id).terminal;
     for (const limit of terminal ? [1, 2] : [2, 6]) out.push([{ pile, limit }]);
+  }
+  // イベント・プロジェクト（1 回だけ・借金や 0 金のものは除く）
+  for (const id of game.landscapes) {
+    const c = CARDS[id];
+    if (!c.buy || c.debt || c.cost === 0 || c.cost > 8) continue;
+    out.push([{ pile: id, limit: 1, event: true }]);
   }
   return out;
 }
