@@ -562,6 +562,655 @@
     circle(px, 12, 10, 2, GO, GOl, GOd, O);
     return px;
   }
+  // ---- 拡張「海辺」35 種 ----
+  function cove() { // 隠し港: 入り江の小舟
+    const px = blank();
+    rect(px, 0, 10, 16, 5, WT);
+    for (let x = 3; x < 13; x++) set(px, x, 10 - Math.round(2 * Math.sin((x - 3) / 10 * Math.PI)), WDd);
+    return px;
+  }
+  function beacon() { // かがり火: 灯台
+    const px = blank();
+    frame(px, 6, 3, 4, 11, ST, O);
+    circle(px, 8, 2, 3, FL, FLl, FL, O);
+    return px;
+  }
+  function shorevillage() { // 浜の集落
+    const px = blank();
+    roof(px, 3, 6, 8, 4, RFd, RF, RFl); frame(px, 4, 10, 6, 4, WL, O);
+    rect(px, 0, 13, 16, 2, WT);
+    return px;
+  }
+  function fishtown() { // 漁師町: 舟と網
+    const px = blank();
+    rect(px, 2, 9, 9, 4, RF);
+    lineThick(px, 11, 9, 11, 3, WDd, 1);
+    lineThick(px, 11, 4, 14, 7, MEd, 1);
+    return px;
+  }
+  function overlook() { // 見晴らし台
+    const px = blank();
+    frame(px, 1, 8, 8, 6, WD, O);
+    rect(px, 0, 14, 16, 2, WT);
+    circle(px, 11, 5, 2, WL, O, O, O);
+    return px;
+  }
+  function contraband() { // 抜け荷: 木箱
+    const px = blank();
+    frame(px, 3, 7, 10, 7, WD, O);
+    rect(px, 3, 10, 10, 1, WDd);
+    return px;
+  }
+  function storeroom() { // 物置
+    const px = blank();
+    frame(px, 2, 6, 5, 8, WD, O); frame(px, 9, 8, 5, 6, WDl, O);
+    return px;
+  }
+  function compass() { // 羅針盤
+    const px = blank();
+    circle(px, 8, 8, 6, GO, GOl, GOd, O);
+    diamond(px, 8, 8, 4, O, O);
+    return px;
+  }
+  function gibbon() { // 手長猿
+    const px = blank();
+    lineThick(px, 4, 13, 4, 3, WDd, 1);
+    lineThick(px, 4, 13, 13, 9, WD, 2);
+    circle(px, 12, 6, 2, WDd, WDd, WDd, O);
+    return px;
+  }
+  function searoute() { // 航路図
+    const px = blank();
+    frame(px, 2, 2, 12, 12, WL, O);
+    lineThick(px, 4, 4, 12, 12, RF, 1);
+    return px;
+  }
+  function wagon() { // 荷馬車
+    const px = blank();
+    frame(px, 4, 4, 9, 6, WD, O);
+    circle(px, 6, 12, 2, ME, ME, MEd, O);
+    circle(px, 11, 12, 2, ME, ME, MEd, O);
+    return px;
+  }
+  function snatcher() { // ひったくり
+    const px = blank();
+    lineThick(px, 3, 11, 9, 5, MEd, 1);
+    circle(px, 11, 4, 2, GOl, GO, GOd, O);
+    return px;
+  }
+  function islet() { // 小島
+    const px = blank();
+    rect(px, 0, 11, 16, 3, WT);
+    circle(px, 8, 9, 4, GR, GRl, GR, O);
+    lineThick(px, 8, 8, 8, 3, WDd, 1);
+    return px;
+  }
+  function salvor() { // 引き上げ屋
+    const px = blank();
+    frame(px, 4, 9, 8, 5, WD, O);
+    lineThick(px, 8, 3, 8, 9, ME, 1);
+    return px;
+  }
+  function oldmap() { // 古地図
+    const px = blank();
+    frame(px, 2, 3, 12, 10, WL, O);
+    lineThick(px, 4, 5, 12, 11, RF, 1);
+    return px;
+  }
+  function barricade() { // 通せんぼ
+    const px = blank();
+    lineThick(px, 2, 2, 14, 14, MEd, 2);
+    lineThick(px, 2, 14, 14, 2, MEd, 2);
+    return px;
+  }
+  function deckhand() { // 水夫
+    const px = blank();
+    circle(px, 8, 8, 5, WD, WDl, WDd, O);
+    circle(px, 8, 8, 2, WDd, WDd, WDd, O);
+    return px;
+  }
+  function rockpool() { // 磯
+    const px = blank();
+    circle(px, 6, 9, 4, ST, STl, STd, O);
+    circle(px, 6, 9, 3, WT, WTl, WTd, O);
+    circle(px, 12, 11, 1, RF, RFl, RFd, O);
+    return px;
+  }
+  function openmarket() { // 青空市
+    const px = blank();
+    for (let x = 2; x < 14; x += 3) rect(px, x, 2, 2, 4, (x / 3) % 2 ? RF : WL);
+    frame(px, 2, 8, 12, 5, WD, O);
+    return px;
+  }
+  function tradeship() { // 交易船
+    const px = blank();
+    rect(px, 2, 10, 12, 3, WDd);
+    lineThick(px, 8, 10, 8, 2, WDd, 1);
+    rect(px, 8, 3, 5, 6, WL);
+    return px;
+  }
+  function fort() { // 出城
+    const px = blank();
+    frame(px, 3, 5, 10, 9, ST, O);
+    for (let x = 3; x < 13; x += 3) rect(px, x, 3, 2, 2, STl);
+    return px;
+  }
+  function strategist() { // 軍師
+    const px = blank();
+    frame(px, 2, 8, 12, 5, WD, O);
+    circle(px, 6, 6, 1, RF, RFl, RFd, O); circle(px, 10, 6, 1, WT, WTl, WTd, O);
+    return px;
+  }
+  function coffer() { // 金蔵
+    const px = blank();
+    frame(px, 3, 6, 10, 8, WD, O);
+    rect(px, 3, 9, 10, 2, GOl);
+    return px;
+  }
+  function pier() { // 波止場
+    const px = blank();
+    rect(px, 0, 8, 16, 3, WD);
+    for (let x = 1; x < 16; x += 4) lineThick(px, x, 11, x, 15, WDd, 1);
+    rect(px, 0, 13, 16, 2, WT);
+    return px;
+  }
+  function privateer() { // 私掠船
+    const px = blank();
+    rect(px, 3, 10, 10, 3, MEd);
+    lineThick(px, 8, 10, 8, 2, MEd, 1);
+    rect(px, 8, 2, 4, 2, RF);
+    return px;
+  }
+  function buccaneer() { // 海の荒くれ
+    const px = blank();
+    lineThick(px, 3, 12, 12, 4, ME, 2);
+    circle(px, 13, 3, 2, WDd, WDd, WDd, O);
+    return px;
+  }
+  function siren() { // 人魚の呪い
+    const px = blank();
+    circle(px, 8, 6, 3, WL, O, O, O);
+    for (let r = 0; r < 6; r++) { const half = Math.max(1, 3 - r / 2); for (let c = -half; c < half; c++) set(px, 8 + c, 9 + r, WT); }
+    return px;
+  }
+  function diver() { // 海女
+    const px = blank();
+    rect(px, 0, 4, 16, 12, WT);
+    circle(px, 8, 8, 3, MEd, MEd, MEd, O);
+    return px;
+  }
+  function injunction() { // 差し止め
+    const px = blank();
+    lineThick(px, 5, 3, 5, 13, WDd, 1);
+    frame(px, 5, 4, 8, 6, WL, O);
+    lineThick(px, 7, 6, 11, 6, RF, 1);
+    return px;
+  }
+  function emissary() { // 特使
+    const px = blank();
+    frame(px, 4, 5, 8, 6, WL, O);
+    circle(px, 8, 8, 2, RF, RFl, RFd, O);
+    return px;
+  }
+  function pilot() { // 水先案内
+    const px = blank();
+    circle(px, 8, 8, 6, WD, WDl, WDd, O);
+    for (let a = 0; a < 360; a += 60) { const r = a * Math.PI / 180; lineThick(px, 8, 8, 8 + Math.round(6 * Math.sin(r)), 8 - Math.round(6 * Math.cos(r)), WDd, 1); }
+    return px;
+  }
+  function raidship() { // 略奪船
+    const px = blank();
+    rect(px, 1, 11, 7, 3, MEd);
+    rect(px, 9, 12, 6, 2, MEd);
+    lineThick(px, 5, 11, 12, 6, GO, 1);
+    return px;
+  }
+  function crone() { // 磯の老婆
+    const px = blank();
+    circle(px, 8, 9, 4, MEd, MEd, MEd, O);
+    circle(px, 12, 6, 2, GOl, GO, GOd, O);
+    return px;
+  }
+  function pioneer() { // 開拓者
+    const px = blank();
+    lineThick(px, 5, 13, 5, 3, WDd, 1);
+    frame(px, 9, 8, 6, 6, WD, O);
+    return px;
+  }
+  function fogship() { // 霧の船
+    const px = blank();
+    rect(px, 3, 10, 10, 3, MEd);
+    lineThick(px, 8, 10, 8, 3, MEd, 1);
+    rect(px, 8, 4, 4, 5, WLd);
+    return px;
+  }
+  // ---- 拡張「繁栄」36 種 ----
+  function platinum() { return coin(WL, SI, STd, 3); }
+  function colony() {
+    const px = castle();
+    set(px, 8, 0, GOl);
+    return px;
+  }
+  function anvil() { // 打ち台
+    const px = blank();
+    rect(px, 3, 8, 10, 3, ME);
+    rect(px, 6, 11, 4, 3, MEd);
+    rect(px, 5, 14, 6, 1, MEd);
+    circle(px, 11, 12, 1, GOl, GOl, GOl, O);
+    return px;
+  }
+  function firetower() { // 火の見やぐら
+    const px = blank();
+    frame(px, 6, 3, 4, 11, WD, O);
+    circle(px, 8, 2, 2, RF, RFl, RFd, O);
+    return px;
+  }
+  function prelate() { // 高僧
+    const px = blank();
+    circle(px, 8, 4, 2, WL, O, O, O);
+    rect(px, 5, 7, 6, 7, RF);
+    return px;
+  }
+  function stele() { // 石碑
+    const px = blank();
+    frame(px, 5, 2, 6, 12, ST, O);
+    diamond(px, 8, 6, 2, STl, STd);
+    return px;
+  }
+  function stoneyard() { // 石工場
+    const px = blank();
+    rect(px, 2, 8, 5, 5, ST); rect(px, 9, 6, 5, 7, STl);
+    return px;
+  }
+  function artisanrow() { // 職人町
+    const px = blank();
+    roof(px, 1, 6, 6, 3, RFd, RF, RFl); frame(px, 2, 9, 4, 4, WL, O);
+    roof(px, 9, 5, 6, 3, WTd, WTl, WT); frame(px, 10, 8, 4, 5, ST, O);
+    return px;
+  }
+  function scribe() { // 書役
+    const px = blank();
+    frame(px, 3, 7, 10, 5, WL, O);
+    lineThick(px, 12, 2, 14, 6, ME, 1);
+    return px;
+  }
+  function stake() { // 元手
+    const px = blank();
+    circle(px, 6, 10, 2, CU, CUl, CUd, O);
+    circle(px, 10, 8, 2, SI, SIl, SId, O);
+    lineThick(px, 12, 3, 12, 8, RF, 1);
+    return px;
+  }
+  function diadem() { // 髪飾り
+    const px = blank();
+    rect(px, 4, 9, 8, 2, GO);
+    rect(px, 4, 5, 2, 4, GOl); rect(px, 7, 4, 2, 5, GOl); rect(px, 10, 5, 2, 4, GOl);
+    return px;
+  }
+  function castletown() { // 城下町
+    const px = blank();
+    frame(px, 3, 6, 10, 8, ST, O);
+    for (let x = 3; x < 13; x += 3) rect(px, x, 4, 2, 2, STl);
+    return px;
+  }
+  function coinery() { // 鋳貨所
+    const px = blank();
+    frame(px, 5, 2, 6, 9, ME, O);
+    circle(px, 8, 12, 3, GOl, GO, GOd, O);
+    return px;
+  }
+  function mob() { // 群衆
+    const px = blank();
+    for (const x of [2, 7, 12]) { rect(px, x, 8, 3, 6, MEd); circle(px, x + 1, 6, 2, MEd, MEd, MEd, O); }
+    return px;
+  }
+  function safebox() { // 貸し金庫
+    const px = blank();
+    frame(px, 3, 3, 10, 10, ME, O);
+    circle(px, 8, 8, 3, MEd, MEd, MEd, O);
+    return px;
+  }
+  function charlatan() { // まやかし師
+    const px = blank();
+    circle(px, 6, 9, 3, FL, FLl, FL, O);
+    circle(px, 10, 10, 2, FLl, FLl, FL, O);
+    rect(px, 5, 11, 2, 2, WDd); rect(px, 9, 12, 2, 2, WDd);
+    return px;
+  }
+  function curio() { // 蒐集箱
+    const px = blank();
+    frame(px, 2, 2, 12, 12, WD, O);
+    circle(px, 6, 6, 1, GOl, GOl, GOl, O); circle(px, 10, 6, 1, RF, RF, RF, O);
+    circle(px, 6, 10, 1, WT, WT, WT, O); circle(px, 10, 10, 1, WL, WL, WL, O);
+    return px;
+  }
+  function orb() { // 占い玉
+    const px = blank();
+    circle(px, 8, 8, 6, WT, WTl, WTd, O);
+    rect(px, 6, 14, 4, 1, WDd);
+    return px;
+  }
+  function tycoon() { // 大旦那
+    const px = blank();
+    circle(px, 8, 9, 3, CU, CUl, CUd, O); circle(px, 8, 9, 2, GOl, GOl, GOl, O);
+    circle(px, 8, 6, 1, WL, O, O, O);
+    return px;
+  }
+  function warfund() { // 軍資金
+    const px = blank();
+    frame(px, 3, 8, 10, 6, WD, O);
+    lineThick(px, 12, 2, 12, 8, ME, 1);
+    return px;
+  }
+  function boulevard() { // 大通り
+    const px = blank();
+    roof(px, 1, 6, 6, 3, RFd, RF, RFl); frame(px, 2, 9, 4, 5, WL, O);
+    roof(px, 9, 5, 6, 3, WTd, WTl, WT); frame(px, 10, 8, 4, 6, ST, O);
+    return px;
+  }
+  function stash() { // へそくり
+    const px = blank();
+    rect(px, 2, 11, 12, 2, WDd);
+    circle(px, 8, 9, 2, GOl, GO, GOd, O);
+    return px;
+  }
+  function banker() { // 金融屋
+    const px = blank();
+    frame(px, 2, 3, 8, 6, WL, O);
+    circle(px, 11, 11, 3, GOl, GO, GOd, O);
+    return px;
+  }
+  function extension() { // 増築
+    const px = blank();
+    for (const x of [2, 8, 13]) lineThick(px, x, 2, x, 14, WD, 1);
+    for (const y of [4, 8, 12]) lineThick(px, 2, y, 13, y, WDl, 1);
+    return px;
+  }
+  function crucible() { // るつぼ
+    const px = blank();
+    circle(px, 8, 10, 5, MEd, MEd, MEd, O);
+    circle(px, 8, 8, 3, FL, FLl, FL, O);
+    return px;
+  }
+  function council() { // 御前会議
+    const px = blank();
+    circle(px, 8, 9, 5, WD, WDl, WDd, O);
+    circle(px, 8, 3, 2, RF, RF, RF, O); circle(px, 3, 11, 2, WT, WT, WT, O); circle(px, 13, 11, 2, GOl, GOl, GOl, O);
+    return px;
+  }
+  function hawker() { // 呼び売り
+    const px = blank();
+    frame(px, 3, 7, 10, 4, WD, O);
+    circle(px, 5, 12, 2, ME, ME, MEd, O); circle(px, 11, 12, 2, ME, ME, MEd, O);
+    return px;
+  }
+  function iou() { // 借用書
+    const px = blank();
+    frame(px, 3, 5, 10, 7, WL, O);
+    circle(px, 8, 8, 2, RF, RFl, RFd, O);
+    return px;
+  }
+  function traderoute() { // 通商路
+    const px = blank();
+    lineThick(px, 1, 12, 15, 5, WDd, 1);
+    circle(px, 6, 9, 1, RF, RF, RF, O); circle(px, 10, 7, 1, ME, ME, MEd, O);
+    return px;
+  }
+  function charm() { // お守り
+    const px = blank();
+    lineThick(px, 8, 2, 8, 7, WDd, 1);
+    diamond(px, 8, 10, 3, FL, O);
+    return px;
+  }
+  function tally() { // 勘定場
+    const px = blank();
+    for (let x = 3; x < 12; x += 2) lineThick(px, x, 3, x, 10, ME, 1);
+    lineThick(px, 2, 8, 12, 4, ME, 1);
+    return px;
+  }
+  function forbidden() { // ご禁制
+    const px = blank();
+    frame(px, 3, 7, 10, 6, WD, O);
+    circle(px, 8, 6, 2, MEd, MEd, MEd, O);
+    return px;
+  }
+  function quack() { // いかさま薬売り
+    const px = blank();
+    circle(px, 6, 9, 2, FL, FLl, FL, O); circle(px, 10, 9, 2, WT, WTl, WT, O);
+    circle(px, 8, 4, 3, WL, O, O, O);
+    return px;
+  }
+  function seal() { // 御印
+    const px = blank();
+    frame(px, 3, 3, 10, 10, WL, O);
+    circle(px, 8, 8, 4, RF, RFl, RFd, O);
+    return px;
+  }
+  function gamble() { // 山っ気
+    const px = blank();
+    frame(px, 3, 7, 5, 5, WL, O); frame(px, 9, 5, 5, 5, WL, O);
+    return px;
+  }
+  function bouncer() { // 用心棒
+    const px = blank();
+    frame(px, 4, 2, 8, 12, WD, O);
+    circle(px, 8, 8, 2, MEd, MEd, MEd, O);
+    return px;
+  }
+  // ---- 拡張「異郷」35 種 ----
+  function crossing() { // 辻
+    const px = blank();
+    lineThick(px, 8, 1, 8, 14, WDd, 1);
+    rect(px, 8, 4, 5, 2, RF); rect(px, 3, 7, 5, 2, WT);
+    return px;
+  }
+  function pyrite() { // にせ金
+    const px = blank();
+    circle(px, 8, 9, 5, MEd, MEd, MEd, O);
+    circle(px, 6, 8, 1, GOl, GOl, GOl, O); circle(px, 10, 7, 1, GOl, GOl, GOl, O); circle(px, 8, 10, 1, GOl, GOl, GOl, O);
+    return px;
+  }
+  function grading() { // 造成
+    const px = blank();
+    rect(px, 1, 11, 5, 4, WD); rect(px, 6, 8, 5, 7, WDl); rect(px, 11, 5, 4, 10, WDd);
+    return px;
+  }
+  function spring() { // 泉のほとり
+    const px = blank();
+    circle(px, 8, 9, 5, ST, STl, STd, O);
+    circle(px, 8, 9, 3, WT, WTl, WTd, O);
+    return px;
+  }
+  function groundwork() { // 根回し
+    const px = blank();
+    for (const x of [2, 7, 12]) rect(px, x, 9, 3, 5, ST);
+    frame(px, 2, 2, 8, 5, WL, O);
+    return px;
+  }
+  function underpass() { // 地下道
+    const px = blank();
+    rect(px, 1, 6, 14, 3, ST);
+    for (let r = 0; r < 6; r++) { const half = 5 - r; for (let c = -half; c < half; c++) set(px, 8 + c, 15 - r, O); }
+    return px;
+  }
+  function watchdog() { // 見張り犬
+    const px = blank();
+    rect(px, 5, 9, 6, 4, WD);
+    circle(px, 11, 7, 2, WD, WDl, WDd, O);
+    return px;
+  }
+  function handyman() { // 何でも屋
+    const px = blank();
+    lineThick(px, 11, 2, 11, 14, WD, 1);
+    for (let y = 3; y < 14; y += 3) line_(px, y);
+    circle(px, 4, 12, 2, SI, SIl, SId, O);
+    return px;
+  }
+  function line_(px, y) { for (let x = 9; x <= 13; x++) set(px, x, y, WDd); }
+  function spicer() { // 香料売り
+    const px = blank();
+    circle(px, 4, 9, 3, RF, RFl, RFd, O);
+    circle(px, 8, 10, 3, GO, GOl, GOd, O);
+    circle(px, 12, 9, 3, FL, FLl, FL, O);
+    return px;
+  }
+  function silverdealer() { // 銀の商人
+    const px = blank();
+    frame(px, 3, 6, 10, 6, SI, O);
+    return px;
+  }
+  function drifter() { // 流れ者
+    const px = blank();
+    lineThick(px, 5, 13, 5, 3, WDd, 1);
+    circle(px, 5, 2, 2, WD, WDl, WDd, O);
+    return px;
+  }
+  function pathway() { // けもの道
+    const px = blank();
+    for (const [x, y] of [[2, 12], [5, 9], [8, 6], [11, 3]]) { circle(px, x, y, 1, WDd, WDd, WDd, O); circle(px, x + 2, y + 1, 1, WDd, WDd, WDd, O); }
+    return px;
+  }
+  function loom() { // 機織り
+    const px = blank();
+    frame(px, 2, 2, 12, 12, WD, O);
+    for (let y = 4; y < 14; y += 2) lineThick(px, 3, y, 13, y, y % 4 ? RF : WT, 1);
+    return px;
+  }
+  function mapmaker() { // 測地師
+    const px = blank();
+    frame(px, 2, 4, 9, 8, WL, O);
+    circle(px, 12, 5, 3, GOl, GO, GOd, O);
+    return px;
+  }
+  function bargainer() { // 値切り上手
+    const px = blank();
+    circle(px, 4, 6, 2, CU, CUl, CUd, O);
+    circle(px, 12, 10, 2, SI, SIl, SId, O);
+    lineThick(px, 6, 7, 10, 9, O, 1);
+    return px;
+  }
+  function causeway() { // 石畳
+    const px = blank();
+    rect(px, 0, 9, 16, 3, WT);
+    for (let x = 0; x < 16; x += 4) rect(px, x, 7, 3, 3, ST);
+    return px;
+  }
+  function hatago() { // 旅籠
+    const px = blank();
+    roof(px, 3, 3, 10, 5, RFd, RF, RFl); frame(px, 4, 8, 8, 6, WL, O);
+    rect(px, 1, 10, 2, 3, RF);
+    return px;
+  }
+  function warden() { // 国守
+    const px = blank();
+    frame(px, 2, 4, 12, 9, ST, O);
+    rect(px, 7, 8, 2, 5, MEd);
+    return px;
+  }
+  function stable() { // 馬小屋
+    const px = blank();
+    roof(px, 2, 3, 10, 4, WDd, WD, WDl); frame(px, 3, 7, 8, 6, WL, O);
+    circle(px, 12, 12, 2, ME, ME, MEd, O);
+    return px;
+  }
+  function brute() { // 暴れ者
+    const px = blank();
+    circle(px, 6, 5, 2, WL, O, O, O);
+    lineThick(px, 9, 8, 13, 13, WDd, 2);
+    return px;
+  }
+  function stewpot() { // 煮え鍋
+    const px = blank();
+    circle(px, 8, 10, 5, MEd, MEd, MEd, O);
+    circle(px, 8, 7, 3, GO, GOl, GOd, O);
+    circle(px, 8, 13, 1, FL, FLl, FL, O);
+    return px;
+  }
+  function fleamarket() { // のみの市
+    const px = blank();
+    frame(px, 2, 8, 12, 5, WD, O);
+    circle(px, 5, 6, 2, RF, RFl, RFd, O); circle(px, 9, 5, 2, ME, ME, MEd, O); circle(px, 12, 7, 2, GOl, GOl, GOl, O);
+    return px;
+  }
+  function wheeler() { // 車輪職人
+    const px = blank();
+    circle(px, 8, 8, 6, WD, WDl, WDd, O);
+    circle(px, 8, 8, 2, WDd, WDd, WDd, O);
+    return px;
+  }
+  function charmhut() { // まじない小屋
+    const px = blank();
+    roof(px, 3, 5, 8, 4, WDd, WD, WDl); frame(px, 4, 9, 6, 5, WL, O);
+    circle(px, 12, 4, 1, FL, FLl, FL, O);
+    return px;
+  }
+  function gatevillage() { // 関所の村
+    const px = blank();
+    frame(px, 5, 3, 6, 11, ST, O);
+    rect(px, 6, 8, 4, 6, MEd);
+    return px;
+  }
+  function fields() { // 田畑
+    const px = blank();
+    for (let y = 4; y < 14; y += 3) for (let x = 1; x < 15; x += 3) set(px, x, y, GR);
+    rect(px, 0, 13, 16, 2, WD);
+    return px;
+  }
+  function lady() { // 奥方
+    const px = blank();
+    circle(px, 8, 5, 3, WL, O, O, O);
+    rect(px, 5, 8, 6, 7, RF);
+    circle(px, 8, 3, 1, GOl, GOl, GOl, O);
+    return px;
+  }
+  function omen() { // お告げ
+    const px = blank();
+    roof(px, 3, 3, 10, 6, MEd, ME, MEd); frame(px, 4, 9, 8, 5, WL, O);
+    circle(px, 8, 11, 2, WT, WTl, WTd, O);
+    return px;
+  }
+  function outlaw() { // 無法者
+    const px = blank();
+    circle(px, 8, 6, 3, MEd, MEd, MEd, O);
+    lineThick(px, 10, 9, 14, 13, ME, 1);
+    return px;
+  }
+  function tent() { // 天幕
+    const px = blank();
+    for (let r = 0; r < 8; r++) { const half = Math.max(1, Math.round((r + 1) / 8 * 6)); for (let c = -half; c < half; c++) set(px, 8 + c, 12 - r, WL); }
+    rect(px, 5, 12, 6, 2, WDd);
+    return px;
+  }
+  function silkway() { // 絹の道
+    const px = blank();
+    for (const x of [2, 7, 12]) { rect(px, x, 8, 3, 4, WD); circle(px, x + 1, 6, 2, WDl, WDl, WDd, O); }
+    return px;
+  }
+  function hiddengold() { // 隠し金
+    const px = blank();
+    circle(px, 8, 10, 4, WDd, WDd, WDd, O);
+    circle(px, 8, 10, 2, GOl, GO, GOd, O);
+    return px;
+  }
+  function legation() { // 公館
+    const px = blank();
+    roof(px, 3, 3, 10, 4, WTd, WTl, WT); frame(px, 4, 7, 8, 7, ST, O);
+    rect(px, 2, 2, 2, 5, RF); rect(px, 12, 2, 2, 5, MEd);
+    return px;
+  }
+  function dirtymoney() { // 悪銭
+    const px = blank();
+    circle(px, 8, 9, 3, CU, CUl, CUd, O);
+    for (const [x, y] of [[3, 3], [12, 4], [4, 13], [13, 12]]) set(px, x, y, O);
+    return px;
+  }
+  function magistrate() { // 代官
+    const px = blank();
+    frame(px, 2, 9, 12, 4, WD, O);
+    lineThick(px, 8, 2, 8, 9, WDd, 2);
+    circle(px, 8, 2, 2, WDd, WDd, WDd, O);
+    return px;
+  }
 
   const BUILDERS = {
     copper: () => coin(CU, CUl, CUd, 1),
@@ -578,6 +1227,19 @@
     suspension, plotter, envoy, foundry, watermill, minetown, tunnel, chamberlain,
     marquis, henchman, nightwatch, swap, jailer, tradepost, refine, mansion,
     aristocrat, hideaway, hall, tinker, surveyor, wrecker, toll,
+    cove, beacon, shorevillage, fishtown, overlook, contraband, storeroom, compass,
+    gibbon, searoute, wagon, snatcher, islet, salvor, oldmap, barricade, deckhand,
+    rockpool, openmarket, tradeship, fort, strategist, coffer, pier, privateer,
+    buccaneer, siren, diver, injunction, emissary, pilot, raidship, crone, pioneer, fogship,
+    platinum, colony, firetower, anvil, prelate, stele, stoneyard, artisanrow, scribe,
+    stake, diadem, castletown, coinery, mob, safebox, charlatan, curio, orb, tycoon,
+    warfund, boulevard, stash, banker, extension, crucible, council, hawker, iou,
+    traderoute, charm, tally, forbidden, quack, seal, gamble, bouncer,
+    crossing, pyrite, grading, spring, groundwork, underpass, watchdog, handyman,
+    spicer, silverdealer, drifter, pathway, loom, mapmaker, bargainer, causeway,
+    hatago, warden, stable, brute, stewpot, fleamarket, wheeler, charmhut,
+    gatevillage, fields, lady, omen, outlaw, tent, silkway, hiddengold, legation,
+    dirtymoney, magistrate,
   };
 
   // 種類ごとの枠の色（ドット絵テーマでカードのふちに使う）
@@ -590,6 +1252,7 @@
     curse: '#8a4ab8',
     'treasure-victory': '#b8a030',
     'action-victory': '#5a8a3a',
+    duration: '#d0762a',
   };
 
   const cache = new Map();
