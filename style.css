@@ -71,7 +71,7 @@ button { font: inherit; color: inherit; }
   padding: 14px 20px;
   font-size: 16px;
 }
-.ranking { list-style: decimal; text-align: left; padding-left: 20px; }
+.ranking { list-style: none; text-align: left; padding-left: 0; width: 100%; max-width: 420px; }
 .ranking li { margin: 4px 0; }
 
 /* ---- 設定（人数・カードの組）画面。拡張やおすすめの組が増えても 360px で崩れないよう、すべて折り返す ---- */
@@ -141,6 +141,73 @@ button { font: inherit; color: inherit; }
 .card__count { color: var(--muted); }
 .card__desc { color: var(--muted); font-size: 10px; overflow: hidden; text-overflow: ellipsis; }
 
+/* ---- 設定画面のタイトルと、段取りが分かる組ごとの箱（.hud を土台にして各見た目の枠を流用） ---- */
+.setupHero { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0 2px; }
+.setupHero__eyebrow { margin: 0; font-size: 10px; letter-spacing: 0.25em; color: var(--muted); }
+.setupHero__title { margin: 0; font-size: 26px; letter-spacing: 0.08em; }
+.setupCard { align-items: stretch; gap: 10px; text-align: left; width: 100%; }
+.setupCard__title { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; }
+.setupCard__no {
+  flex: none;
+  width: 22px; height: 22px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #1c1c1c;
+  font-size: 12px;
+  font-weight: 800;
+}
+.pill--start { width: 100%; max-width: 320px; padding: 14px 20px; font-size: 16px; align-self: center; }
+.panel__lead--pass { font-size: 20px; }
+
+/* ---- 手番フェイズの目印 ---- */
+.phasePill {
+  align-self: center;
+  margin: 0;
+  padding: 3px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+/* ---- HUD のメダル（アクション・購入・金などを丸い記章で見せる） ---- */
+.hud__name { font-size: 15px; font-weight: 700; }
+.medals { display: flex; gap: 6px; flex-wrap: wrap; }
+.medal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  min-width: 46px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+}
+.medal__n { font-size: 16px; font-weight: 800; line-height: 1.1; }
+.medal__label { font-size: 9px; color: var(--muted); letter-spacing: 0.04em; }
+
+/* ---- 結果画面の表彰台（1位を中央・一番高く） ---- */
+.podium { display: flex; align-items: flex-end; justify-content: center; gap: 8px; width: 100%; max-width: 420px; margin-top: 4px; }
+.podium__step { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px 12px; border-radius: 10px 10px 4px 4px; position: relative; }
+.podium__step[data-rank="1"] { order: 2; padding-top: 22px; border-top: 3px solid #f2d34a; }
+.podium__step[data-rank="2"] { order: 1; border-top: 3px solid #c9ccd6; }
+.podium__step[data-rank="3"] { order: 3; border-top: 3px solid #cd8a4a; }
+.podium__crown { position: absolute; top: -18px; font-size: 16px; color: #f2d34a; }
+.podium__rank { font-size: 11px; color: var(--muted); }
+.podium__name { font-size: 14px; font-weight: 700; }
+.podium__score { font-size: 18px; font-weight: 800; }
+
+/* 押せる札は浮かせて分かりやすく。画面を揺らしすぎないよう控えめに、reduced-motion では止める */
+@media (prefers-reduced-motion: no-preference) {
+  .card--active, [data-theme="card"] .tcgcard.card--active { transition: transform 0.15s ease; }
+  .card--active:hover, [data-theme="card"] .tcgcard.card--active:hover { transform: translateY(-4px); }
+  .pill, .chip, .playercount button { transition: transform 0.1s ease; }
+  .pill:active, .chip:active, .playercount button:active { transform: scale(0.96); }
+}
+
 /* 全画面のオーバーレイは opacity ではなく display: none で隠す */
 
 /* ---- 見た目「シンプル」: 紙色・墨色の2色＋最小限の差し色。種類は形で見分ける ---- */
@@ -207,20 +274,55 @@ button { font: inherit; color: inherit; }
   --frame: #7a5a2e; /* デフォルト（アクション）の枠色。種類ごとに data-type で上書き */
 }
 [data-theme="card"] html, [data-theme="card"] body {
-  background: radial-gradient(ellipse at 50% -10%, #1c5c38 0%, #0e2a1c 60%, #082014 100%);
+  background:
+    radial-gradient(ellipse at 50% -10%, #1c5c38 0%, #0e2a1c 60%, #082014 100%);
 }
+/* フェルトの質感を薄い斜め縞で足す（画像を使わず CSS だけ） */
+[data-theme="card"] .app {
+  background-image: repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.015) 0 2px, transparent 2px 6px);
+}
+[data-theme="card"] body, [data-theme="card"] h1, [data-theme="card"] h2, [data-theme="card"] h3 {
+  font-family: 'Shippori Mincho B1', serif;
+}
+[data-theme="card"] .bar { border-bottom: 1px solid rgba(232, 184, 58, 0.25); padding-bottom: 8px; }
+[data-theme="card"] .bar__title { font-size: 20px; letter-spacing: 0.1em; color: var(--accent); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
 [data-theme="card"] .panel, [data-theme="card"] .hud, [data-theme="card"] .otherCard, [data-theme="card"] .log {
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(20, 46, 32, 0.6), rgba(0, 0, 0, 0.32));
+  border: 1px solid rgba(232, 184, 58, 0.28);
   border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 10px rgba(0, 0, 0, 0.35);
 }
-[data-theme="card"] .log { border-top: 1px solid rgba(255, 255, 255, 0.1); }
-[data-theme="card"] .pill, [data-theme="card"] .playercount button {
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.08);
+[data-theme="card"] .log { border-top: 1px solid rgba(232, 184, 58, 0.28); }
+[data-theme="card"] .pill, [data-theme="card"] .playercount button, [data-theme="card"] .chip {
+  border: 1px solid #5a4218;
+  background: linear-gradient(180deg, #9a7a3e 0%, #6a4e22 100%);
+  color: #f6ecd2;
   border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 2px 4px rgba(0, 0, 0, 0.4);
 }
-[data-theme="card"] .pill--accent { background: var(--accent); color: #2a1c06; border-color: #a8792a; font-weight: 700; }
+[data-theme="card"] .pill--accent, [data-theme="card"] .chip--active, [data-theme="card"] .playercount button.pill--accent {
+  background: linear-gradient(180deg, #ffe49a 0%, #d8a530 60%, #b3841f 100%);
+  color: #2a1c06;
+  border-color: #6e4e12;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+[data-theme="card"] .setupHero__title { color: var(--accent); text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); }
+[data-theme="card"] .setupCard__no { background: linear-gradient(180deg, #ffe49a, #b3841f); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); }
+[data-theme="card"] .phasePill { background: rgba(232, 184, 58, 0.14); border-color: rgba(232, 184, 58, 0.4); color: var(--accent); }
+[data-theme="card"] .medal { border-color: rgba(232, 184, 58, 0.3); background: rgba(0, 0, 0, 0.25); }
+[data-theme="card"] .medal__n { color: var(--accent); }
+[data-theme="card"] .supplyGroup__label { color: var(--accent); letter-spacing: 0.06em; border-bottom: 1px solid rgba(232, 184, 58, 0.25); padding-bottom: 2px; }
+/* 買える札を金色にほのかに光らせる */
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme="card"] .tcgcard.card--active { animation: cardGlow 2.2s ease-in-out infinite; }
+}
+@keyframes cardGlow {
+  0%, 100% { box-shadow: inset 0 0 0 0.15em var(--frame), 0 0 0 2px var(--accent), 0 2px 5px rgba(0, 0, 0, 0.5); }
+  50% { box-shadow: inset 0 0 0 0.15em var(--frame), 0 0 8px 2px var(--accent), 0 2px 5px rgba(0, 0, 0, 0.5); }
+}
+[data-theme="card"] .podium__step { background: linear-gradient(180deg, rgba(20, 46, 32, 0.6), rgba(0, 0, 0, 0.32)); border: 1px solid rgba(232, 184, 58, 0.28); }
+[data-theme="card"] .podium__score { color: var(--accent); }
 
 [data-theme="card"] .tcgcard[data-type="treasure"] { --frame: #9a7418; }
 [data-theme="card"] .tcgcard[data-type="victory"] { --frame: #3d7a4a; }
@@ -368,11 +470,16 @@ button { font: inherit; color: inherit; }
 [data-theme="card"] .cards--hand { flex-wrap: nowrap; overflow-x: auto; padding: 2px; }
 [data-theme="card"] .cards--hand .tcgcard { margin-right: -30px; }
 [data-theme="card"] .cards--hand .tcgcard:last-child { margin-right: 0; }
+/* 選ばれた10種のプレビューも同じように少し重ねて、扇のように見せる */
+[data-theme="card"] .cards--fan { flex-wrap: wrap; }
+[data-theme="card"] .cards--fan .tcgcard { margin-right: -24px; }
 
-/* サプライは横 2 行に並べ、はみ出す分は横にスクロール。カードは大きめ */
-.cards--supply { display: grid; grid-template-rows: repeat(2, auto); grid-auto-flow: column; grid-auto-columns: 130px; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; }
-[data-theme] .cards--supply .card { width: auto; min-height: 84px; font-size: 13px; padding: 8px 10px; }
-[data-theme] .cards--supply .card__name { font-size: 16px; }
-[data-theme] .cards--supply .card__desc { font-size: 12px; }
-[data-theme="card"] .cards--supply { grid-auto-columns: 112px; }
-[data-theme="card"] .cards--supply .tcgcard { width: 100%; min-height: 0; padding: 0.35em; font-size: 10px; }
+/* サプライは種類ごとに見出しを立てて縦に並べ、組ごとの札は横2行・はみ出す分は横スクロール */
+.supply { display: flex; flex-direction: column; gap: 4px; }
+.supplyGroup__label { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
+.supplyGroup__row.cards { display: grid; grid-template-rows: repeat(2, auto); grid-auto-flow: column; grid-auto-columns: 130px; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; }
+[data-theme] .supplyGroup__row .card { width: auto; min-height: 84px; font-size: 13px; padding: 8px 10px; }
+[data-theme] .supplyGroup__row .card__name { font-size: 16px; }
+[data-theme] .supplyGroup__row .card__desc { font-size: 12px; }
+[data-theme="card"] .supplyGroup__row { grid-auto-columns: 112px; }
+[data-theme="card"] .supplyGroup__row .tcgcard { width: 100%; min-height: 0; padding: 0.35em; font-size: 10px; }

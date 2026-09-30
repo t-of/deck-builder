@@ -561,13 +561,27 @@ function renderTurn() {
   const humanControls = isHumanSeat(turnController(game));
   document.getElementById('cpuThinking').hidden = true;
 
+  const PHASE_LABEL = { action: 'アクションフェイズ', buy: '購入フェイズ', night: '夜のフェイズ' };
+  const phasePill = document.getElementById('phasePill');
+  phasePill.textContent = PHASE_LABEL[t.phase] || '';
+  phasePill.dataset.phase = t.phase;
+
   const stats = document.getElementById('stats');
   clear(stats);
-  const vpText = p.tokens.vp > 0 ? ` ／ 勝利点トークン ${p.tokens.vp}` : '';
-  const cofText = p.tokens.coffers > 0 ? ` ／ 財源 ${p.tokens.coffers}` : '';
-  const potText = t.potions > 0 ? ` ／ 霊薬 ${t.potions}` : '';
-  const villText = p.tokens.villagers > 0 ? ` ／ 村人 ${p.tokens.villagers}` : '';
-  stats.appendChild(el('span', { text: `${p.name} ／ アクション ${t.actions} ／ 購入 ${t.buys} ／ 金 ${t.money}${vpText}${cofText}${potText}${villText}` }));
+  stats.appendChild(el('span', { class: 'hud__name', text: p.name }));
+  const medals = el('div', { class: 'medals' });
+  const medal = (label, n) => el('span', { class: 'medal' }, [
+    el('span', { class: 'medal__n', text: String(n) }),
+    el('span', { class: 'medal__label', text: label }),
+  ]);
+  medals.appendChild(medal('アクション', t.actions));
+  medals.appendChild(medal('購入', t.buys));
+  medals.appendChild(medal('金', t.money));
+  if (p.tokens.vp > 0) medals.appendChild(medal('勝利点', p.tokens.vp));
+  if (p.tokens.coffers > 0) medals.appendChild(medal('財源', p.tokens.coffers));
+  if (t.potions > 0) medals.appendChild(medal('霊薬', t.potions));
+  if (p.tokens.villagers > 0) medals.appendChild(medal('村人', p.tokens.villagers));
+  stats.appendChild(medals);
   stats.appendChild(el('span', { class: 'muted', text: `山札 ${p.deck.length}・捨て札 ${p.discard.length}` }));
   stats.appendChild(el('span', { class: 'muted', text: tokenBits(p).join('・') }));
   if (ownerBits(game, game.current).length) stats.appendChild(el('span', { class: 'muted', text: ownerBits(game, game.current).join('・') }));
@@ -630,20 +644,28 @@ function renderTurn() {
 
   const supply = document.getElementById('supply');
   clear(supply);
-  // 基本カード（銅〜災い、あれば白金・新天地）を決まった並びで先に、そのあと王国カード。
-  // がれきの山のように王国の外から増える山は、最後にまとめて出す
+  // 基本の財宝・勝利点（呪いも含む）・王国カードを見出し付きの3組にまとめ、
+  // がれきの山のように王国の外から増える山は最後の組にまとめて出す
   const known = new Set([...BASIC_IDS, ...game.kingdom]);
-  const supplyOrder = [
-    ...BASIC_IDS.filter((id) => game.supply[id] != null),
-    ...game.kingdom.filter((id) => game.supply[id] != null),
-    ...Object.keys(game.supply).filter((id) => !known.has(id)),
+  const basicIds = BASIC_IDS.filter((id) => game.supply[id] != null);
+  const supplyGroups = [
+    ['基本の財宝', basicIds.filter((id) => is(id, 'treasure'))],
+    ['基本の勝利点', basicIds.filter((id) => !is(id, 'treasure'))],
+    ['王国のカード', game.kingdom.filter((id) => game.supply[id] != null)],
+    ['そのほか', Object.keys(game.supply).filter((id) => !known.has(id))],
   ];
-  for (const id of supplyOrder) {
-    const count = game.supply[id];
-    const buyable = humanControls && canBuy(game, id);
-    supply.appendChild(gcNode(id, buyable, () => run(buyCard(game, id), (ok) => { if (ok) soundBuy(); backToTurn(); }), count));
-    // 森の賢者: 対局の始めに脇に置いた 3 つの恵みを、その札の横に並べる
-    if (id === 'druid' && game.druidBoons) for (const b of game.druidBoons) supply.appendChild(gcNode(b, false));
+  for (const [label, ids] of supplyGroups) {
+    if (!ids.length) continue;
+    supply.appendChild(el('h3', { class: 'supplyGroup__label', text: label }));
+    const row = el('div', { class: 'cards supplyGroup__row' });
+    for (const id of ids) {
+      const count = game.supply[id];
+      const buyable = humanControls && canBuy(game, id);
+      row.appendChild(gcNode(id, buyable, () => run(buyCard(game, id), (ok) => { if (ok) soundBuy(); backToTurn(); }), count));
+      // 森の賢者: 対局の始めに脇に置いた 3 つの恵みを、その札の横に並べる
+      if (id === 'druid' && game.druidBoons) for (const b of game.druidBoons) row.appendChild(gcNode(b, false));
+    }
+    supply.appendChild(row);
   }
 
   // イベント・プロジェクト・ランドマークなど（サプライの横に置く札）。買えれば押せる
@@ -846,13 +868,32 @@ function answer(value) {
 // ==================================================================
 function showResult() {
   showScreen('result');
-  const ranking = document.getElementById('ranking');
-  clear(ranking);
-  for (const r of finalResults(game)) {
+  const results = finalResults(game);
+  const scoreText = (r) => {
     const vp = game.players[r.index].tokens.vp;
     const vpText = vp > 0 ? `・うち勝利点トークン ${vp}` : '';
-    ranking.appendChild(el('li', { text: `${r.name} ${r.score}点（${r.turns}手番${vpText}）` }));
-  }
+    return `${r.score}点（${r.turns}手番${vpText}）`;
+  };
+
+  // 上位3人は表彰台に、1位を中央・一番高く（CSS の order で並べ替える）
+  const podium = document.getElementById('podium');
+  clear(podium);
+  const top = results.slice(0, 3);
+  top.forEach((r, i) => {
+    const rank = i + 1;
+    const step = el('div', { class: 'podium__step', 'data-rank': String(rank) });
+    if (rank === 1) step.appendChild(el('span', { class: 'podium__crown', text: '★' }));
+    step.appendChild(el('span', { class: 'podium__rank', text: `${rank}位` }));
+    step.appendChild(el('span', { class: 'podium__name', text: r.name }));
+    step.appendChild(el('span', { class: 'podium__score', text: scoreText(r) }));
+    podium.appendChild(step);
+  });
+
+  const ranking = document.getElementById('ranking');
+  clear(ranking);
+  results.slice(3).forEach((r, i) => {
+    ranking.appendChild(el('li', { text: `${i + 4}位 ${r.name} ${scoreText(r)}` }));
+  });
 }
 document.getElementById('restartBtn').addEventListener('click', () => {
   game = null;

@@ -48,35 +48,46 @@
     <section class="stage" id="stage">
       <!-- 人数・カードの組選び -->
       <div id="setup" class="panel setup">
-        <p class="panel__lead">人数を選んでください</p>
-        <div class="playercount" id="playercount">
-          <button data-n="2">2人</button>
-          <button data-n="3">3人</button>
-          <button data-n="4">4人</button>
+        <div class="setupHero">
+          <p class="setupHero__eyebrow">DECK BUILDER TAVERN</p>
+          <h2 class="setupHero__title">卓を整える</h2>
         </div>
 
-        <p class="panel__lead">席を選んでください</p>
-        <div class="setupSection" id="seatsBox"></div>
-        <div class="setupSection" id="speedBox" hidden></div>
-
-        <p class="panel__lead">遊ぶカードの組を選んでください</p>
-        <div class="tabs" id="modeTabs">
-          <button data-mode="preset">おすすめ</button>
-          <button data-mode="random">おまかせ</button>
-          <button data-mode="custom">自分で選ぶ</button>
+        <div class="hud setupCard">
+          <p class="setupCard__title"><span class="setupCard__no">1</span>人数を選んでください</p>
+          <div class="playercount" id="playercount">
+            <button data-n="2">2人</button>
+            <button data-n="3">3人</button>
+            <button data-n="4">4人</button>
+          </div>
         </div>
-        <div id="modePane"></div>
 
-        <p class="sectionLabel" id="previewLabel">選ばれた10種（タップで説明）</p>
-        <div class="cards" id="kingdomPreview"></div>
-        <p class="sectionLabel" id="landscapePreviewLabel" hidden>選んだイベントなど</p>
-        <div class="cards" id="landscapePreview"></div>
-        <button class="pill pill--accent" id="startBtn" disabled>始める</button>
+        <div class="hud setupCard">
+          <p class="setupCard__title"><span class="setupCard__no">2</span>席を選んでください</p>
+          <div class="setupSection" id="seatsBox"></div>
+          <div class="setupSection" id="speedBox" hidden></div>
+        </div>
+
+        <div class="hud setupCard">
+          <p class="setupCard__title"><span class="setupCard__no">3</span>遊ぶカードの組を選んでください</p>
+          <div class="tabs" id="modeTabs">
+            <button data-mode="preset">おすすめ</button>
+            <button data-mode="random">おまかせ</button>
+            <button data-mode="custom">自分で選ぶ</button>
+          </div>
+          <div id="modePane"></div>
+
+          <p class="sectionLabel" id="previewLabel">選ばれた10種（タップで説明）</p>
+          <div class="cards cards--fan" id="kingdomPreview"></div>
+          <p class="sectionLabel" id="landscapePreviewLabel" hidden>選んだイベントなど</p>
+          <div class="cards" id="landscapePreview"></div>
+        </div>
+        <button class="pill pill--accent pill--start" id="startBtn" disabled>始める</button>
       </div>
 
       <!-- 手番を渡す画面 -->
       <div id="pass" class="panel" hidden>
-        <p class="panel__lead" id="passLabel"></p>
+        <p class="panel__lead panel__lead--pass" id="passLabel"></p>
         <button class="pill pill--accent" id="passBtn">見る</button>
       </div>
 
@@ -84,6 +95,7 @@
       <div id="game" class="game" hidden>
         <div class="othersRow" id="othersRow"></div>
         <div class="hud">
+          <p class="phasePill" id="phasePill"></p>
           <div class="hud__stats" id="stats"></div>
           <div class="hud__buttons" id="turnButtons"></div>
         </div>
@@ -93,7 +105,7 @@
         <div class="othersRow" id="matsRow"></div>
         <p class="sectionLabel" id="trashLabel"></p>
         <p class="sectionLabel">サプライ</p>
-        <div class="cards cards--supply" id="supply"></div>
+        <div class="supply" id="supply"></div>
         <p class="sectionLabel" id="landscapesLabel" hidden>イベントなど</p>
         <div class="cards" id="landscapes"></div>
         <p class="sectionLabel" id="nonSupplyLabel" hidden>サプライ外</p>
@@ -115,7 +127,8 @@
 
       <!-- 結果画面 -->
       <div id="result" class="panel" hidden>
-        <p class="panel__lead">結果</p>
+        <p class="panel__lead">結果発表</p>
+        <div class="podium" id="podium"></div>
         <ol id="ranking" class="ranking"></ol>
         <button class="pill pill--accent" id="restartBtn">もう一度遊ぶ</button>
       </div>
