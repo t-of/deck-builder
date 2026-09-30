@@ -122,8 +122,10 @@ function junkScore(game, pi, id) {
 // ---- 問いへの答え ----
 const BAD_DIR = /捨て(?!札から)|廃棄|渡す|追放|手放|戻す（しなくてもよい）|山に戻す/;
 const GOOD_TO_OTHER = /獲得させる|させる 1 枚|捨てさせる/;
-function wantedDirection(q) {
+function wantedDirection(q, game) {
   const s = q.purpose || '';
+  // 他の人の手番に、自分の札を山札の上に置かされる（徴税官など）→ 要らない札を置く
+  if (/山札の上に置く/.test(s) && game && q.player !== game.current) return 'junk';
   if (/獲得させる/.test(s)) return 'worstForThem'; // 相手に渡る札は安いものを
   if (/捨てさせる|廃棄する 1 枚（.*財宝|財宝から廃棄/.test(s) && q.player !== q.owner) return 'bestOfTheirs';
   if (/の財宝から/.test(s)) return 'bestOfTheirs';
@@ -153,7 +155,7 @@ function answerPick(game, q, ids, positions, level) {
     const k = q.min + rnd(Math.min(q.max - q.min, 2) + 1);
     return [...positions].sort(() => Math.random() - 0.5).slice(0, k);
   }
-  const dir = wantedDirection(q);
+  const dir = wantedDirection(q, game);
   const ranked = rankIds(game, q.owner ?? pi, ids, dir);
   // 選ばなくてもよいとき: 要らない札・良い札だけを選ぶ
   let k = q.min;
@@ -225,7 +227,7 @@ export function answer(game, q, level = 'strong') {
   if (q.type === 'cards') return answerPick(game, q, q.cards, q.cards.map((_, i) => i), level);
   if (q.type === 'supply') {
     if (level === 'weak') return q.optional && Math.random() < 0.2 ? null : pick(q.options);
-    const dir = wantedDirection(q);
+    const dir = wantedDirection(q, game);
     if (/印を置く|借金を 2 つ置く|指定する/.test(q.purpose)) {
       return [...q.options].sort((a, b) => costOf(game, b) - costOf(game, a))[0];
     }
@@ -453,7 +455,9 @@ export function planFor(game, pi, level) {
     }
     return played ? win / played : 0;
   };
-  let results = candidates(game).map((plan) => ({ plan, s: score(plan) }));
+  // 効果の読める札の見積もり（targetCard）で選んだ札は、自己対局の数が少なくてぶれるぶんを少し足しておく
+  const guess = targetCard(game);
+  let results = candidates(game).map((plan) => ({ plan, s: score(plan) + (guess && plan[0].pile === guess.pile ? 0.1 : 0) }));
   results.sort((a, b) => b.s - a.s);
   // さいきょう: 上位 6 つをもっと多く試し直し、上位 3 つの組み合わせも試す
   if (level === 'expert' && results.length) {
