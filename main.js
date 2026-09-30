@@ -9,10 +9,17 @@ import './cards-hinterlands.js';
 import './cards-guilds.js';
 import './cards-alchemy.js';
 import './cards-darkages.js';
+import './cards-adventures.js';
+import './cards-empires.js';
+import './cards-nocturne.js';
+import './cards-renaissance.js';
+import './cards-menagerie.js';
+import './cards-promo.js';
 import {
-  CARDS, SETS, PRESETS, BASIC_IDS, kingdomPool, randomKingdom, styleType, costOf, is,
+  CARDS, SETS, PRESETS, BASIC_IDS, kingdomPool, randomKingdom, styleType, costOf, is, pileOf, isLandscape,
   newGame, currentPlayer, turnController, playAction, playTreasureGen, playAllTreasures,
-  startBuyPhase, canBuy, buyCard, beginTurn, endTurn, spendCoffers, finalResults,
+  enterBuyPhase, canBuy, buyCard, beginTurn, endTurn, spendCoffers, payDebt, finalResults,
+  landscapePool, canBuyEvent, buyEvent, enterNightPhase, canPlayNight, playNight, spendVillager,
 } from './engine.js';
 
 // localStorage はほかのアプリと共有される（同じ t-of.github.io のため）。
@@ -95,8 +102,17 @@ function el(tag, props = {}, children = []) {
 const clear = (node) => { while (node.firstChild) node.removeChild(node.firstChild); };
 
 // 種類の帯の文言（CARDS[id].types から組み立てる）
-const TYPE_WORD = { treasure: '財宝', victory: '勝利点', curse: '呪い', action: 'アクション', attack: 'アタック', reaction: 'リアクション' };
+const TYPE_WORD = {
+  treasure: '財宝', victory: '勝利点', curse: '呪い', action: 'アクション', attack: 'アタック', reaction: 'リアクション',
+  reserve: 'リザーブ', traveller: 'トラベラー', event: 'イベント', duration: '持続',
+  night: '夜行', fate: '幸運', doom: '不運', heirloom: '家宝', spirit: '精霊', zombie: '屍', boon: '恵み', hex: '呪詛', state: '状態',
+  project: 'プロジェクト', artifact: 'アーティファクト', command: '命令', landmark: 'ランドマーク', way: 'ならい',
+};
 const typeLabel = (id) => CARDS[id].types.map((t) => TYPE_WORD[t] || t).join('・');
+// マット（p.mats の項目名）の日本語名
+const MAT_LABEL = { tavern: '酒場マット', exile: '追放' };
+// 他の人にも中身を見せるマット（それ以外は枚数だけ）
+const PUBLIC_MATS = ['tavern', 'exile'];
 
 const screens = {
   setup: document.getElementById('setup'),
@@ -120,11 +136,15 @@ let selected = new Set();
 // badge: 印の数・厄よけなど、右上・左上に小さく出す文言
 function cardNode(id, clickable, onClick, count, cost, badge) {
   const card = CARDS[id];
-  const type = styleType(id);
+  // styleType はイベント・ランドマークや夜行を知らないので、ここで上書きする
+  let type = styleType(id);
+  if (card.types.includes('night')) type = 'night';
+  else if (isLandscape(id)) type = 'event';
   const showCost = cost != null ? cost : card.cost;
   const discounted = showCost !== card.cost;
   const costClass = `card__cost${discounted ? ' card__cost--down' : ''}`;
   const potionText = card.potion ? ` ⚗${card.potion > 1 ? `×${card.potion}` : ''}` : '';
+  const debtText = card.debt ? ` 借${card.debt}` : '';
   const node = el('button', { class: `card${clickable ? ' card--active' : ''}`, 'data-type': type });
   if (theme === 'pixel' && window.PixelCards) {
     node.style.borderColor = window.PixelCards.frameColor(type);
@@ -150,7 +170,7 @@ function cardNode(id, clickable, onClick, count, cost, badge) {
     if (card.desc) body.appendChild(el('span', { class: 'tcgcard__sub', text: card.desc }));
     node.appendChild(body);
     node.appendChild(el('div', { class: 'tcgcard__bottom' }, [
-      el('span', { class: `tcgcard__cost${discounted ? ' tcgcard__cost--down' : ''}`, text: `${showCost}${potionText}` }),
+      el('span', { class: `tcgcard__cost${discounted ? ' tcgcard__cost--down' : ''}`, text: `${showCost}${potionText}${debtText}` }),
       el('span', { class: 'tcgcard__type', text: typeLabel(id) }),
     ]));
     if (count != null) node.appendChild(el('span', { class: 'tcgcard__count', text: `残り${count}` }));
@@ -163,7 +183,7 @@ function cardNode(id, clickable, onClick, count, cost, badge) {
     node.appendChild(el('span', { class: 'card__icon' }));
   }
   node.appendChild(el('span', { class: 'card__name', text: card.name }));
-  node.appendChild(el('span', { class: costClass, text: `コスト${showCost}${potionText}` }));
+  node.appendChild(el('span', { class: costClass, text: `コスト${showCost}${potionText}${debtText}` }));
   if (count != null) node.appendChild(el('span', { class: 'card__count', text: `残り${count}` }));
   if (badge) node.appendChild(el('span', { class: 'card__count', text: badge }));
   if (card.main) node.appendChild(el('span', { class: 'card__desc', text: card.main }));
@@ -173,6 +193,8 @@ function cardNode(id, clickable, onClick, count, cost, badge) {
   });
   return node;
 }
+// 山に置かれた印（tokens.pile）の文言
+const PILE_LABEL = { card: '+1カード', action: '+1アクション', buy: '+1購入', coin: '+1金', cost: '-2コスト', trash: '廃棄' };
 // 対局中のカード（コストは costOf で、下がっていれば見た目でわかる。サプライの印・厄よけがあれば添える）。
 // id が重なった山（game.stacks）なら、絵・名前・文言は一番上の札のものを出す（買う・残り枚数は id のまま）
 function gcNode(id, clickable, onClick, count) {
@@ -182,6 +204,16 @@ function gcNode(id, clickable, onClick, count) {
   const badges = [];
   if (game.embargo[id]) badges.push(`印×${game.embargo[id]}`);
   if (game.bane === id) badges.push('厄よけ');
+  if (game.pileVP && game.pileVP[id] > 0) badges.push(`★${game.pileVP[id]}`);
+  if (game.pileDebt && game.pileDebt[id] > 0) badges.push(`借${game.pileDebt[id]}`);
+  if (game.landmarkVP && game.landmarkVP[id] > 0) badges.push(`★${game.landmarkVP[id]}`);
+  if (id === 'darkmarket' && game.blackMarket) badges.push(`闇の市 残り${game.blackMarket.length}枚`);
+  game.players.forEach((pl, i) => {
+    for (const [key, pile] of Object.entries(pl.tokens.pile || {})) {
+      if (pile === pileOf(id)) badges.push(`${i + 1}人目: ${PILE_LABEL[key] || key}`);
+    }
+    if ((pl.projects || []).includes(id)) badges.push(`${i + 1}人目`);
+  });
   return cardNode(displayId, clickable, onClick, count, costOf(game, id), badges.join(' ') || null);
 }
 // カードの id を名前・枚数でまとめた短い文言（マットの中身など）
@@ -189,6 +221,32 @@ function counts(ids) {
   const m = new Map();
   for (const id of ids) m.set(id, (m.get(id) || 0) + 1);
   return [...m.entries()].map(([id, n]) => `${CARDS[id].name}${n > 1 ? `×${n}` : ''}`).join('・');
+}
+// 旅の印・-1金/-1カードの印の文言
+function tokenBits(p) {
+  const bits = [`旅の印:${p.tokens.journey ? '表' : '裏'}`];
+  if (p.tokens.minusCoin) bits.push('-1金の印');
+  if (p.tokens.minusCard) bits.push('-1カードの印');
+  if (p.tokens.debt > 0) bits.push(`借金 ${p.tokens.debt}`);
+  return bits;
+}
+// 状態・持っているアーティファクトの文言（席番号 pi）
+function ownerBits(g, pi) {
+  const p = g.players[pi];
+  const bits = p.states.map((id) => CARDS[id].name);
+  for (const [id, owner] of Object.entries(g.artifacts || {})) if (owner === pi) bits.push(CARDS[id].name);
+  return bits;
+}
+// 恵み・呪詛の山（残り枚数のボタン。タップで捨て札の一番上の名前と入れ替えて見られる）
+function pileButton(label, pile) {
+  let peek = false;
+  const node = el('button', { class: 'pill', text: `${label} ${pile.deck.length}枚` });
+  node.addEventListener('click', () => {
+    peek = !peek;
+    const top = pile.discard.at(-1);
+    node.textContent = peek ? `捨て札: ${top ? CARDS[top].name : 'なし'}` : `${label} ${pile.deck.length}枚`;
+  });
+  return node;
 }
 
 function rerender() {
@@ -201,8 +259,12 @@ function rerender() {
 // 人数・カードの組を選ぶ画面
 // ==================================================================
 const ALL_KINGDOM = kingdomPool();
+const ALL_LANDSCAPES = landscapePool();
 function validKingdom(arr) {
   return Array.isArray(arr) && arr.length === 10 && new Set(arr).size === 10 && arr.every((id) => ALL_KINGDOM.includes(id)) ? arr : null;
+}
+function validLandscapes(arr) {
+  return (Array.isArray(arr) ? arr : []).filter((id) => ALL_LANDSCAPES.includes(id)).slice(0, 2);
 }
 
 let players = [2, 3, 4].includes(load('players', 2)) ? load('players', 2) : 2;
@@ -212,6 +274,11 @@ let selectedSets = new Set((Array.isArray(load('sets', null)) ? load('sets', nul
 if (!selectedSets.size) for (const s of SETS) selectedSets.add(s.id);
 let customPicked = (Array.isArray(load('custom', null)) ? load('custom', null) : []).filter((id) => ALL_KINGDOM.includes(id)).slice(0, 10);
 let kingdom = validKingdom(load('kingdom', null)) || (PRESETS[0] ? [...PRESETS[0].cards] : randomKingdom(ALL_KINGDOM));
+// イベントなど（サプライの横に置く札）。おすすめ・おまかせで使う landscapes と、自分で選ぶ用の customLandscapes は別に持つ
+let landscapesOn = typeof load('landscapesOn', true) === 'boolean' ? load('landscapesOn', true) : true;
+let landscapes = validLandscapes(load('landscapes', null));
+if (!load('landscapes', null) && PRESETS[0] && PRESETS[0].landscapes) landscapes = [...PRESETS[0].landscapes];
+let customLandscapes = validLandscapes(load('customLandscapes', null));
 
 function persistSetup() {
   save('players', players);
@@ -220,10 +287,16 @@ function persistSetup() {
   save('sets', [...selectedSets]);
   save('custom', customPicked);
   save('kingdom', kingdom);
+  save('landscapesOn', landscapesOn);
+  save('landscapes', landscapes);
+  save('customLandscapes', customLandscapes);
 }
 
 function activeKingdom() {
   return mode === 'custom' ? (customPicked.length === 10 ? customPicked : null) : kingdom;
+}
+function activeLandscapes() {
+  return mode === 'custom' ? customLandscapes : landscapes;
 }
 
 function renderSetup() {
@@ -249,6 +322,12 @@ function renderSetup() {
     ? `選んだカード（${customPicked.length}/10・タップで説明）`
     : '選ばれた10種（タップで説明）';
 
+  const lands = activeLandscapes();
+  document.getElementById('landscapePreviewLabel').hidden = lands.length === 0;
+  const landPreview = document.getElementById('landscapePreview');
+  clear(landPreview);
+  for (const id of lands) landPreview.appendChild(gcNode(id, false));
+
   const startBtn = document.getElementById('startBtn');
   startBtn.disabled = !activeKingdom();
 }
@@ -262,7 +341,7 @@ function renderPresetPane() {
       row.appendChild(el('button', {
         class: `pill${presetId === pr.id ? ' pill--accent' : ''}`,
         text: pr.name,
-        onclick: () => { presetId = pr.id; kingdom = [...pr.cards]; persistSetup(); renderSetup(); },
+        onclick: () => { presetId = pr.id; kingdom = [...pr.cards]; landscapes = pr.landscapes ? [...pr.landscapes] : []; persistSetup(); renderSetup(); },
       }));
     }
     group.appendChild(row);
@@ -286,12 +365,19 @@ function renderRandomPane() {
     }));
   }
   box.appendChild(row);
+  box.appendChild(el('button', {
+    class: `chip${landscapesOn ? ' chip--active' : ''}`,
+    text: 'イベントなどを入れる',
+    onclick: () => { landscapesOn = !landscapesOn; reroll(); },
+  }));
   box.appendChild(el('button', { class: 'pill pill--accent', text: '引き直し', onclick: reroll }));
   return box;
 }
 function reroll() {
   const pool = kingdomPool([...selectedSets]);
   kingdom = randomKingdom(pool.length >= 10 ? pool : ALL_KINGDOM);
+  const lpool = landscapePool([...selectedSets]);
+  landscapes = landscapesOn ? randomKingdom(lpool, Math.floor(Math.random() * 3)) : [];
   persistSetup();
   renderSetup();
 }
@@ -311,6 +397,21 @@ function renderCustomPane() {
     grid.appendChild(node);
   }
   box.appendChild(grid);
+
+  box.appendChild(el('h3', { class: 'sectionLabel', text: `イベントなど（${customLandscapes.length}/2まで・任意）` }));
+  const landGrid = el('div', { class: 'customGrid' });
+  for (const id of ALL_LANDSCAPES) {
+    const picked = customLandscapes.includes(id);
+    const node = gcNode(id, true, () => {
+      if (picked) customLandscapes = customLandscapes.filter((x) => x !== id);
+      else if (customLandscapes.length < 2) customLandscapes.push(id);
+      persistSetup();
+      renderSetup();
+    });
+    node.classList.toggle('card--picked', picked);
+    landGrid.appendChild(node);
+  }
+  box.appendChild(landGrid);
   return box;
 }
 
@@ -333,7 +434,7 @@ document.getElementById('startBtn').addEventListener('click', () => {
   if (!k) return;
   kingdom = k;
   persistSetup();
-  game = newGame(players, kingdom);
+  game = newGame(players, kingdom, null, { landscapes: activeLandscapes() });
   startTurnPass();
 });
 
@@ -364,8 +465,12 @@ function renderTurn() {
   const vpText = p.tokens.vp > 0 ? ` ／ 勝利点トークン ${p.tokens.vp}` : '';
   const cofText = p.tokens.coffers > 0 ? ` ／ 財源 ${p.tokens.coffers}` : '';
   const potText = t.potions > 0 ? ` ／ 霊薬 ${t.potions}` : '';
-  stats.appendChild(el('span', { text: `${p.name} ／ アクション ${t.actions} ／ 購入 ${t.buys} ／ 金 ${t.money}${vpText}${cofText}${potText}` }));
+  const villText = p.tokens.villagers > 0 ? ` ／ 村人 ${p.tokens.villagers}` : '';
+  stats.appendChild(el('span', { text: `${p.name} ／ アクション ${t.actions} ／ 購入 ${t.buys} ／ 金 ${t.money}${vpText}${cofText}${potText}${villText}` }));
   stats.appendChild(el('span', { class: 'muted', text: `山札 ${p.deck.length}・捨て札 ${p.discard.length}` }));
+  stats.appendChild(el('span', { class: 'muted', text: tokenBits(p).join('・') }));
+  if (ownerBits(game, game.current).length) stats.appendChild(el('span', { class: 'muted', text: ownerBits(game, game.current).join('・') }));
+  if (t.phase === 'buy' && t.noBuy) stats.appendChild(el('span', { class: 'muted', text: 'この手番は買えない' }));
   if (game.controller != null) stats.appendChild(el('span', { class: 'muted', text: `${game.players[game.controller].name}が操作中` }));
 
   document.getElementById('trashLabel').textContent = `廃棄置き場 ${game.trash.length} 枚`;
@@ -374,21 +479,37 @@ function renderTurn() {
   clear(others);
   game.players.forEach((op, i) => {
     if (i === game.current) return;
-    const bits = [`手札 ${op.hand.length}`, `山 ${op.deck.length}`];
+    const bits = [`手札 ${op.hand.length}`, `山 ${op.deck.length}`, ...tokenBits(op), ...ownerBits(game, i)];
     if (op.tokens.vp > 0) bits.push(`勝利点 ${op.tokens.vp}`);
     if (op.tokens.coffers > 0) bits.push(`財源 ${op.tokens.coffers}`);
-    for (const [name, ids] of Object.entries(op.mats)) if (ids.length) bits.push(`${name} ${ids.length}枚`);
+    if (op.tokens.villagers > 0) bits.push(`村人 ${op.tokens.villagers}`);
+    // 酒場マット・追放は他の人のも中身を見せる。ほかのマットは枚数だけ
+    for (const [name, ids] of Object.entries(op.mats)) {
+      if (!ids.length) continue;
+      bits.push(PUBLIC_MATS.includes(name) ? `${MAT_LABEL[name]}：${counts(ids)}` : `${MAT_LABEL[name] || name} ${ids.length}枚`);
+    }
     others.appendChild(el('div', { class: 'otherCard', text: `${op.name}：${bits.join('・')}` }));
   });
 
   const buttons = document.getElementById('turnButtons');
   clear(buttons);
   if (t.phase === 'action') {
-    buttons.appendChild(el('button', { class: 'pill pill--accent', text: '購入フェイズへ', onclick: () => { startBuyPhase(game); renderTurn(); } }));
+    if (p.tokens.villagers > 0) {
+      buttons.appendChild(el('button', { class: 'pill', text: `村人を使う（残り${p.tokens.villagers}）`, onclick: () => { spendVillager(game); renderTurn(); } }));
+    }
+    buttons.appendChild(el('button', { class: 'pill pill--accent', text: '購入フェイズへ', onclick: () => run(enterBuyPhase(game)) }));
   } else {
-    buttons.appendChild(el('button', { class: 'pill', text: '財宝をまとめて出す', onclick: () => { playAllTreasures(game); renderTurn(); } }));
-    if (p.tokens.coffers > 0) {
-      buttons.appendChild(el('button', { class: 'pill', text: `財源を使う（残り${p.tokens.coffers}）`, onclick: () => { spendCoffers(game, 1); renderTurn(); } }));
+    if (t.phase === 'buy') {
+      buttons.appendChild(el('button', { class: 'pill', text: '財宝をまとめて出す', onclick: () => { playAllTreasures(game); renderTurn(); } }));
+      if (p.tokens.coffers > 0) {
+        buttons.appendChild(el('button', { class: 'pill', text: `財源を使う（残り${p.tokens.coffers}）`, onclick: () => { spendCoffers(game, 1); renderTurn(); } }));
+      }
+      if (p.tokens.debt > 0) {
+        buttons.appendChild(el('button', { class: 'pill', text: `借金を返す（残り${p.tokens.debt}）`, onclick: () => { payDebt(game); renderTurn(); } }));
+      }
+      if (p.hand.some((id) => is(id, 'night'))) {
+        buttons.appendChild(el('button', { class: 'pill', text: '夜のフェイズへ', onclick: () => { enterNightPhase(game); renderTurn(); } }));
+      }
     }
     buttons.appendChild(el('button', { class: 'pill pill--accent', text: '手番を終える', onclick: onEndTurn }));
   }
@@ -401,7 +522,7 @@ function renderTurn() {
   const mats = document.getElementById('matsRow');
   clear(mats);
   for (const [name, ids] of Object.entries(p.mats)) {
-    if (ids.length) mats.appendChild(el('div', { class: 'otherCard', text: `${name}：${counts(ids)}` }));
+    if (ids.length) mats.appendChild(el('div', { class: 'otherCard', text: `${MAT_LABEL[name] || name}：${counts(ids)}` }));
   }
 
   const supply = document.getElementById('supply');
@@ -418,7 +539,20 @@ function renderTurn() {
     const count = game.supply[id];
     const buyable = canBuy(game, id);
     supply.appendChild(gcNode(id, buyable, () => run(buyCard(game, id), (ok) => { if (ok) soundBuy(); backToTurn(); }), count));
+    // 森の賢者: 対局の始めに脇に置いた 3 つの恵みを、その札の横に並べる
+    if (id === 'druid' && game.druidBoons) for (const b of game.druidBoons) supply.appendChild(gcNode(b, false));
   }
+
+  // イベント・プロジェクト・ランドマークなど（サプライの横に置く札）。買えれば押せる
+  document.getElementById('landscapesLabel').hidden = game.landscapes.length === 0 && !game.boons && !game.hexes;
+  const landscapesBox = document.getElementById('landscapes');
+  clear(landscapesBox);
+  for (const id of game.landscapes) {
+    const buyable = t.phase === 'buy' && canBuyEvent(game, id);
+    landscapesBox.appendChild(gcNode(id, buyable, () => run(buyEvent(game, id), (ok) => { if (ok) soundBuy(); backToTurn(); })));
+  }
+  if (game.boons) landscapesBox.appendChild(pileButton('恵みの山', game.boons));
+  if (game.hexes) landscapesBox.appendChild(pileButton('呪詛の山', game.hexes));
 
   // サプライ外の山（褒賞・賞品など）。買えない、タップで説明だけ
   const nonSupplyIds = Object.keys(game.nonSupply).filter((id) => game.nonSupply[id] > 0);
@@ -432,8 +566,10 @@ function renderTurn() {
   p.hand.forEach((id) => {
     const playableAction = t.phase === 'action' && t.actions > 0 && is(id, 'action');
     const playableTreasure = t.phase === 'buy' && is(id, 'treasure');
+    const playableNight = t.phase === 'night' && canPlayNight(game, id);
     const onClick = playableAction ? () => run(playAction(game, id))
       : playableTreasure ? () => run(playTreasureGen(game, id))
+      : playableNight ? () => run(playNight(game, id))
       : null;
     hand.appendChild(gcNode(id, !!onClick, onClick));
   });

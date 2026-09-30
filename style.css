@@ -159,6 +159,9 @@ button { font: inherit; color: inherit; }
 [data-theme="simple"] .card[data-type="curse"] .card__icon { clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%); background: #8a4ab8; }
 [data-theme="simple"] .card[data-type="treasure-victory"] .card__icon { border-radius: 50%; background: #caa53a; }
 [data-theme="simple"] .card[data-type="action-victory"] .card__icon { clip-path: none; background: #3d7a4a; }
+[data-theme="simple"] .card[data-type="event"] .card__icon { clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); background: #8a8f98; }
+[data-theme="simple"] .card[data-type="duration"] .card__icon { clip-path: none; background: #d0762a; }
+[data-theme="simple"] .card[data-type="night"] .card__icon { clip-path: none; background: #2b2f5a; }
 
 /* ---- 見た目「ドット絵」: RPG の窓のような枠、ドット文字、角ばったボタン ---- */
 [data-theme="pixel"] { --bg: #14162b; --fg: #f4f0e0; --muted: #9aa0c0; --accent: #f2d45c; --panel: #1e2244; --ink: #2a2018; }
@@ -190,6 +193,9 @@ button { font: inherit; color: inherit; }
 [data-theme="pixel"] .card[data-type="curse"] { border-color: #8a4ab8 !important; }
 [data-theme="pixel"] .card[data-type="treasure-victory"] { border-color: #caa53a !important; }
 [data-theme="pixel"] .card[data-type="action-victory"] { border-color: #4a8a5c !important; }
+[data-theme="pixel"] .card[data-type="event"] { border-color: #8a8f98 !important; }
+[data-theme="pixel"] .card[data-type="duration"] { border-color: #d0762a !important; }
+[data-theme="pixel"] .card[data-type="night"] { border-color: #2b2f5a !important; }
 
 /* ---- 見た目「カード」: 羊皮紙のトレーディングカードのような 1 枚絵。絵は art/*.png（ドット絵） ----
    大きさはすべて em で組み、.tcgcard の font-size だけで拡大縮小する（小さい手札・サプライ用と、
@@ -222,6 +228,9 @@ button { font: inherit; color: inherit; }
 [data-theme="card"] .tcgcard[data-type="curse"] { --frame: #8a4ab8; }
 [data-theme="card"] .tcgcard[data-type="treasure-victory"] { --frame: #caa53a; }
 [data-theme="card"] .tcgcard[data-type="action-victory"] { --frame: #4a8a5c; }
+[data-theme="card"] .tcgcard[data-type="event"] { --frame: #8a8f98; }
+[data-theme="card"] .tcgcard[data-type="duration"] { --frame: #d0762a; }
+[data-theme="card"] .tcgcard[data-type="night"] { --frame: #2b2f5a; }
 
 [data-theme="card"] .tcgcard {
   position: relative;
