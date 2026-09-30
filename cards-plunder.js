@@ -308,7 +308,7 @@ const E = ['event'];
 const events = [
   { id: 'pe_bury', name: '埋め戻し', types: E, cost: 1, main: '+1 購入', desc: '捨て札の札を 1 枚、山札の一番下に置く',
     *buy(g, p, pi) { g.turn.buys += 1; const [i] = yield* askCards(g, pi, '山札の下に置く 1 枚', [...p.discard], 1, 1); if (i != null) p.deck.unshift(p.discard.splice(i, 1)[0]); } },
-  { id: 'pe_avoid', name: '避け', types: E, cost: 2, main: '+1 購入', desc: 'この手番、次に山札を混ぜるとき、3 枚までを捨て札に残す（ponytail: 混ぜるときの効果はまだない。+1 購入だけ）', *buy(g) { g.turn.buys += 1; } },
+  { id: 'pe_avoid', name: '避け', types: E, cost: 2, main: '+1 購入', desc: 'この手番、次に山札を混ぜるとき、3 枚までを捨て札に残す（要らない札を自動で選ぶ）', *buy(g, p) { g.turn.buys += 1; p.tokens.avoid = (p.tokens.avoid || 0) + 3; } },
   { id: 'pe_deliver', name: '届け物', types: E, cost: 2, main: '+1 購入', desc: 'この手番、獲得した札を脇に置き、手番の終わりに手札に入れる', *buy(g) { g.turn.buys += 1; g.turn.deliver = true; } },
   { id: 'pe_peril', name: '危うさ', types: E, cost: 2, main: 'アクションを\n戦利品に', desc: '手札のアクションを 1 枚廃棄してよい。そうしたら戦利品を獲得する',
     *buy(g, p, pi) { const [i] = yield* askHand(g, pi, '廃棄するアクション（しなくてもよい）', 0, 1, (id) => is(id, 'action')); if (i != null) { yield* trashCards(g, p, takeFromHand(p, [i])); yield* loot(g, pi); } } },
@@ -370,6 +370,7 @@ const traits = [
   trait('t_cheap', 'お手頃な', 'コスト -1', 'この山の札はコストが 1 下がる'),
   trait('t_cursed', '呪わしい', '戦利品と災い', 'この山の札を獲得したとき、戦利品と災いを獲得する'),
   trait('t_fawning', '媚びる', '領地で獲得', '領地を獲得したとき、この山の札を獲得する'),
+  trait('t_fated', '運命の', '混ぜると一番上', '山札を混ぜたとき、この山の札を山札の一番上に置く（ponytail: 一番上か一番下かを選べず、上に置く）'),
   trait('t_friendly', '人なつこい', '捨てて獲得', '片付けの始めに、この山の札を 1 枚捨てて、同じ札を獲得してよい'),
   trait('t_hasty', '気の早い', '次の手番に使う', 'この山の札を獲得したとき、脇に置き、次の手番の始めに使う'),
   trait('t_inherited', '代々の', '初めのデッキに', '対局の始めに、初めのデッキの小屋 1 枚がこの山の札に替わる'),
@@ -403,6 +404,18 @@ HOOKS.setup.push((g) => {
   }
 });
 HOOKS.cost.push((g, id) => (g.traits && hasTrait(g, 't_cheap', id) ? 1 : 0));
+// 山札を混ぜたとき: 運命の札は一番上へ。避けは要らない札（災い・勝利点）を 3 枚まで捨て札に残す
+HOOKS.shuffle.push((p, g) => {
+  if (g && g.traits.t_fated) {
+    const fated = p.deck.filter((id) => pileOf(id) === g.traits.t_fated);
+    if (fated.length) p.deck = [...p.deck.filter((id) => pileOf(id) !== g.traits.t_fated), ...fated];
+  }
+  if (p.tokens.avoid > 0) {
+    const junk = p.deck.map((id, i) => ({ id, i })).filter((x) => x.id === 'curse' || (is(x.id, 'victory') && !is(x.id, 'action') && !is(x.id, 'treasure'))).slice(0, p.tokens.avoid);
+    for (const x of [...junk].reverse()) p.discard.push(...p.deck.splice(x.i, 1));
+    p.tokens.avoid = 0;
+  }
+});
 HOOKS.gain.push(function* (g, got) {
   const pi = got.pi;
   const p = g.players[pi];

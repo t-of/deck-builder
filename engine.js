@@ -36,7 +36,8 @@ export function defineCards(setInfo, list, presets = []) {
 // buyPhase: 購入フェイズの始め (game)。endTurn: 片付けの前 (game)
 // afterCleanup: 片付けで 5 枚引いたあと (game, player, pi)。turnStart: 手番の始め、持続のあと (game, player, pi)
 // afterAction: 手札のアクションを使い終えたあと (game, id)
-export const HOOKS = { gain: [], treasure: [], setup: [], trash: [], play: [], cost: [], buy: [], buyPhase: [], endTurn: [], afterCleanup: [], turnStart: [], afterAction: [] };
+// shuffle: 山札を混ぜた直後 (player, game)。問いは出せない（混ぜるのは引く途中なので）
+export const HOOKS = { gain: [], treasure: [], setup: [], trash: [], play: [], cost: [], buy: [], buyPhase: [], endTurn: [], afterCleanup: [], turnStart: [], afterAction: [], shuffle: [] };
 // 札がどの山のものか（重なった山の札は山の id）
 export const pileOf = (id) => CARDS[id].pile || id;
 
@@ -126,6 +127,8 @@ export function newGame(numPlayers, kingdom, names, opts = {}) {
     over: false,
     log: [`${players[0].name}の番です。`],
   };
+  // プレイヤーから対局をたどれるように（混ぜるときの決まりが対局を見るため。JSON には出ない）
+  for (const p of players) Object.defineProperty(p, 'game', { value: game, enumerable: false });
   for (const c of Object.values(CARDS)) if (c.reset) c.reset();
   for (const h of HOOKS.setup) h(game);
   return game;
@@ -154,6 +157,7 @@ export function takeTop(player) {
     player.deck = shuffle(player.discard);
     player.discard = [];
     // 星の地図: 混ぜたとき 1 枚を一番上に置いてよい。ponytail: 問わずに、いちばん高い札を上にする（混ぜるのは問いを出せない場所なので）
+    for (const h of HOOKS.shuffle) h(player, player.game);
     // 影（shadow）の札は、混ぜたとき山札の一番下へ
     const shadows = player.deck.filter((id) => CARDS[id].types.includes('shadow'));
     if (shadows.length) player.deck = [...shadows, ...player.deck.filter((id) => !CARDS[id].types.includes('shadow'))];
