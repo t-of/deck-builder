@@ -282,3 +282,10 @@ button { font: inherit; color: inherit; }
 [data-theme="card"] .cards--hand { flex-wrap: nowrap; overflow-x: auto; padding: 2px; }
 [data-theme="card"] .cards--hand .tcgcard { margin-right: -30px; }
 [data-theme="card"] .cards--hand .tcgcard:last-child { margin-right: 0; }
+
+/* サプライは 2 列にして、カードを大きく見せる（どの見た目でも） */
+.cards--supply { display: grid; grid-template-columns: repeat(2, minmax(0, 200px)); gap: 8px; }
+[data-theme] .cards--supply .card { width: auto; min-height: 84px; font-size: 13px; padding: 8px 10px; }
+[data-theme] .cards--supply .card__name { font-size: 16px; }
+[data-theme] .cards--supply .card__desc { font-size: 12px; }
+[data-theme="card"] .cards--supply .tcgcard { width: 100%; min-height: 0; padding: 4px; font-size: 11px; }
