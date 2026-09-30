@@ -452,13 +452,15 @@ export function planFor(game, pi, level) {
   const n = level === 'expert' ? 8 : 6;
   const kingdom = game.kingdom.filter((id) => id in game.supply || game.stacks[id]);
   const landscapes = game.landscapes;
-  const score = (plan, games = n) => {
+  // rival があれば、相手もその狙いで打つつよい CPU（なければ ふつう）
+  const score = (plan, games = n, rival = null) => {
     let win = 0;
     let played = 0;
     for (let k = 0; k < games; k++) {
       const me = k % 2;
-      const levels = me === 0 ? ['strong', 'normal'] : ['normal', 'strong'];
-      const plans = me === 0 ? [plan, null] : [null, plan];
+      const other = rival ? 'strong' : 'normal';
+      const levels = me === 0 ? ['strong', other] : [other, 'strong'];
+      const plans = me === 0 ? [plan, rival] : [rival, plan];
       let sg;
       try { sg = simulate(kingdom, landscapes, levels, plans, true); } catch { sg = null; }
       if (!sg) continue;
@@ -475,17 +477,19 @@ export function planFor(game, pi, level) {
   results.sort((a, b) => b.s - a.s);
   // さいきょう: 上位 6 つをもっと多く試し直し、上位 3 つの組み合わせも試す
   if (level === 'expert' && results.length) {
-    const top = results.slice(0, 6).map((r) => ({ plan: r.plan, s: score(r.plan, 32) }));
+    // 1 段目の一番を相手にして、上位を試し直す（強い相手にも勝てる狙いを選ぶ）
+    const rival = results[0].plan;
+    const top = results.slice(0, 6).map((r) => ({ plan: r.plan, s: r.plan === rival ? 0.5 : score(r.plan, 24, rival) }));
     const tops = [...top].sort((a, b) => b.s - a.s).slice(0, 3);
     for (let a = 0; a < tops.length; a++) for (let b = a + 1; b < tops.length; b++) {
       if (tops[a].plan[0].pile === tops[b].plan[0].pile) continue;
       const plan = [tops[a].plan[0], tops[b].plan[0]];
-      top.push({ plan, s: score(plan, 32) });
+      top.push({ plan, s: score(plan, 24, rival) });
     }
     results = top.sort((a, b) => b.s - a.s);
   }
   const best = results[0];
-  game.cpuPlans[pi] = best && best.s > 0.5 ? best.plan : [];
+  game.cpuPlans[pi] = best && (level === 'expert' ? best.s >= 0.5 : best.s > 0.5) ? best.plan : [];
   game.cpuPlanning = false;
   return game.cpuPlans[pi];
 }
