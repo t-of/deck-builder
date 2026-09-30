@@ -310,7 +310,10 @@ function buyChoice(game, level) {
   }
   if (colony && has('colony') && money >= 11) return 'colony';
   if (has('province') && money >= 8 && (info.money >= 14 || late > 0.2 || level === 'normal')) return 'province';
-  if (has('duchy') && money >= 5 && provLeft <= (full === 8 ? 4 : 5)) return 'duchy';
+  // 荘園を買い始める時期（領地の残り）。さいきょうは自己対局で決めた値を使う
+  const plan0 = SMART(level) && game.cpuPlans ? game.cpuPlans[pi] : null;
+  const duchyAt = plan0 && plan0.duchyAt != null ? plan0.duchyAt : (full === 8 ? 4 : 5);
+  if (has('duchy') && money >= 5 && provLeft <= duchyAt) return 'duchy';
   if (has('estate') && money >= 2 && provLeft <= 2) return 'estate';
   // 王国カード（つよい・さいきょう）: 対局の始めに自己対局で決めた「狙いの札と枚数」を買う
   if (SMART(level)) {
@@ -487,6 +490,16 @@ export function planFor(game, pi, level) {
       top.push({ plan, s: score(plan, 24, rival) });
     }
     results = top.sort((a, b) => b.s - a.s);
+    // 荘園を買い始める時期も試す（ふつうは領地の残り 4 枚から）
+    const base = results[0];
+    if (base && base.plan.length) {
+      for (const d of [2, 3, 5, 6]) {
+        const plan = Object.assign([...base.plan], { duchyAt: d });
+        const sc = score(plan, 24, rival);
+        if (sc > base.s) results.unshift({ plan, s: sc });
+      }
+      results.sort((a, b) => b.s - a.s);
+    }
   }
   const best = results[0];
   game.cpuPlans[pi] = best && (level === 'expert' ? best.s >= 0.5 : best.s > 0.5) ? best.plan : [];
