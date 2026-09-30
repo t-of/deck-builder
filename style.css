@@ -1,0 +1,114 @@
+:root {
+  --bg: #2b2320;
+  --fg: #eceef3;
+  --muted: #9aa0ab;
+  --accent: #ffd35c;
+}
+
+* { box-sizing: border-box; }
+
+/* Safari 26 の上下バーの色は html の背景から取られる。body と同じ色にしておく */
+html { background-color: var(--bg); -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background-color: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+
+/* 画面の端に置くものはセーフエリアの分だけ内側に。高さは 100vh ではなく 100dvh */
+.app {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding:
+    max(12px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right))
+    max(12px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
+}
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.bar__title { margin: 0; font-size: 18px; }
+.bar__actions { display: flex; gap: 8px; }
+.pill {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.stage {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  touch-action: manipulation;   /* ダブルタップ拡大を止める */
+  -webkit-user-select: none;
+  padding-bottom: 8px;
+}
+.credit { text-align: center; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.credit a { color: inherit; }
+
+/* ---- 人数選び・手番渡し・結果などの中央寄せパネル ---- */
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 12px;
+  text-align: center;
+}
+.panel__lead { font-size: 16px; margin: 0; }
+.playercount { display: flex; gap: 8px; }
+.playercount button {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  border-radius: 12px;
+  padding: 14px 20px;
+  font-size: 16px;
+}
+.ranking { list-style: decimal; text-align: left; padding-left: 20px; }
+.ranking li { margin: 4px 0; }
+
+/* ---- 対局画面 ---- */
+.game { display: flex; flex-direction: column; gap: 8px; }
+.othersRow { display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--muted); }
+.otherCard { border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 4px 8px; }
+.hud { display: flex; flex-direction: column; gap: 6px; background: rgba(255, 255, 255, 0.04); border-radius: 10px; padding: 8px 10px; }
+.hud__stats { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.hud__stats .muted { font-size: 12px; color: var(--muted); }
+.hud__buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.sectionLabel { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.log { font-size: 11px; color: var(--muted); border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 4px; }
+.log p { margin: 1px 0; }
+
+/* ---- カード ---- */
+.cards { display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px; }
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 92px;
+  min-height: 68px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 6px 8px;
+  color: inherit;
+  text-align: left;
+  font-size: 11px;
+}
+.card--active { border-color: var(--accent); background: rgba(255, 211, 92, 0.14); }
+.card--picked { outline: 2px solid var(--accent); }
+.card--peek .card__desc { white-space: normal; }
+.card__name { font-size: 13px; font-weight: 700; }
+.card__cost { color: var(--muted); }
+.card__count { color: var(--muted); }
+.card__desc { color: var(--muted); font-size: 10px; overflow: hidden; text-overflow: ellipsis; }
+
+/* 全画面のオーバーレイは opacity ではなく display: none で隠す */
