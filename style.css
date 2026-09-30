@@ -585,10 +585,12 @@ button { font: inherit; color: inherit; }
   [data-theme="card"] #game .hud {
     background: linear-gradient(180deg, rgba(20, 46, 32, 0.97), rgba(8, 20, 14, 0.97));
   }
-  /* 札は小さくし、サプライ（組ごと）・手札・場をそれぞれ横一列に並べて横にスクロールする。
+  /* 札は小さくし、手札・場は横一列に並べて横にスクロールする。
      font-size は幅 / 9.5（.tcgcard の 76px・8px と同じ比率） */
-  .supply { flex-direction: column; flex-wrap: nowrap; }
-  [data-theme="card"] .supplyGroup__row { grid-template-rows: auto; grid-auto-columns: 68px; gap: 6px; }
+  /* サプライは PC と同じく組を横に並べて 2 段に収め、全体を横にスクロールする */
+  .supply { flex-wrap: nowrap; overflow-x: auto; gap: 4px 12px; padding-bottom: 4px; }
+  .supplyGroup { flex: none; max-width: none; }
+  [data-theme="card"] .supplyGroup__row { grid-auto-columns: 68px; gap: 6px; overflow-x: visible; }
   [data-theme="card"] .supplyGroup__row .tcgcard { font-size: 7.2px; }
   [data-theme="card"] .cards--hand, [data-theme="card"] .cards--play {
     flex-wrap: nowrap; overflow-x: auto; justify-content: safe center; padding: 8px 2px 4px;
