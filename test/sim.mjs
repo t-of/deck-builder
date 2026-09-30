@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
   CARDS, SETS, kingdomPool, randomKingdom, newGame, currentPlayer, playAction, playTreasureGen,
   startBuyPhase, buyCard, endTurn, beginTurn, finalResults, is, PRESETS, allCards, canBuy, costOf, spendCoffers, landscapePool, canBuyEvent, buyEvent,
-  enterBuyPhase, enterNightPhase, playNight, canPlayNight, spendVillager,
+  enterBuyPhase, enterNightPhase, playNight, canPlayNight, spendVillager, shadowsInDeck, playShadow, canPlayAction,
 } from '../engine.js';
 import '../cards-base.js';
 import '../cards-intrigue.js';
@@ -22,6 +22,7 @@ import '../cards-menagerie.js';
 import '../cards-promo.js';
 import '../cards-allies.js';
 import '../cards-plunder.js';
+import '../cards-risingsun.js';
 
 const rnd = (n) => Math.floor(Math.random() * n);
 function answer(q) {
@@ -67,7 +68,9 @@ export function simulate(kingdom, n, landscapes = []) {
     const p = currentPlayer(g);
     run(beginTurn(g));
     while (g.turn.actions > 0 || (p.tokens.villagers > 0 && spendVillager(g))) {
-      const acts = p.hand.filter((id) => is(id, 'action'));
+      const sh = shadowsInDeck(g);
+      if (sh.length && Math.random() < 0.3) { const id = sh[rnd(sh.length)]; run(playShadow(g, id)); assert.equal(total(g), start, `カードの枚数が変わった（影 ${id}）`); continue; }
+      const acts = p.hand.filter((id) => canPlayAction(g, id));
       if (!acts.length || Math.random() < 0.1) break;
       const id = acts[rnd(acts.length)];
       run(playAction(g, id));

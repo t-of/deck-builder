@@ -561,7 +561,7 @@ assert.ok(g.traits.t_rich && g.kingdom.includes(g.traits.t_rich));
 // 分捕り袋: 戦利品を獲得（重なった山の札）
 Object.assign(g.players[0], { hand: ['lootsack'], deck: Array(10).fill('copper'), discard: [] });
 startBuyPhase(g); playTreasure(g, 'lootsack');
-assert.equal(CARDS[g.players[0].discard.at(-1)].pile, 'loot'); assert.equal(g.nonSupply.loot, 29);
+assert.ok(g.players[0].discard.some((x) => CARDS[x].pile === 'loot')); assert.equal(g.nonSupply.loot, 29); // 大金貨なら金も来るので、どこかにあればよい
 // 実り: 次にアクションを獲得したら +1 購入 +3 金。それまで場に残る
 g = newGame(2, K16, null, { colony: false, landscapes: [] });
 Object.assign(g.players[0], { hand: ['plenty'], deck: Array(20).fill('copper'), discard: [] });
@@ -581,3 +581,29 @@ startBuyPhase(g); g.turn.money = 10;
 run(buyCard(g, richPile));
 assert.ok(g.players[0].discard.includes('silver'));
 console.log('ok: plunder');
+
+// ---- 旭日 ----
+await import('../cards-risingsun.js');
+const { playShadow, shadowsInDeck } = await import('../engine.js');
+const K17 = ['teahouse', 'ronin', 'meister', 'village', 'smithy', 'market', 'courtnoble', 'cellar2', 'poet', 'goldmine'];
+g = newGame(2, K17, null, { colony: false, landscapes: ['r_leader'] });
+assert.equal(g.sun, 5);
+// 影: 山札の素浪人を手札と同じように使える
+Object.assign(g.players[0], { hand: ['village'], deck: ['copper', 'ronin', 'copper', 'copper', 'copper', 'copper', 'copper', 'copper'], discard: [] });
+assert.deepEqual(shadowsInDeck(g), ['ronin']);
+run(playShadow(g, 'ronin'));
+assert.equal(g.players[0].hand.length, 7); assert.ok(g.playArea.includes('ronin'));
+// 前兆: 太陽を 5 つ取ると予言（名君: アクションのたび +1 アクション）が効く
+g = newGame(2, K17, null, { colony: false, landscapes: ['r_leader'] });
+Object.assign(g.players[0], { hand: Array(5).fill('teahouse'), deck: Array(20).fill('copper'), discard: [] });
+for (let k = 0; k < 5; k++) run(playAction(g, 'teahouse'));
+assert.equal(g.sun, 0);
+const a0 = g.turn.actions;
+g.players[0].hand.push('village');
+run(playAction(g, 'village'));
+assert.equal(g.turn.actions, a0 - 1 + 2 + 1);
+// 名人: +2 借金
+g.players[0].hand.push('meister'); g.turn.actions = 1;
+run(playAction(g, 'meister'), ['silver']);
+assert.equal(g.players[0].tokens.debt, 2);
+console.log('ok: risingsun');

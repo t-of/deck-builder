@@ -154,6 +154,9 @@ export function takeTop(player) {
     player.deck = shuffle(player.discard);
     player.discard = [];
     // 星の地図: 混ぜたとき 1 枚を一番上に置いてよい。ponytail: 問わずに、いちばん高い札を上にする（混ぜるのは問いを出せない場所なので）
+    // 影（shadow）の札は、混ぜたとき山札の一番下へ
+    const shadows = player.deck.filter((id) => CARDS[id].types.includes('shadow'));
+    if (shadows.length) player.deck = [...shadows, ...player.deck.filter((id) => !CARDS[id].types.includes('shadow'))];
     // 隠し財布: 混ぜたとき好きな位置に入れてよい。ponytail: 問わずに一番上にする
     for (let i = player.deck.length - 1; i >= 0; i--) if (player.deck[i] === 'nestegg') player.deck.push(...player.deck.splice(i, 1));
     if (player.projects && player.projects.includes('j_starchart') && player.deck.length > 1) {
@@ -508,6 +511,21 @@ export function canPlayAction(game, cardId) {
   if (player.tokens.warlorded > 0 && game.playArea.filter((id) => id === cardId).length >= 2) return false;
   if (game.turn.handPlayLimit != null && (game.turn.handPlays || 0) >= game.turn.handPlayLimit) return false;
   return true;
+}
+
+// 影の札: 山札にあれば、手札にあるのと同じように使える。山札の中の影の札（id の重複なし）
+export function shadowsInDeck(game) {
+  const p = currentPlayer(game);
+  return [...new Set(p.deck.filter((id) => CARDS[id].types.includes('shadow')))];
+}
+export function* playShadow(game, cardId) {
+  const p = currentPlayer(game);
+  const i = p.deck.lastIndexOf(cardId);
+  if (i < 0 || !CARDS[cardId].types.includes('shadow')) return;
+  p.deck.splice(i, 1);
+  p.hand.push(cardId);
+  if (!canPlayAction(game, cardId)) { p.hand.pop(); p.deck.splice(i, 0, cardId); return; }
+  yield* playAction(game, cardId);
 }
 
 export function* playAction(game, cardId) {
