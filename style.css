@@ -569,11 +569,23 @@ button { font: inherit; color: inherit; }
 .pile.is-empty { background: none; box-shadow: none; border-style: dashed; opacity: 0.6; }
 .pileGhost { position: absolute; pointer-events: none; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5); opacity: 0; }
 
-/* ---- 対局画面の並び。狭い画面は上から「ほかの人・フェイズの欄・場とサプライ・手札・記録」 ---- */
+/* ---- 対局画面の並び。狭い画面は上から「ほかの人・サプライ・場・手札」、フェイズの欄は下端に固定 ---- */
 .game__table, .game__play, .game__hand { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .game__bottom, .game__side { display: contents; }
-.game__side > * { order: -1; }
-#othersRow { order: -2; }
+
+/* フェイズ・アクション/購入/財宝の数・手番のボタンは、手札を見ながら押せるよう画面下に固定する。
+   .stage が唯一のスクロール領域なので、そこでの sticky が効く。720px 以上は元の場所（横の欄）に戻す */
+@media (max-width: 719.98px) {
+  #game .hud {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    box-shadow: 0 -8px 14px -6px rgba(0, 0, 0, 0.55);
+  }
+  [data-theme="card"] #game .hud {
+    background: linear-gradient(180deg, rgba(20, 46, 32, 0.97), rgba(8, 20, 14, 0.97));
+  }
+}
 
 /* 広い画面: フェイズの欄・手札・記録を 1 行に並べ、空いた高さの分だけ札を大きくして 1 画面に収める。
    --ch はサプライの札の高さ。画面の高さから札以外（見出し・フェイズの欄など約 440px）を引き、
