@@ -20,6 +20,7 @@ import '../cards-nocturne.js';
 import '../cards-renaissance.js';
 import '../cards-menagerie.js';
 import '../cards-promo.js';
+import '../cards-allies.js';
 
 const rnd = (n) => Math.floor(Math.random() * n);
 function answer(q) {

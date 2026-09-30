@@ -271,7 +271,7 @@ assert.equal(g.turn.money, 1); assert.equal(g.players[0].tokens.coffers, 0);
 // 見習い魔女: 厄よけを見せると災いを受けない
 g.players[0].hand = ['apprentice']; g.players[0].deck = ['copper', 'copper'];
 g.turn = { ...g.turn, phase: 'action', actions: 1 };
-g.players[1].hand = [g.bane];
+g.bane = 'chandler'; g.players[1].hand = [g.bane]; // 厄よけはランダムなので、リアクションでない札に決めて確かめる
 run(playAction(g, 'apprentice'));
 assert.ok(![...g.players[1].discard, ...g.players[1].hand].includes('curse'));
 // 博覧会: 10 種で 4 点
@@ -522,3 +522,32 @@ assert.equal(g.turn.actions, 3); // 村: +2
 run(endTurn(g));
 assert.deepEqual(g.players[0].mats.princed, ['village']); // また脇へ
 console.log('ok: promo');
+
+// ---- 同盟 ----
+await import('../cards-allies.js');
+const { rotatePile } = await import('../engine.js');
+const K15 = ['p_wizards', 'p_townsfolk', 'underling', 'waylayer', 'village', 'smithy', 'market', 'posttown', 'marquess', 'importer'];
+g = newGame(2, K15, null, { colony: false, landscapes: ['x_bankers'] });
+assert.equal(g.stacks.p_wizards.at(-1), 'wizstudent'); assert.equal(g.supply.p_wizards, 16);
+assert.equal(g.players[0].tokens.favors, 5); // 同盟で 1 ＋ 舶来商で 4
+rotatePile(g, 'p_wizards');
+assert.equal(g.stacks.p_wizards.at(-1), 'conjurer'); assert.equal(g.stacks.p_wizards[0], 'wizstudent');
+// 連携: 小者で +1 好意。両替商組合: 好意 4 ごとに +1 金
+Object.assign(g.players[0], { hand: ['underling'], deck: Array(10).fill('copper'), discard: [] });
+run(playAction(g, 'underling'));
+assert.equal(g.players[0].tokens.favors, 6);
+run(enterBuyPhase(g));
+assert.equal(g.turn.money, 1);
+// 屍術師: 次の手番を飛ばす
+g.players[1].tokens.skip = 1;
+run(endTurn(g));
+assert.equal(g.current, 0);
+// 辻斬り: 相手が最初に出した財宝は何もしない
+g = newGame(2, K15, null, { colony: false, landscapes: [] });
+g.players[0].hand = ['waylayer'];
+run(playAction(g, 'waylayer'));
+run(endTurn(g)); run(beginTurn(g));
+g.players[1].hand = ['silver', 'silver'];
+startBuyPhase(g); playTreasure(g, 'silver'); playTreasure(g, 'silver');
+assert.equal(g.turn.money, 2);
+console.log('ok: allies');

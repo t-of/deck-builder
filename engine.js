@@ -35,7 +35,8 @@ export function defineCards(setInfo, list, presets = []) {
 // buy: カードを買ったあと・獲得する前 (game, id, pi)
 // buyPhase: 購入フェイズの始め (game)。endTurn: 片付けの前 (game)
 // afterCleanup: 片付けで 5 枚引いたあと (game, player, pi)。turnStart: 手番の始め、持続のあと (game, player, pi)
-export const HOOKS = { gain: [], treasure: [], setup: [], trash: [], play: [], cost: [], buy: [], buyPhase: [], endTurn: [], afterCleanup: [], turnStart: [] };
+// afterAction: 手札のアクションを使い終えたあと (game, id)
+export const HOOKS = { gain: [], treasure: [], setup: [], trash: [], play: [], cost: [], buy: [], buyPhase: [], endTurn: [], afterCleanup: [], turnStart: [], afterAction: [] };
 // 札がどの山のものか（重なった山の札は山の id）
 export const pileOf = (id) => CARDS[id].pile || id;
 
@@ -392,6 +393,14 @@ export function reveal(player, n) {
 }
 
 // 手番の人以外（アタックでない）
+// 循環: 重なった山の一番上の札と同じ名前の札を、すべて山の一番下へ移す
+export function rotatePile(game, pile) {
+  const st = game.stacks[pile];
+  if (!st || !st.length) return;
+  const top = st.at(-1);
+  game.stacks[pile] = [...st.filter((x) => x === top), ...st.filter((x) => x !== top)];
+}
+
 // サプライから 1 枚取り出す（獲得ではない。廃棄するときなど）。重なった山なら一番上。取れた札の id か null
 export function takeFromSupply(game, id) {
   if (!(game.supply[id] > 0)) return null;
@@ -475,10 +484,20 @@ export function* playOutOfTurn(game, pi, id) {
 }
 
 // 手札のアクションを使う（アクション権を 1 使う）
+// 手札のアクションを今使えるか（総大将の印・船出の手番の 3 枚まで などを見る）
+export function canPlayAction(game, cardId) {
+  const player = currentPlayer(game);
+  if (game.turn.phase !== 'action' || game.turn.actions <= 0 || !is(cardId, 'action') || !player.hand.includes(cardId)) return false;
+  if (player.tokens.warlorded > 0 && game.playArea.filter((id) => id === cardId).length >= 2) return false;
+  if (game.turn.handPlayLimit != null && (game.turn.handPlays || 0) >= game.turn.handPlayLimit) return false;
+  return true;
+}
+
 export function* playAction(game, cardId) {
   const player = currentPlayer(game);
   const idx = player.hand.indexOf(cardId);
-  if (idx === -1 || game.turn.actions <= 0 || !is(cardId, 'action')) return;
+  if (idx === -1 || !canPlayAction(game, cardId)) return;
+  game.turn.handPlays = (game.turn.handPlays || 0) + 1;
   player.hand.splice(idx, 1);
   game.playArea.push(cardId);
   game.turn.actions -= 1;
@@ -510,6 +529,7 @@ export function* playAction(game, cardId) {
     yield* resolve(game, cardId);
   }
   yield* offerCalls(game, game.current, 'afterAction', { id: cardId });
+  for (const h of HOOKS.afterAction) yield* h(game, cardId);
 }
 
 // 財宝を出す。効果（ジェネレータ）を持つ財宝は、問いがあれば yield する
@@ -517,6 +537,8 @@ export function* playTreasureGen(game, cardId) {
   const player = currentPlayer(game);
   const idx = player.hand.indexOf(cardId);
   if (idx === -1 || !is(cardId, 'treasure')) return;
+  if (game.turn.handPlayLimit != null && (game.turn.handPlays || 0) >= game.turn.handPlayLimit) return;
+  game.turn.handPlays = (game.turn.handPlays || 0) + 1;
   player.hand.splice(idx, 1);
   game.playArea.push(cardId);
   yield* treasureEffect(game, cardId);
@@ -701,7 +723,7 @@ export function* endTurn(game) {
   if (!game.extraTurn) player.turnsTaken += 1;
   player.lastGains = game.turn.gained;
   player.lastTrashed = game.turn.trashed || 0;
-  const extra = (game.turn.outpost || game.turn.mission || game.turn.seize) && !game.extraTurn;
+  const extra = (game.turn.outpost || game.turn.mission || game.turn.seize || game.turn.voyage) && !game.extraTurn;
   const possess = !extra && !game.extraTurn && game.turn.possess;
   const wasPossessed = game.controller != null;
   if (wasPossessed) { player.discard.push(...(player.mats.possessed || []).splice(0)); game.controller = null; }
@@ -726,12 +748,22 @@ export function* endTurn(game) {
   }
 
   // 乗っ取りの手番のあとは、同じ人のふつうの手番
-  if (!extra && !wasPossessed) game.current = (game.current + 1) % game.players.length;
+  if (!extra && !wasPossessed) {
+    game.current = (game.current + 1) % game.players.length;
+    // 屍術師: 手番を 1 回飛ばす
+    for (let k = 0; k < game.players.length && game.players[game.current].tokens.skip > 0; k++) {
+      game.players[game.current].tokens.skip -= 1;
+      log(game, `${currentPlayer(game).name}は手番を飛ばす。`);
+      game.current = (game.current + 1) % game.players.length;
+    }
+  }
   if (possess) game.controller = (game.current - 1 + game.players.length) % game.players.length;
   game.extraTurn = extra || possess;
   const noBuy = extra && game.turn.mission && !game.turn.outpost && !game.turn.seize;
+  const wasVoyage = extra && game.turn.voyage;
   game.turn = freshTurn();
   game.turn.noBuy = noBuy; // 使いの旅の追加の手番は買えない
+  if (extra && wasVoyage) game.turn.handPlayLimit = 3; // 船出の追加の手番は手札から 3 枚まで
   const who = possess ? `${game.players[game.controller].name}が操作する${currentPlayer(game).name}の追加の` : `${currentPlayer(game).name}の${extra ? '追加の' : ''}`;
   log(game, `${who}番です。`);
 }
