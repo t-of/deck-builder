@@ -73,7 +73,7 @@ const kingdom = [
     },
   },
   {
-    id: 'legate', name: '密使', cost: 4, main: '5 枚めくって\n4 枚手札に', desc: '山札の上 5 枚をめくる。左の人が 1 枚選んで捨て、残りを手札に入れる',
+    id: 'legate', name: '内通者', cost: 4, main: '5 枚めくって\n4 枚手札に', desc: '山札の上 5 枚をめくる。左の人が 1 枚選んで捨て、残りを手札に入れる',
     *play(g, p, pi) {
       const shown = reveal(p, 5);
       if (!shown.length) return;

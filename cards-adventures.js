@@ -484,7 +484,7 @@ const events = [
     },
   },
   { id: 'e_secretart', name: '秘伝', types: E, cost: 6, main: '+1 アクションの印', desc: '+1 アクションの印をアクションの山に置く', buy: pileToken('action', '+1 アクション') },
-  { id: 'e_practice', name: '稽古', types: E, cost: 6, main: '+1 金の印', desc: '+1 金の印をアクションの山に置く', buy: pileToken('coin', '+1 金') },
+  { id: 'e_practice', name: '修練', types: E, cost: 6, main: '+1 金の印', desc: '+1 金の印をアクションの山に置く', buy: pileToken('coin', '+1 金') },
   { id: 'e_signpost', name: '道しるべ', types: E, cost: 8, main: '+1 カードの印', desc: '+1 カードの印をアクションの山に置く', buy: pileToken('card', '+1 カード') },
 ];
 
