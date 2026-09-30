@@ -332,3 +332,42 @@ assert.ok(g.players[0].hand.includes('stronghold')); assert.ok(g.players[0].disc
 // 知行地: 銀 3 枚で 1 点
 assert.equal(CARDS.fief.pointsFn(['silver', 'silver', 'silver', 'fief']), 1);
 console.log('ok: darkages');
+
+// ---- 冒険 ----
+await import('../cards-adventures.js');
+const { buyEvent, canBuyEvent } = await import('../engine.js');
+const K9 = ['realmcoin', 'lad', 'bridgeogre', 'oldrelic', 'village', 'smithy', 'carriage', 'farland', 'servant', 'harbor'];
+const L9 = ['e_errand', 'e_signpost'];
+g = newGame(2, K9, null, { colony: false, landscapes: L9 });
+Object.assign(g.players[0], { hand: ['realmcoin', 'village'], deck: Array(10).fill('copper'), discard: [] });
+// 通用貨: 酒場マットに置き、アクションのあとに呼び出して +2 アクション
+startBuyPhase(g); playTreasure(g, 'realmcoin');
+assert.deepEqual(g.players[0].mats.tavern, ['realmcoin']);
+g.turn.phase = 'action'; g.turn.actions = 1;
+run(playAction(g, 'village'), [true]);
+assert.equal(g.turn.actions, 4); assert.ok(g.playArea.includes('realmcoin'));
+// 小僧 → 探し屋と取り替え
+g.players[0].hand = ['lad']; g.turn.actions = 1;
+run(playAction(g, 'lad'));
+run(endTurn(g), [true]);
+assert.ok(g.players[0].discard.includes('seeker')); assert.equal(g.supply.lad, 11); // 山に戻った（テストで手札に置いた分が増える）
+// 橋守の鬼: 相手は -1 金の印、自分の手番はコスト 1 下がる
+g = newGame(2, K9, null, { colony: false, landscapes: L9 });
+g.players[0].hand = ['bridgeogre'];
+run(playAction(g, 'bridgeogre'));
+assert.equal(costOf(g, 'province'), 7); assert.ok(g.players[1].tokens.minusCoin);
+run(endTurn(g)); run(beginTurn(g));
+assert.equal(g.turn.money, -1);
+// イベント: 道しるべ（+1 カードの印）と使いの旅（追加の手番、買えない）
+g = newGame(2, K9, null, { colony: false, landscapes: L9 });
+Object.assign(g.players[0], { hand: ['smithy'], deck: Array(20).fill('copper'), discard: [] });
+startBuyPhase(g); g.turn.money = 12; g.turn.buys = 2;
+run(buyEvent(g, 'e_signpost'), [0]);
+run(buyEvent(g, 'e_errand'));
+assert.equal(canBuyEvent(g, 'e_errand'), false);
+assert.equal(g.players[0].tokens.pile.card, 'servant'); // 並びの最初の山（コストの高い順）
+run(endTurn(g));
+assert.equal(g.current, 0); assert.ok(g.turn.noBuy);
+// 果ての地: 酒場マットにあれば 4 点
+assert.equal(CARDS.farland.scoreBonus({ mats: { tavern: ['farland', 'farland'] } }), 8);
+console.log('ok: adventures');

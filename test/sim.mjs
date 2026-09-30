@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import {
   CARDS, SETS, kingdomPool, randomKingdom, newGame, currentPlayer, playAction, playTreasureGen,
-  startBuyPhase, buyCard, endTurn, beginTurn, finalResults, is, PRESETS, allCards, canBuy, costOf, spendCoffers,
+  startBuyPhase, buyCard, endTurn, beginTurn, finalResults, is, PRESETS, allCards, canBuy, costOf, spendCoffers, landscapePool, canBuyEvent, buyEvent,
 } from '../engine.js';
 import '../cards-base.js';
 import '../cards-intrigue.js';
@@ -13,6 +13,7 @@ import '../cards-hinterlands.js';
 import '../cards-guilds.js';
 import '../cards-alchemy.js';
 import '../cards-darkages.js';
+import '../cards-adventures.js';
 
 const rnd = (n) => Math.floor(Math.random() * n);
 function answer(q) {
@@ -39,8 +40,8 @@ const total = (g) => g.players.reduce((s, p) => s + allCards(p).length, 0)
   + g.trash.length + g.playArea.length + Object.values(g.supply).reduce((a, b) => a + b, 0) + Object.values(g.nonSupply).reduce((a, b) => a + b, 0) - Object.keys(g.stacks).reduce((a, k) => a + g.supply[k] - g.stacks[k].length, 0);
 
 const stalls = [];
-export function simulate(kingdom, n) {
-  const g = newGame(n, kingdom);
+export function simulate(kingdom, n, landscapes = []) {
+  const g = newGame(n, kingdom, null, { landscapes });
   const start = total(g);
   for (let turns = 0; !g.over; turns++) {
     // でたらめに廃棄して山札がなくなると終わらないことがある。まれなら数えるだけ
@@ -60,6 +61,7 @@ export function simulate(kingdom, n) {
       assert.equal(total(g), start, `カードの枚数が変わった（財宝 ${id}）`);
     }
     if (Math.random() < 0.5) spendCoffers(g, rnd(3));
+    for (const e of g.landscapes) if (Math.random() < 0.3 && canBuyEvent(g, e)) assert.ok(run(buyEvent(g, e)));
     while (g.turn.buys > 0) {
       const ok = Object.keys(g.supply).filter((id) => canBuy(g, id) && id !== 'curse');
       if (!ok.length || Math.random() < 0.15) break;
@@ -79,7 +81,8 @@ const pool = kingdomPool();
 for (const pr of PRESETS) for (const id of pr.cards) assert.ok(CARDS[id], `${pr.name} の ${id} がない`);
 for (const pr of PRESETS) assert.equal(new Set(pr.cards).size, 10, `${pr.name} が 10 種でない`);
 for (const id of pool) assert.ok(CARDS[id].main != null && CARDS[id].desc != null, `${id} の文言がない`);
-for (const pr of PRESETS) simulate(pr.cards, 2 + rnd(3));
-for (let i = 0; i < games; i++) simulate(randomKingdom(pool), 2 + rnd(3));
+for (const pr of PRESETS) simulate(pr.cards, 2 + rnd(3), pr.landscapes || []);
+const lpool = landscapePool();
+for (let i = 0; i < games; i++) simulate(randomKingdom(pool), 2 + rnd(3), randomKingdom(lpool, rnd(3)));
 assert.ok(stalls.length <= games * 0.02, '終わらない対局が多い: ' + stalls.slice(0, 3).join(' / '));
 console.log(`ok: ${SETS.map((s) => s.name).join('・')} / 王国 ${pool.length} 種 / ${games + PRESETS.length} 局（打ち切り ${stalls.length}）`);
