@@ -17,8 +17,10 @@
     '#c7d0da', '#6d7480',            // 24-25 鋼：地・影
     '#e8763a', '#f7b25c',            // 26-27 炎：地・明
     '#4a8a5c', '#6bb37e',            // 28-29 草：地・明
+    '#8a5ab0', '#b892d8', '#5a3878', // 30-32 紫：地・明・影（夜行・恵み・呪詛）
+    '#d8d0c0', '#8a8278',            // 33-34 骨・生成り：地・影
   ];
-  const [O, CU, CUl, CUd, SI, SIl, SId, GO, GOl, GOd, WD, WDl, WDd, RF, RFl, RFd, WL, WLd, ST, STl, STd, WT, WTl, WTd, ME, MEd, FL, FLl, GR, GRl] = PALETTE.map((_, i) => i);
+  const [O, CU, CUl, CUd, SI, SIl, SId, GO, GOl, GOd, WD, WDl, WDd, RF, RFl, RFd, WL, WLd, ST, STl, STd, WT, WTl, WTd, ME, MEd, FL, FLl, GR, GRl, PU, PUl, PUd, BN, BNd] = PALETTE.map((_, i) => i);
 
   function blank() { return new Uint8Array(N * N).fill(T); }
   function inb(x, y) { return x >= 0 && y >= 0 && x < N && y < N; }
@@ -2220,6 +2222,1221 @@
     return px;
   }
 
+  // ---- 拡張「帝国」76 種 ----
+  function twinTower(top, bot) { // 上下 2 種の山を示す、重なった 2 つの三角屋根
+    const px = blank();
+    roof(px, 2, 2, 8, 5, top, top, top);
+    frame(px, 3, 7, 6, 4, WL, O);
+    roof(px, 7, 8, 8, 5, bot, bot, bot);
+    frame(px, 8, 13, 6, 2, ST, O);
+    return px;
+  }
+  const p_settlers = () => twinTower(RF, WT);
+  const p_catapult = () => twinTower(ME, ST);
+  const p_patrician = () => twinTower(GO, WD);
+  const p_encampment = () => twinTower(RF, WDd);
+  const p_gladiator = () => twinTower(CU, SI);
+  function colonist() { // 入植者: 小屋と鍬
+    const px = blank();
+    frame(px, 2, 8, 6, 6, WL, O);
+    roof(px, 1, 5, 8, 3, RF, RFl, RFd);
+    lineThick(px, 10, 13, 13, 4, WD, 1);
+    rect(px, 12, 3, 3, 2, MEd);
+    return px;
+  }
+  function busyvillage() { return village(); }
+  function trebuchet() { // 石弓
+    const px = blank();
+    lineThick(px, 3, 13, 12, 3, WD, 2);
+    lineThick(px, 12, 3, 14, 8, WDl, 1);
+    circle(px, 3, 13, 2, ST, STl, STd, O);
+    return px;
+  }
+  function pebbles() { // 石ころ
+    const px = blank();
+    for (const [x, y, r] of [[5, 9, 2], [10, 11, 3], [3, 12, 2]]) circle(px, x, y, r, ST, STl, STd, O);
+    return px;
+  }
+  function notable() { // 名士: 巻物と冠
+    const px = blank();
+    frame(px, 2, 8, 12, 5, WL, O);
+    rect(px, 6, 2, 4, 3, GO);
+    for (const x of [6, 8, 10]) set(px, x, 1, GOl);
+    return px;
+  }
+  function emporium() { // 大商店: 積んだ品
+    const px = blank();
+    rect(px, 2, 6, 4, 8, CU); rect(px, 6, 3, 4, 11, SI); rect(px, 10, 8, 4, 6, GO);
+    return px;
+  }
+  function bivouac() { // 野営: テント
+    const px = blank();
+    roof(px, 2, 6, 12, 7, WDd, WD, WDl);
+    return px;
+  }
+  function spoil() { // 戦利の品: 開いた宝箱
+    const px = blank();
+    frame(px, 2, 8, 12, 5, WD, O);
+    rect(px, 2, 6, 12, 2, WDd);
+    circle(px, 8, 10, 1, GO, GOl, GOd, O);
+    return px;
+  }
+  function fightman() { // 闘士: 交差する剣
+    const px = blank();
+    lineThick(px, 2, 3, 13, 12, ME, 2);
+    lineThick(px, 2, 12, 13, 3, ME, 2);
+    return px;
+  }
+  function fortune() { // 一財産: 二重の金貨
+    const px = blank();
+    circle(px, 5, 8, 4, GO, GOl, GOd, O);
+    circle(px, 11, 8, 4, GO, GOl, GOd, O);
+    return px;
+  }
+  function castles() { return castle(); }
+  function chariot() { // 馬車競べ: 車輪
+    const px = blank();
+    circle(px, 8, 10, 5, WD, WDl, WDd, O);
+    circle(px, 8, 10, 1, WDd, WDd, WDd, O);
+    for (const a of [0, 60, 120]) { const r = Math.PI * a / 180; set(px, Math.round(8 + 5 * Math.sin(r)), Math.round(10 + 5 * Math.cos(r)), WDd); }
+    return px;
+  }
+  function temptress() { // 魔性の女: 頭巾と瞳
+    const px = blank();
+    circle(px, 8, 8, 5, PU, PUl, PUd, O);
+    set(px, 6, 7, GOl); set(px, 10, 7, GOl);
+    return px;
+  }
+  function vegmarket() { // 野菜市: 台の上の野菜
+    const px = blank();
+    rect(px, 2, 10, 12, 3, WD);
+    circle(px, 5, 8, 2, GR, GRl, GR, O);
+    circle(px, 9, 8, 2, RF, RFl, RFd, O);
+    circle(px, 12, 9, 2, GOl, GO, GOd, O);
+    return px;
+  }
+  function mechanic() { // 技師: 歯車
+    const px = blank();
+    circle(px, 8, 8, 5, ME, ME, MEd, O);
+    circle(px, 8, 8, 2, MEd, MEd, MEd, O);
+    for (const a of [0, 90, 180, 270]) { const r = Math.PI * a / 180; set(px, Math.round(8 + 6 * Math.sin(r)), Math.round(8 + 6 * Math.cos(r)), ME); }
+    return px;
+  }
+  function oblation() { // 捧げ物: 祭壇と炎
+    const px = blank();
+    frame(px, 4, 9, 8, 5, ST, O);
+    circle(px, 8, 6, 2, FL, FLl, FL, O);
+    return px;
+  }
+  function shrine() { return torii(); }
+  function torii() { // 鳥居
+    const px = blank();
+    rect(px, 3, 5, 2, 9, RF); rect(px, 11, 5, 2, 9, RF);
+    rect(px, 1, 3, 14, 2, RF);
+    rect(px, 2, 5, 12, 1, RFd);
+    return px;
+  }
+  function villa() { return manor(); }
+  function archivist() { // 書庫番: 積んだ本
+    const px = blank();
+    for (const [x, c] of [[1, CU], [5, SI], [9, GO], [13, WD]]) rect(px, x, 6, 3, 9, c);
+    return px;
+  }
+  function principal() { // 元金: 借金の札
+    const px = blank();
+    frame(px, 2, 3, 12, 9, WL, O);
+    for (const y of [6, 9]) lineThick(px, 4, y, 12, y, WLd, 1);
+    circle(px, 12, 12, 3, GO, GOl, GOd, O);
+    return px;
+  }
+  function luckycharm() { // 縁起物: 御守り
+    const px = blank();
+    diamond(px, 8, 8, 5, GO, GOd);
+    set(px, 8, 8, GOl);
+    return px;
+  }
+  function scepter() { // 玉冠
+    const px = blank();
+    lineThick(px, 8, 14, 8, 4, GO, 2);
+    circle(px, 8, 3, 3, PU, PUl, PUd, O);
+    return px;
+  }
+  function meetinghall() { // 寄り合い所: 卓を囲む
+    const px = blank();
+    rect(px, 3, 9, 10, 3, WD);
+    circle(px, 3, 7, 2, ST, STl, STd, O);
+    circle(px, 13, 7, 2, ST, STl, STd, O);
+    return px;
+  }
+  function gardener() { // 植木屋: 芽
+    const px = blank();
+    rect(px, 0, 11, 16, 5, GR);
+    lineThick(px, 8, 11, 8, 5, GRl, 1);
+    circle(px, 8, 4, 2, GRl, GRl, GR, O);
+    return px;
+  }
+  function hoplite() { // 重装兵: 盾と槍
+    const px = blank();
+    frame(px, 2, 5, 6, 9, ME, O);
+    lineThick(px, 10, 13, 14, 2, WD, 1);
+    return px;
+  }
+  function wildchase() { // 狩り立て: 足あと
+    const px = blank();
+    for (const [x, y] of [[3, 12], [6, 9], [10, 6], [13, 3]]) circle(px, x, y, 1, WDd, WDd, WDd, O);
+    return px;
+  }
+  function townblock() { return village(); }
+  function overking() { // 覇王: 玉座
+    const px = blank();
+    frame(px, 4, 4, 8, 10, RF, O);
+    rect(px, 6, 1, 4, 3, GO);
+    return px;
+  }
+  function royalsmith() { return smithy(); }
+  function e_promote() { // 出世: 星章
+    const px = blank();
+    for (const a of [0, 72, 144, 216, 288]) { const r = Math.PI * a / 180 - Math.PI / 2; set(px, Math.round(8 + 5 * Math.cos(r)), Math.round(8 + 5 * Math.sin(r)), GO); }
+    set(px, 8, 8, GOl);
+    return px;
+  }
+  function e_dig() { // 掘り下げ: シャベル
+    const px = blank();
+    lineThick(px, 3, 13, 12, 4, WD, 2);
+    rect(px, 11, 2, 4, 4, ME);
+    return px;
+  }
+  function e_levy() { // 年貢: 借金の山
+    const px = blank();
+    for (let i = 0; i < 3; i++) circle(px, 5 + i * 3, 11 - i, 2, ST, STl, STd, O);
+    return px;
+  }
+  function e_feast() { // 祝い膳: 皿
+    const px = blank();
+    circle(px, 8, 9, 5, WL, WL, WLd, O);
+    circle(px, 8, 8, 2, RF, RFl, RFd, O);
+    return px;
+  }
+  function e_marriage() { // 祝言: 指輪
+    const px = blank();
+    circle(px, 6, 9, 3, GO, GOl, GOd, O);
+    circle(px, 6, 9, 1, T, T, T, T);
+    circle(px, 10, 9, 3, SI, SIl, SId, O);
+    circle(px, 10, 9, 1, T, T, T, T);
+    return px;
+  }
+  function e_rite() { // 祭祀: 呪いの輪
+    const px = blank();
+    circle(px, 8, 8, 5, PU, PUl, PUd, O);
+    circle(px, 8, 8, 2, O, O, O, O);
+    return px;
+  }
+  function e_scorch() { // 焦土: 炎
+    const px = blank();
+    for (const x of [4, 8, 12]) { lineThick(px, x, 13, x, 8, FL, 2); set(px, x, 7, FLl); }
+    return px;
+  }
+  function e_luck() { // 思わぬ幸運: 3枚の金
+    const px = blank();
+    for (let i = 0; i < 3; i++) circle(px, 4 + i * 4, 10 - (i % 2), 2, GO, GOl, GOd, O);
+    return px;
+  }
+  function e_warcry() { // 勝ちどき: 旗と星
+    const px = blank();
+    lineThick(px, 4, 14, 4, 2, WDd, 1);
+    rect(px, 5, 2, 7, 5, RF);
+    return px;
+  }
+  function e_subdue() { // 平定: 銀貨2枚
+    const px = blank();
+    circle(px, 6, 9, 4, SI, SIl, SId, O);
+    circle(px, 11, 7, 4, SI, SIl, SId, O);
+    return px;
+  }
+  function e_absorb() { // 取り込み: 混ぜた札
+    const px = blank();
+    rect(px, 3, 5, 5, 8, RF); rect(px, 8, 5, 5, 8, WT);
+    return px;
+  }
+  function e_alms2() { // 喜捨: 手
+    const px = blank();
+    circle(px, 8, 6, 3, WL, WL, WLd, O);
+    lineThick(px, 8, 9, 8, 13, WLd, 2);
+    return px;
+  }
+  function e_unify() { // 天下統一: 玉座と旗
+    const px = blank();
+    lineThick(px, 6, 14, 6, 2, WDd, 1);
+    rect(px, 7, 2, 7, 5, RF);
+    circle(px, 12, 12, 2, GO, GOl, GOd, O);
+    return px;
+  }
+  function l_canal() { // 用水路
+    const px = blank();
+    for (let y = 8; y < 14; y++) for (let x = 0; x < 16; x++) set(px, x, y, (x + y) % 5 < 2 ? WT : WTl);
+    return px;
+  }
+  function l_ring() { // 土俵
+    const px = blank();
+    circle(px, 8, 8, 6, WD, WDl, WDd, O);
+    circle(px, 8, 8, 3, WDd, WDd, WDd, O);
+    return px;
+  }
+  function l_banditden() { // 賊の隠れ里: 洞窟
+    const px = blank();
+    for (let y = 2; y < 14; y++) { const half = Math.max(1, Math.round(6 * Math.sin((y - 2) / 12 * Math.PI))); for (let x = 8 - half; x < 8 + half; x++) set(px, x, y, ST); }
+    circle(px, 8, 10, 3, O, O, O, O);
+    return px;
+  }
+  function l_hall() { return manor(); }
+  function l_bathhouse() { // 湯屋
+    const px = blank();
+    circle(px, 8, 9, 6, WT, WTl, WTd, O);
+    for (const [x, y] of [[5, 4], [9, 3], [7, 6]]) set(px, x, y, WL);
+    return px;
+  }
+  function l_battleground() { // 古戦場: 旗2本
+    const px = blank();
+    lineThick(px, 4, 14, 4, 4, WDd, 1); rect(px, 5, 4, 5, 4, RF);
+    lineThick(px, 12, 14, 12, 6, WDd, 1); rect(px, 9, 6, 4, 3, ME);
+    return px;
+  }
+  function l_arcade() { // 回廊: 柱並び
+    const px = blank();
+    for (const x of [2, 6, 10, 14]) rect(px, x, 4, 2, 10, ST);
+    rect(px, 1, 3, 14, 2, STl);
+    return px;
+  }
+  function l_ruinedtemple() { // 荒れ寺: 崩れた柱
+    const px = blank();
+    rect(px, 2, 8, 2, 6, ST); rect(px, 7, 4, 2, 10, ST); rect(px, 12, 10, 2, 4, ST);
+    return px;
+  }
+  function l_fountain() { // 泉水
+    const px = blank();
+    circle(px, 8, 10, 5, ST, STl, STd, O);
+    circle(px, 8, 10, 3, WT, WTl, WTd, O);
+    rect(px, 7, 3, 2, 6, ST);
+    return px;
+  }
+  function l_donjon() { // 天守
+    const px = blank();
+    rect(px, 5, 2, 6, 12, ST);
+    rect(px, 4, 1, 8, 2, STl);
+    set(px, 7, 6, WT); set(px, 8, 6, WT);
+    return px;
+  }
+  function l_maze() { // 迷路
+    const px = blank();
+    for (let y = 2; y < 14; y += 4) for (let x = 2; x < 14; x += 4) rect(px, x, y, 3, 2, GR);
+    return px;
+  }
+  function l_pass() { // 関所越え: 門
+    const px = blank();
+    rect(px, 3, 3, 3, 11, ST); rect(px, 10, 3, 3, 11, ST);
+    rect(px, 6, 8, 4, 6, WDd);
+    return px;
+  }
+  function l_treasury() { // 宝物殿
+    const px = blank();
+    for (let i = 0; i < 3; i++) circle(px, 4 + i * 4, 11 - (i % 2) * 2, 2, GO, GOl, GOd, O);
+    diamond(px, 12, 5, 2, WT, O);
+    return px;
+  }
+  function l_pillar() { // 石柱
+    const px = blank();
+    rect(px, 6, 1, 4, 14, ST);
+    rect(px, 5, 1, 6, 2, STl);
+    return px;
+  }
+  function l_fruitfield() { // 果物畑
+    const px = blank();
+    lineThick(px, 8, 13, 8, 8, WDd, 1);
+    circle(px, 8, 6, 4, GR, GRl, GR, O);
+    set(px, 6, 5, RF); set(px, 10, 7, RF);
+    return px;
+  }
+  function l_palace() { // 御殿
+    const px = blank();
+    roof(px, 1, 2, 14, 4, RF, RFl, RFd);
+    frame(px, 2, 6, 12, 7, WL, O);
+    for (const x of [4, 8, 12]) set(px, x, 8, WT);
+    return px;
+  }
+  function l_mound() { // 塚
+    const px = blank();
+    for (let y = 9; y < 14; y++) { const half = Math.round((14 - y) * 1.4); for (let x = 8 - half; x < 8 + half; x++) set(px, x, y, GR); }
+    rect(px, 7, 4, 2, 5, ST);
+    return px;
+  }
+  function l_tower() { // 高楼
+    const px = blank();
+    rect(px, 6, 1, 4, 13, ST);
+    for (const y of [4, 8]) set(px, 7, y, WT);
+    return px;
+  }
+  function l_gate() { // 大門
+    const px = blank();
+    rect(px, 1, 2, 3, 12, ST); rect(px, 12, 2, 3, 12, ST);
+    rect(px, 1, 1, 14, 2, STl);
+    rect(px, 5, 7, 6, 7, WDd);
+    return px;
+  }
+  function l_wall() { // 城壁
+    const px = blank();
+    rect(px, 0, 7, 16, 7, ST);
+    for (let x = 0; x < 16; x += 4) rect(px, x, 5, 2, 2, STl);
+    return px;
+  }
+  function l_lair() { // 獣の巣: 骨
+    const px = blank();
+    for (let y = 2; y < 14; y++) { const half = Math.max(1, Math.round(6 * Math.sin((y - 2) / 12 * Math.PI))); for (let x = 8 - half; x < 8 + half; x++) set(px, x, y, O); }
+    set(px, 6, 10, BN); set(px, 10, 10, BN);
+    return px;
+  }
+  function castleShape(h, towers) { // 城シリーズ共通
+    const px = blank();
+    rect(px, 3, 16 - h, 10, h, ST);
+    for (let x = 3; x < 13; x += 3) rect(px, x, 15 - h, 2, 2, STl);
+    return px;
+  }
+  const c_humble = () => castleShape(6);
+  const c_crumbling = () => castleShape(7);
+  const c_small = () => castleShape(8);
+  function c_haunted() {
+    const px = castleShape(9);
+    set(px, 7, 10, PU); set(px, 8, 10, PU);
+    return px;
+  }
+  const c_opulent = () => castleShape(10);
+  const c_sprawling = () => castleShape(11);
+  const c_grand = () => castleShape(12);
+  function c_king() {
+    const px = castleShape(13);
+    set(px, 8, 3, GOl);
+    return px;
+  }
+
+  // ---- 拡張「夜想曲」77 種 ----
+  function boonIcon(c) { // 恵み: 光る輪
+    const px = blank();
+    for (const a of [0, 45, 90, 135, 180, 225, 270, 315]) { const r = Math.PI * a / 180; set(px, Math.round(8 + 6 * Math.sin(r)), Math.round(8 + 6 * Math.cos(r)), c); }
+    circle(px, 8, 8, 3, GOl, GOl, GOl, O);
+    return px;
+  }
+  const b_earth = () => boonIcon(WD);
+  const b_field = () => boonIcon(GOl);
+  const b_flame = () => boonIcon(FL);
+  const b_forest = () => boonIcon(GR);
+  const b_moon = () => boonIcon(WT);
+  const b_mountain = () => boonIcon(ST);
+  const b_river = () => boonIcon(WT);
+  const b_sea = () => boonIcon(WTd);
+  const b_sky = () => boonIcon(WL);
+  const b_sun = () => boonIcon(GO);
+  const b_swamp = () => boonIcon(GRl);
+  const b_wind = () => boonIcon(WLd);
+  function hexIcon(c) { // 呪詛: 割れた輪
+    const px = blank();
+    circle(px, 8, 8, 6, PUd, PU, PUd, O);
+    circle(px, 8, 8, 3, c, c, c, O);
+    return px;
+  }
+  const h_omens = () => hexIcon(O);
+  const h_delusion = () => hexIcon(PUl);
+  const h_envy = () => hexIcon(GR);
+  const h_famine = () => hexIcon(WDd);
+  const h_fear = () => hexIcon(ST);
+  const h_greed = () => hexIcon(CU);
+  const h_haunting = () => hexIcon(WL);
+  const h_locusts = () => hexIcon(WDd);
+  const h_misery = () => hexIcon(STd);
+  const h_plague = () => hexIcon(GR);
+  const h_poverty = () => hexIcon(WDd);
+  const h_war = () => hexIcon(MEd);
+  function s_lost() { // 森の迷い子
+    const px = blank();
+    circle(px, 8, 9, 3, WL, WL, WLd, O);
+    lineThick(px, 6, 12, 6, 15, WLd, 1); lineThick(px, 10, 12, 10, 15, WLd, 1);
+    return px;
+  }
+  function stateIcon(c) { // 状態: 返す札
+    const px = blank();
+    frame(px, 3, 3, 10, 10, c, O);
+    return px;
+  }
+  const s_deluded = () => stateIcon(PU);
+  const s_envious = () => stateIcon(GR);
+  const s_miserable = () => stateIcon(STd);
+  const s_twice = () => stateIcon(ST);
+  function dimmirror() { // 曇り鏡
+    const px = blank();
+    circle(px, 8, 8, 6, ST, STl, STd, O);
+    circle(px, 8, 8, 4, WTl, WTl, WT, O);
+    return px;
+  }
+  function luckycoin() { // 福銭
+    const px = blank();
+    return coin(GO, GOl, GOd, 3);
+  }
+  function kid() { // 子山羊
+    const px = blank();
+    circle(px, 8, 9, 5, WL, WL, WLd, O);
+    circle(px, 5, 6, 3, WL, WL, WLd, O);
+    rect(px, 4, 13, 2, 2, WLd); rect(px, 10, 13, 2, 2, WLd);
+    return px;
+  }
+  function cursedcoin() { // 祟り金
+    const px = blank();
+    circle(px, 8, 8, 6, PU, PUl, PUd, O);
+    set(px, 8, 8, GOl);
+    return px;
+  }
+  function wishlamp() { return lantern(); }
+  function lantern() { // 願いの灯
+    const px = blank();
+    frame(px, 5, 4, 6, 8, ME, O);
+    circle(px, 8, 8, 2, GOl, GOl, GOl, O);
+    return px;
+  }
+  function grazing() { return cottage(); }
+  function purse() { // 巾着
+    const px = blank();
+    circle(px, 8, 9, 6, PUd, PU, PUd, O);
+    rect(px, 5, 3, 6, 3, PU);
+    return px;
+  }
+  function wisp() { // 鬼火
+    const px = blank();
+    circle(px, 8, 8, 5, WT, WTl, WT, O);
+    circle(px, 8, 8, 2, WTl, WTl, WTl, O);
+    return px;
+  }
+  function imp2() { // 小悪魔
+    const px = blank();
+    circle(px, 8, 9, 5, CUd, CU, CUd, O);
+    set(px, 6, 8, GOl); set(px, 10, 8, GOl);
+    lineThick(px, 5, 4, 3, 1, CUd, 1); lineThick(px, 11, 4, 13, 1, CUd, 1);
+    return px;
+  }
+  function phantom() { // 亡霊
+    const px = blank();
+    for (let r = 0; r < 9; r++) { const half = Math.max(1, Math.round(r * 0.4)); for (let c = -half; c < half; c++) set(px, 8 + c, 3 + r, WL); }
+    set(px, 6, 6, O); set(px, 10, 6, O);
+    return px;
+  }
+  function wish2() { // 願い事
+    const px = blank();
+    for (const a of [0, 72, 144, 216, 288]) { const r = Math.PI * a / 180 - Math.PI / 2; set(px, Math.round(8 + 5 * Math.cos(r)), Math.round(8 + 5 * Math.sin(r)), GOl); }
+    set(px, 8, 8, GO);
+    return px;
+  }
+  function nightwing() { // 夜の羽
+    const px = blank();
+    for (let r = 0; r < 6; r++) { set(px, 3 + r, 4 + r, O); set(px, 13 - r, 4 + r, O); }
+    circle(px, 8, 10, 3, CU, CUl, CUd, O);
+    return px;
+  }
+  function zombieIcon() { // 屍
+    const px = blank();
+    circle(px, 8, 6, 3, BN, BN, BNd, O);
+    rect(px, 5, 9, 6, 6, BNd);
+    return px;
+  }
+  const z_apprentice = zombieIcon;
+  const z_mason = zombieIcon;
+  const z_spy = zombieIcon;
+  function druid() { // 森の賢者
+    const px = blank();
+    roof(px, 5, 1, 6, 4, GRl, GRl, GR);
+    frame(px, 6, 5, 4, 8, WD, O);
+    return px;
+  }
+  function loyaldog() { // 番の犬
+    const px = blank();
+    circle(px, 6, 10, 4, WD, WDl, WDd, O);
+    circle(px, 10, 8, 3, WD, WDl, WDd, O);
+    return px;
+  }
+  function protector() { // 守り手
+    const px = blank();
+    frame(px, 4, 3, 8, 11, ME, O);
+    rect(px, 7, 5, 2, 5, MEd);
+    return px;
+  }
+  function priory() { // 僧坊
+    const px = blank();
+    frame(px, 3, 2, 10, 12, WL, O);
+    lineThick(px, 8, 4, 8, 12, WLd, 1);
+    return px;
+  }
+  function sprite() { // 妖精
+    const px = blank();
+    circle(px, 8, 8, 4, PUl, PUl, PU, O);
+    for (const [x, y] of [[3, 4], [13, 4], [3, 12], [13, 12]]) set(px, x, y, PUl);
+    return px;
+  }
+  function trailer() { // 足跡たどり
+    const px = blank();
+    for (const [x, y] of [[3, 12], [6, 9], [10, 6], [13, 3]]) circle(px, x, y, 1, WDd, WDd, WDd, O);
+    return px;
+  }
+  function fairychild() { // 化け子
+    const px = blank();
+    circle(px, 8, 9, 4, PUl, PUl, PU, O);
+    for (const [x, y] of [[4, 5], [12, 5], [8, 3]]) set(px, x, y, GOl);
+    return px;
+  }
+  function simpleton() { // うつけ者
+    const px = blank();
+    circle(px, 8, 9, 5, GOl, GOl, GO, O);
+    set(px, 6, 8, O); set(px, 10, 8, O);
+    return px;
+  }
+  function emptytown() { // 無人の町
+    const px = blank();
+    roof(px, 1, 6, 6, 4, RF, RFl, RFd); frame(px, 2, 10, 4, 4, WLd, O);
+    roof(px, 9, 3, 6, 5, RFd, RF, RFl); frame(px, 10, 8, 4, 6, WLd, O);
+    return px;
+  }
+  function goblin() { // 小鬼
+    const px = blank();
+    circle(px, 8, 9, 5, GR, GRl, GR, O);
+    set(px, 5, 8, GOl); set(px, 11, 8, GOl);
+    return px;
+  }
+  function firewatch() { // 火の番
+    const px = blank();
+    circle(px, 8, 11, 2, FL, FLl, FL, O);
+    for (const [x, y] of [[6, 9], [8, 6], [10, 9]]) set(px, x, y, FLl);
+    return px;
+  }
+  function hiddencave() { // 隠れ洞
+    const px = blank();
+    for (let r = 0; r < 10; r++) { const half = Math.max(1, Math.round(6 * Math.sin(r / 10 * Math.PI))); for (let c = -half; c < half; c++) set(px, 8 + c, 2 + r, ST); }
+    circle(px, 8, 8, 2, O, O, O, O);
+    return px;
+  }
+  function minstrel() { // 琵琶法師
+    const px = blank();
+    circle(px, 10, 10, 4, WD, WDl, WDd, O);
+    lineThick(px, 10, 6, 13, 2, WDl, 1);
+    return px;
+  }
+  function luckyvillage() { return village(); }
+  function graveyard() { // 無縁墓
+    const px = blank();
+    rect(px, 5, 6, 6, 8, ST);
+    rect(px, 6, 3, 4, 4, ST);
+    return px;
+  }
+  function secretcouncil() { // 密議
+    const px = blank();
+    circle(px, 5, 9, 3, PUd, PU, PUd, O);
+    circle(px, 11, 9, 3, PUd, PU, PUd, O);
+    circle(px, 8, 5, 3, PUd, PU, PUd, O);
+    return px;
+  }
+  function demonforge() { // 鬼の仕事場
+    const px = blank();
+    rect(px, 5, 3, 6, 2, MEd);
+    for (let r = 0; r < 4; r++) rect(px, 3 - r, 5 + r, 10 + r * 2, 1, ME);
+    circle(px, 12, 3, 2, FL, FLl, FL, O);
+    return px;
+  }
+  function purifier() { // お祓い師
+    const px = blank();
+    circle(px, 8, 9, 5, WL, WL, WLd, O);
+    circle(px, 8, 9, 2, WT, WTl, WTd, O);
+    return px;
+  }
+  function deadcaller() { // 死霊使い
+    const px = blank();
+    circle(px, 8, 7, 3, BN, BN, BNd, O);
+    rect(px, 5, 10, 6, 5, PUd);
+    return px;
+  }
+  function herdsman() { // 牧人
+    const px = blank();
+    circle(px, 5, 10, 3, WL, WL, WLd, O);
+    circle(px, 10, 9, 3, WL, WL, WLd, O);
+    circle(px, 13, 10, 3, WL, WL, WLd, O);
+    return px;
+  }
+  function sneak() { // 忍び足
+    const px = blank();
+    circle(px, 8, 9, 4, O, O, O, O);
+    circle(px, 8, 9, 2, PU, PUl, PUd, O);
+    return px;
+  }
+  function shoemender() { // 靴直し
+    const px = blank();
+    rect(px, 3, 11, 5, 3, WDd); rect(px, 9, 11, 5, 3, WDd);
+    lineThick(px, 5, 11, 5, 4, ME, 1);
+    return px;
+  }
+  function tombchamber() { // 石室
+    const px = blank();
+    frame(px, 3, 4, 10, 9, ST, O);
+    for (let i = 0; i < 3; i++) circle(px, 5 + i * 3, 11, 1, GO, GOl, GOd, O);
+    return px;
+  }
+  function hauntedvillage() { // 祟りの村
+    const px = blank();
+    roof(px, 1, 6, 6, 4, RF, RFl, RFd); frame(px, 2, 10, 4, 4, WLd, O);
+    roof(px, 9, 3, 6, 5, RFd, RF, RFl); frame(px, 10, 8, 4, 6, WLd, O);
+    circle(px, 8, 2, 2, WL, WL, WL, O);
+    return px;
+  }
+  function rookery() { // 悪党の巣窟
+    const px = blank();
+    for (const [x, y] of [[3, 3], [7, 2], [11, 4]]) { lineThick(px, x, y, x + 2, y - 2, O, 1); lineThick(px, x + 2, y - 2, x + 4, y, O, 1); }
+    frame(px, 4, 8, 8, 6, WDd, O);
+    return px;
+  }
+  function figurine() { // 土偶
+    const px = blank();
+    rect(px, 6, 5, 4, 8, ST);
+    circle(px, 8, 4, 2, STl, STl, STl, O);
+    return px;
+  }
+  function phantomhorse() { // 化け馬
+    const px = blank();
+    rect(px, 3, 9, 9, 3, WL);
+    rect(px, 10, 4, 3, 5, WL);
+    for (const x of [4, 10]) rect(px, x, 12, 2, 3, WLd);
+    return px;
+  }
+  function holygrove() { // 鎮守の森
+    const px = blank();
+    circle(px, 8, 8, 5, GR, GRl, GR, O);
+    circle(px, 8, 8, 2, PUl, PUl, PU, O);
+    return px;
+  }
+  function bully() { // いじめっ子
+    const px = blank();
+    frame(px, 4, 3, 8, 11, CUd, O);
+    rect(px, 6, 6, 4, 2, O);
+    return px;
+  }
+  function doomedhero() { // 薄幸の勇者
+    const px = blank();
+    frame(px, 5, 2, 6, 10, ME, O);
+    circle(px, 8, 13, 2, CU, CUl, CUd, O);
+    return px;
+  }
+  function bloodsucker() { // 血吸い
+    const px = blank();
+    circle(px, 8, 8, 5, CUd, CUd, CUd, O);
+    for (const x of [6, 10]) rect(px, x, 8, 1, 3, WL);
+    return px;
+  }
+  function wolfman() { // 狼男
+    const px = blank();
+    circle(px, 8, 9, 5, WDd, WD, WDd, O);
+    for (const [x, y] of [[5, 6], [11, 6]]) { set(px, x, y, WDd); set(px, x, y - 1, WDd); }
+    return px;
+  }
+  function nightthief() { // 夜盗
+    const px = blank();
+    circle(px, 8, 9, 5, O, O, O, O);
+    rect(px, 6, 9, 4, 4, CU);
+    return px;
+  }
+
+  // ---- 拡張「ルネサンス」49 種 ----
+  function gatekeeper() { // 関守
+    const px = blank();
+    rect(px, 5, 2, 2, 12, ST); rect(px, 9, 2, 2, 12, ST);
+    rect(px, 4, 8, 8, 4, WDd);
+    return px;
+  }
+  function koban() { return coin(GO, GOl, GOd, 3); }
+  function lackeys() { // 手下衆
+    const px = blank();
+    circle(px, 5, 10, 3, WL, WL, WLd, O);
+    circle(px, 11, 9, 3, WL, WL, WLd, O);
+    return px;
+  }
+  function troupe() { // 旅一座: 仮面
+    const px = blank();
+    circle(px, 8, 8, 5, WL, WL, WL, O);
+    set(px, 6, 7, O); set(px, 10, 7, O);
+    return px;
+  }
+  function cargo() { return boatIcon(); }
+  function boatIcon() {
+    const px = blank();
+    for (let i = 0; i < 4; i++) rect(px, 6 - i, 10 + i, 4 + i * 2, 1, WD);
+    lineThick(px, 8, 10, 8, 2, WDd, 1);
+    return px;
+  }
+  function trial2() { // 試し: 手紙
+    const px = blank();
+    frame(px, 3, 4, 10, 8, WL, O);
+    circle(px, 8, 8, 2, RF, RFl, RFd, O);
+    return px;
+  }
+  function improve() { // 手入れ
+    const px = blank();
+    lineThick(px, 4, 13, 12, 3, ME, 2);
+    return px;
+  }
+  function flagbearer() { // 旗持ち
+    const px = blank();
+    lineThick(px, 5, 14, 5, 2, WDd, 1);
+    rect(px, 6, 2, 7, 5, RF);
+    return px;
+  }
+  function lair2() { // 隠れ家
+    const px = blank();
+    for (let r = 0; r < 9; r++) { const half = Math.max(1, Math.round(9 * Math.sin(r / 9 * Math.PI))); for (let c = -half; c < half; c++) set(px, 8 + c, 3 + r, ST); }
+    circle(px, 8, 9, 2, O, O, O, O);
+    return px;
+  }
+  function inventor() { // 発明の人
+    const px = blank();
+    circle(px, 8, 8, 6, ME, ME, MEd, O);
+    for (const a of [0, 60, 120, 180, 240, 300]) { const r = Math.PI * a / 180; set(px, Math.round(8 + 7 * Math.sin(r)), Math.round(8 + 7 * Math.cos(r)), ME); }
+    return px;
+  }
+  function mountainvillage() { // 山里
+    const px = blank();
+    for (let x = 0; x < N; x++) { const top = 10 - Math.round(3 * Math.sin(x * 0.4)); for (let y = top; y < 12; y++) set(px, x, y, ST); }
+    frame(px, 5, 8, 6, 5, WL, O);
+    return px;
+  }
+  function backer() { // 後ろ盾
+    const px = blank();
+    circle(px, 8, 8, 6, CUd, CU, CUd, O);
+    set(px, 8, 8, GOl);
+    return px;
+  }
+  function kannushi() { return torii(); }
+  function research() { // 調べもの
+    const px = blank();
+    for (const [x, c] of [[1, CU], [5, SI], [9, GO], [13, WD]]) rect(px, x, 6, 3, 9, c);
+    circle(px, 8, 3, 2, WL, WL, WL, O);
+    return px;
+  }
+  function draper() { // 呉服屋
+    const px = blank();
+    rect(px, 2, 4, 3, 10, CU); rect(px, 6, 4, 3, 10, SI); rect(px, 10, 4, 3, 10, GO);
+    return px;
+  }
+  function yamauba() { // 山姥
+    const px = blank();
+    circle(px, 8, 9, 5, WDd, WD, WDd, O);
+    rect(px, 5, 2, 6, 4, ST);
+    return px;
+  }
+  function recruiter() { // 口入れ屋
+    const px = blank();
+    circle(px, 5, 10, 3, WL, WL, WLd, O);
+    circle(px, 11, 9, 3, WL, WL, WLd, O);
+    circle(px, 8, 6, 3, WL, WL, WLd, O);
+    return px;
+  }
+  function baton() { // 采配
+    const px = blank();
+    lineThick(px, 8, 14, 8, 3, GO, 2);
+    circle(px, 8, 2, 3, PU, PUl, PUd, O);
+    return px;
+  }
+  function student() { // 書生
+    const px = blank();
+    frame(px, 3, 5, 10, 8, WL, O);
+    for (const y of [7, 9, 11]) lineThick(px, 5, y, 11, y, WLd, 1);
+    return px;
+  }
+  function carver() { // 彫り師
+    const px = blank();
+    frame(px, 5, 2, 6, 12, WD, O);
+    lineThick(px, 3, 5, 5, 5, MEd, 1);
+    return px;
+  }
+  function clairvoyant() { // 千里眼
+    const px = blank();
+    diamond(px, 8, 8, 6, PUl, O);
+    diamond(px, 8, 8, 3, PU, O);
+    return px;
+  }
+  function spices() { // 香辛の品
+    const px = blank();
+    for (const [x, c] of [[4, FL], [8, GOl], [12, CU]]) circle(px, x, 9, 3, c, c, c, O);
+    return px;
+  }
+  function swordsman() { // 剣豪
+    const px = blank();
+    lineThick(px, 3, 13, 13, 3, ME, 2);
+    rect(px, 3, 12, 3, 3, WDd);
+    return px;
+  }
+  function treasurer() { // 勘定方
+    const px = blank();
+    for (let i = 0; i < 3; i++) circle(px, 4 + i * 4, 11, 2, GO, GOl, GOd, O);
+    circle(px, 8, 4, 2, GOl, GOl, GO, O);
+    lineThick(px, 10, 4, 13, 4, GO, 1);
+    return px;
+  }
+  function badguy() { // 悪玉
+    const px = blank();
+    frame(px, 4, 3, 8, 11, O, O);
+    rect(px, 6, 6, 4, 2, CUd);
+    return px;
+  }
+  function a_flag() { // のぼり旗
+    const px = blank();
+    lineThick(px, 5, 14, 5, 2, WDd, 1);
+    rect(px, 6, 2, 8, 6, RF);
+    return px;
+  }
+  function a_horn() { // 法螺貝
+    const px = blank();
+    lineThick(px, 3, 11, 10, 4, GO, 2);
+    circle(px, 12, 4, 3, GOl, GOl, GO, O);
+    return px;
+  }
+  function key() { // 合鍵
+    const px = blank();
+    circle(px, 5, 8, 3, GO, GOl, GOd, O);
+    lineThick(px, 8, 8, 13, 8, GO, 1);
+    set(px, 12, 9, GOd); set(px, 12, 10, GOd);
+    return px;
+  }
+  const a_key = key;
+  function a_lantern() { return lantern(); }
+  function a_chest() { // 千両箱
+    const px = blank();
+    frame(px, 2, 8, 12, 5, WD, O);
+    rect(px, 2, 6, 12, 2, WDd);
+    circle(px, 8, 10, 1, GO, GOl, GOd, O);
+    return px;
+  }
+  function jIcon(c1, c2) { // プロジェクト共通: 盾形
+    const px = blank();
+    for (let y = 2; y < 12; y++) { const half = Math.max(1, Math.round(6 - Math.abs(y - 7) * 0.6)); for (let x = 8 - half; x < 8 + half; x++) set(px, x, y, y < 12 ? c1 : c2); }
+    for (let r = 0; r < 4; r++) { const half = 6 - r * 2; for (let x = 8 - half; x < 8 + half; x++) set(px, x, 12 + r, c2); }
+    return px;
+  }
+  const j_cathedral = () => jIcon(RF, RFd);
+  const j_citygate = () => jIcon(ST, STd);
+  const j_pageant = () => jIcon(GO, GOd);
+  const j_sewers = () => jIcon(WT, WTd);
+  const j_starchart = () => jIcon(PU, PUd);
+  const j_exploration = () => jIcon(WL, WLd);
+  const j_marketday = () => jIcon(GR, GRl);
+  const j_silos = () => jIcon(WD, WDd);
+  const j_plot = () => jIcon(MEd, O);
+  const j_academy = () => jIcon(CU, CUd);
+  const j_fleet = () => jIcon(WT, WTl);
+  const j_guildhall = () => jIcon(SI, SId);
+  const j_piazza = () => jIcon(ST, STl);
+  const j_roads = () => jIcon(WDd, WD);
+  const j_barracks = () => jIcon(RFd, RF);
+  const j_croprotation = () => jIcon(GRl, GR);
+  const j_innovation = () => jIcon(ME, MEd);
+  const j_canal = () => jIcon(WT, WTd);
+  const j_citadel = () => jIcon(STl, ST);
+
+  // ---- 拡張「移動動物園」70 種 ----
+  function angler() { // 釣り人
+    const px = blank();
+    lineThick(px, 3, 11, 12, 4, WD, 1);
+    for (let y = 10; y < 14; y++) for (let x = 0; x < 16; x++) if ((x + y) % 4 < 2) set(px, x, y, WT);
+    return px;
+  }
+  function archbishop() { // 大僧正
+    const px = blank();
+    frame(px, 5, 2, 6, 11, WL, O);
+    circle(px, 8, 1, 2, CU, CUl, CUd, O);
+    return px;
+  }
+  function beastfair() { return horseIcon(); }
+  function horseIcon() { // 馬形共通
+    const px = blank();
+    rect(px, 3, 7, 9, 4, WD);
+    rect(px, 10, 3, 3, 5, WD);
+    for (const x of [4, 10]) rect(px, x, 11, 2, 3, WDd);
+    return px;
+  }
+  function bountyman() { // 懸賞稼ぎ
+    const px = blank();
+    frame(px, 3, 3, 10, 7, WL, O);
+    circle(px, 8, 6, 2, RF, RFl, RFd, O);
+    return px;
+  }
+  function caravan2() { return horseIcon(); }
+  function commons() { // 村の広っぱ
+    const px = blank();
+    circle(px, 4, 10, 2, WL, WL, WL, O);
+    circle(px, 8, 9, 2, WL, WL, WL, O);
+    circle(px, 12, 10, 2, WL, WL, WL, O);
+    return px;
+  }
+  function corral() { // 放し飼い場
+    const px = blank();
+    for (const x of [2, 7, 12]) lineThick(px, x, 3, x, 13, WD, 1);
+    for (const y of [5, 10]) lineThick(px, 2, y, 13, y, WDl, 1);
+    return px;
+  }
+  function evict() { // 追い立て
+    const px = blank();
+    frame(px, 5, 6, 8, 7, WL, O);
+    roof(px, 4, 2, 10, 4, RF, RFl, RFd);
+    return px;
+  }
+  function falconer() { // 鷹使い
+    const px = blank();
+    lineThick(px, 5, 13, 5, 6, WDd, 1);
+    for (const a of [0, 45, -45]) { const r = Math.PI * a / 180; set(px, Math.round(10 + 4 * Math.sin(r)), Math.round(5 + 4 * Math.cos(r)), STd); }
+    return px;
+  }
+  function goatkeeper() { // 山羊番
+    const px = blank();
+    circle(px, 6, 10, 3, WL, WL, WLd, O);
+    circle(px, 11, 9, 3, WL, WL, WLd, O);
+    return px;
+  }
+  function herddog() { // 牧犬
+    const px = blank();
+    circle(px, 6, 10, 4, WD, WDl, WDd, O);
+    circle(px, 11, 8, 3, WD, WDl, WDd, O);
+    return px;
+  }
+  function hoardpile() { // 蓄え
+    const px = blank();
+    rect(px, 3, 5, 4, 9, CU); rect(px, 8, 3, 4, 11, SI); rect(px, 12, 6, 3, 8, GO);
+    return px;
+  }
+  function horsemen() { return horseIcon(); }
+  function hostel() { return manor(); }
+  function huntlodge() { // 狩り小屋
+    const px = blank();
+    roof(px, 3, 3, 10, 5, RF, RFl, RFd);
+    frame(px, 4, 8, 8, 6, WD, O);
+    return px;
+  }
+  function kiln() { // 窯
+    const px = blank();
+    frame(px, 4, 5, 8, 9, STd, O);
+    circle(px, 8, 8, 2, FL, FLl, FL, O);
+    return px;
+  }
+  function livery() { return horseIcon(); }
+  function mEventIcon(c) { // m_ イベント共通: 蹄鉄
+    const px = blank();
+    for (let a = 0; a <= 180; a += 20) { const r = Math.PI * a / 180; set(px, Math.round(8 + 5 * Math.sin(r)), Math.round(6 + 5 * Math.cos(r)), c); }
+    return px;
+  }
+  const m_banish = () => mEventIcon(ST);
+  const m_bargain = () => mEventIcon(GO);
+  const m_delay = () => mEventIcon(WD);
+  const m_demand = () => mEventIcon(CUd);
+  const m_despair = () => mEventIcon(PUd);
+  const m_enclave = () => mEventIcon(GOl);
+  const m_enhance = () => mEventIcon(PU);
+  const m_gamble = () => mEventIcon(RF);
+  const m_invest = () => mEventIcon(MEd);
+  const m_league = () => mEventIcon(GR);
+  const m_march = () => mEventIcon(STl);
+  const m_populate = () => mEventIcon(WL);
+  const m_pursue = () => mEventIcon(WD);
+  const m_reap = () => mEventIcon(GO);
+  const m_ride = () => mEventIcon(WDl);
+  const m_seize = () => mEventIcon(GOl);
+  const m_stampede = () => mEventIcon(WDd);
+  const m_toil = () => mEventIcon(WL);
+  const m_trade = () => mEventIcon(GO);
+  const m_transport = () => mEventIcon(ME);
+  function nightcat() { // 夜の猫
+    const px = blank();
+    circle(px, 8, 9, 5, O, O, O, O);
+    set(px, 6, 7, GOl); set(px, 10, 7, GOl);
+    return px;
+  }
+  function pony() { return horseIcon(); }
+  function provisions() { // 糧秣
+    const px = blank();
+    frame(px, 3, 8, 10, 5, WD, O);
+    rect(px, 3, 6, 10, 2, WDd);
+    return px;
+  }
+  function refuge() { return cottage(); }
+  function ringleader() { // 元締め
+    const px = blank();
+    frame(px, 4, 3, 8, 10, RF, O);
+    lineThick(px, 10, 6, 14, 2, MEd, 1);
+    return px;
+  }
+  function riverboat() { // 川舟
+    const px = blank();
+    for (let i = 0; i < 4; i++) rect(px, 6 - i, 11 + i, 4 + i * 2, 1, WD);
+    lineThick(px, 8, 11, 8, 3, WDd, 1);
+    return px;
+  }
+  function scrapiron() { // くず鉄
+    const px = blank();
+    rect(px, 3, 7, 4, 4, ME); rect(px, 8, 5, 4, 6, MEd); rect(px, 12, 8, 3, 4, ME);
+    return px;
+  }
+  function sled() { // 馬そり
+    const px = blank();
+    rect(px, 3, 9, 10, 4, WD);
+    lineThick(px, 2, 13, 5, 9, WDd, 1); lineThick(px, 14, 13, 11, 9, WDd, 1);
+    return px;
+  }
+  function snowvillage() { // 雪の里
+    const px = blank();
+    roof(px, 0, 6, 6, 3, WL, WL, WLd); frame(px, 1, 9, 4, 4, WL, O);
+    roof(px, 9, 3, 6, 5, WL, WL, WLd); frame(px, 10, 8, 4, 6, WL, O);
+    return px;
+  }
+  function stablehand() { // 馬番
+    const px = blank();
+    frame(px, 3, 5, 6, 8, WD, O);
+    for (const y of [7, 10]) lineThick(px, 5, y, 7, y, WDl, 1);
+    return px;
+  }
+  function traveler2() { // 旅の人
+    const px = blank();
+    circle(px, 8, 6, 2, WL, O, O, O);
+    lineThick(px, 8, 8, 8, 13, WLd, 2);
+    return px;
+  }
+  function warder() { // 門衛
+    const px = blank();
+    frame(px, 4, 3, 8, 11, ME, O);
+    rect(px, 7, 5, 2, 5, MEd);
+    return px;
+  }
+  function warhorse() { return horseIcon(); }
+  function witchmeet() { // 魔女の寄り合い
+    const px = blank();
+    circle(px, 8, 8, 6, PU, PUl, PUd, O);
+    circle(px, 8, 8, 3, O, O, O, O);
+    return px;
+  }
+  function animalIcon(c, ear) { // ならい（動物）共通: 丸い体と耳
+    const px = blank();
+    circle(px, 8, 10, 5, c, c, c, O);
+    if (ear) circle(px, 5, 6, 2, c, c, c, O);
+    return px;
+  }
+  const w_butterfly = () => { const px = blank(); circle(px, 5, 7, 3, PU, PUl, PU, O); circle(px, 11, 7, 3, PU, PUl, PU, O); lineThick(px, 8, 4, 8, 12, O, 1); return px; };
+  const w_camel = () => animalIcon(GOl, true);
+  const w_frog = () => animalIcon(GR, false);
+  const w_goat = () => animalIcon(WL, true);
+  const w_horse = () => horseIcon();
+  function w_mole() { // 土竜のならい
+    const px = blank();
+    circle(px, 8, 10, 5, WDd, WD, WDd, O);
+    circle(px, 8, 13, 3, WDd, WDd, WDd, O);
+    return px;
+  }
+  const w_monkey = () => animalIcon(WDd, true);
+  const w_mouse = () => animalIcon(STl, true);
+  const w_mule = () => animalIcon(STd, true);
+  const w_otter = () => animalIcon(WDl, false);
+  function w_owl() { // 梟のならい
+    const px = blank();
+    circle(px, 8, 8, 5, WDd, WD, WDd, O);
+    set(px, 6, 7, GOl); set(px, 10, 7, GOl);
+    return px;
+  }
+  const w_ox = () => animalIcon(STd, true);
+  const w_pig = () => animalIcon(RFl, false);
+  const w_rat = () => animalIcon(STl, false);
+  const w_seal = () => animalIcon(ST, false);
+  const w_sheep = () => animalIcon(WL, false);
+  const w_squirrel = () => animalIcon(WDl, false);
+  function w_turtle() { // 亀のならい
+    const px = blank();
+    circle(px, 8, 10, 5, GR, GRl, GR, O);
+    circle(px, 8, 10, 3, GRl, GRl, GR, O);
+    return px;
+  }
+  function w_worm() { // 蚯蚓のならい
+    const px = blank();
+    for (let i = 0; i < 5; i++) set(px, 4 + i * 2, 9 + (i % 2), RFl);
+    return px;
+  }
+
+  // ---- 拡張「プロモ」14 種 ----
+  function chapel2() { return abbey(); }
+  function darkmarket() { // 闇の市
+    const px = blank();
+    frame(px, 2, 9, 12, 4, WD, O);
+    for (const x of [4, 8, 12]) set(px, x, 7, GOl);
+    return px;
+  }
+  function dismantle() { // 解体
+    const px = blank();
+    rect(px, 4, 5, 4, 8, ME); rect(px, 9, 3, 4, 10, MEd);
+    return px;
+  }
+  function legate() { // 内通者
+    const px = blank();
+    frame(px, 4, 5, 8, 6, WL, O);
+    circle(px, 2, 9, 2, WL, WL, WL, O);
+    circle(px, 14, 9, 2, WL, WL, WL, O);
+    return px;
+  }
+  function fencedvillage() { return village(); }
+  function bugyo() { // 奉行
+    const px = blank();
+    frame(px, 5, 2, 6, 10, RF, O);
+    rect(px, 6, 0, 4, 2, GO);
+    return px;
+  }
+  function borderland() { // 境の地
+    const px = blank();
+    lineThick(px, 0, 10, 16, 6, WDd, 1);
+    rect(px, 7, 2, 2, 9, ST);
+    return px;
+  }
+  function nestegg() { // 隠し財布
+    const px = blank();
+    circle(px, 8, 10, 6, WD, WDl, WDd, O);
+    for (const [x, y] of [[5, 8], [9, 9], [11, 7]]) circle(px, x, y, 1, WL, WL, WL, O);
+    return px;
+  }
+  function skipper() { // 船頭
+    const px = blank();
+    for (let i = 0; i < 4; i++) rect(px, 6 - i, 10 + i, 4 + i * 2, 1, WD);
+    lineThick(px, 8, 10, 8, 2, WDd, 1);
+    rect(px, 8, 2, 4, 2, RF);
+    return px;
+  }
+  function youngload() { // 若殿
+    const px = blank();
+    frame(px, 4, 2, 8, 11, RF, O);
+    set(px, 8, 1, GOl);
+    return px;
+  }
+  function p_sauna() { // 蒸し風呂／氷の湯
+    const px = blank();
+    circle(px, 8, 8, 6, WT, WTl, WTd, O);
+    for (const [x, y] of [[5, 4], [9, 3], [7, 6]]) set(px, x, y, WL);
+    return px;
+  }
+  function steambath() { // 蒸し風呂
+    const px = blank();
+    circle(px, 8, 8, 6, RF, RFl, RFd, O);
+    return px;
+  }
+  function icebath() { // 氷の湯
+    const px = blank();
+    circle(px, 8, 8, 6, WT, WTl, WTd, O);
+    return px;
+  }
+  function e_summon() { // 呼び寄せ
+    const px = blank();
+    circle(px, 8, 8, 5, PU, PUl, PUd, O);
+    for (const [x, y] of [[4, 4], [12, 4], [8, 2]]) set(px, x, y, GOl);
+    return px;
+  }
+
   const BUILDERS = {
     copper: () => coin(CU, CUl, CUd, 1),
     silver: () => coin(SI, SIl, SId, 2),
@@ -2252,6 +3469,32 @@
     potion, transform, vinerack, herbpicker, druggist, mirrorpool, academy, adept, blackcat, arcanestone, clayman, pupil, takeover,
     ruins, ruin_mine, ruin_library, ruin_market, ruin_village, ruin_survivors, shack, tombs, wildestate, booty, lunatic, sellsword, knights, poorhouse, pauper, footman, rover, gleaner, recluse, marketsquare, scholar, lumberroom, waif, arsenal, corpsecart, fief, stronghold, hardware, ravager, parade, rats, scrounger, troubadour, impostor, hideout, ossuary, viscount, forgery, zealot, gravedigger, junkman, psychic, ransack, rework, villain, offering, huntland,
     realmcoin, lad, farmer, catpaw, wreck, wardstone, escort, stonecell, kit, pathguide, copycat, crow, courier, skinflint, harbor, forester, shapeshift, tinkerer, bridgeogre, bigman, mazewood, phantomcity, oldrelic, carriage, raconteur, bogfiend, windfall, vintner, farland, servant, seeker, fighter, paragon, victor, ashigaru, deserter, follower, master, e_soup, e_advance, e_trial, e_keep, e_scouts, e_travelfair, e_bonfire, e_outing, e_ferry, e_plan, e_errand, e_pilgrim, e_soiree, e_nightraid, e_searoute, e_barter, e_secretart, e_practice, e_signpost,
+    p_settlers, p_catapult, p_patrician, p_encampment, p_gladiator, colonist, busyvillage, trebuchet, pebbles, notable, emporium, bivouac, spoil, fightman, fortune, castles, chariot, temptress, vegmarket, mechanic, oblation, shrine, villa, archivist, principal, luckycharm, scepter, meetinghall, gardener, hoplite, wildchase, townblock, overking, royalsmith, e_promote, e_dig, e_levy, e_feast, e_marriage, e_rite, e_scorch, e_luck, e_warcry, e_subdue, e_absorb, e_alms2, e_unify, l_canal, l_ring, l_banditden, l_hall, l_bathhouse, l_battleground, l_arcade, l_ruinedtemple, l_fountain, l_donjon, l_maze, l_pass, l_treasury, l_pillar, l_fruitfield, l_palace, l_mound, l_tower, l_gate, l_wall, l_lair, c_humble, c_crumbling, c_small, c_haunted, c_opulent, c_sprawling, c_grand, c_king,
+    b_earth, b_field, b_flame, b_forest, b_moon, b_mountain, b_river, b_sea, b_sky, b_sun, b_swamp, b_wind,
+    h_omens, h_delusion, h_envy, h_famine, h_fear, h_greed, h_haunting, h_locusts, h_misery, h_plague, h_poverty, h_war,
+    s_lost, s_deluded, s_envious, s_miserable, s_twice,
+    dimmirror, luckycoin, kid, cursedcoin, wishlamp, grazing, purse,
+    wisp, imp2, phantom, wish2, nightwing, z_apprentice, z_mason, z_spy,
+    druid, loyaldog, protector, priory, sprite, trailer, fairychild, simpleton, emptytown, goblin,
+    firewatch, hiddencave, minstrel, luckyvillage, graveyard, secretcouncil, demonforge, purifier,
+    deadcaller, herdsman, sneak, shoemender, tombchamber, hauntedvillage, rookery, figurine,
+    phantomhorse, holygrove, bully, doomedhero, bloodsucker, wolfman, nightthief,
+    gatekeeper, koban, lackeys, troupe, cargo, trial2, improve, flagbearer, lair2, inventor,
+    mountainvillage, backer, kannushi, research, draper, yamauba, recruiter, baton, student, carver,
+    clairvoyant, spices, swordsman, treasurer, badguy, a_flag, a_horn, a_key, a_lantern, a_chest,
+    j_cathedral, j_citygate, j_pageant, j_sewers, j_starchart, j_exploration, j_marketday, j_silos,
+    j_plot, j_academy, j_fleet, j_guildhall, j_piazza, j_roads, j_barracks, j_croprotation,
+    j_innovation, j_canal, j_citadel,
+    angler, archbishop, beastfair, bountyman, caravan2, commons, corral, evict, falconer, goatkeeper,
+    herddog, hoardpile, horsemen, hostel, huntlodge, kiln, livery,
+    m_banish, m_bargain, m_delay, m_demand, m_despair, m_enclave, m_enhance, m_gamble, m_invest,
+    m_league, m_march, m_populate, m_pursue, m_reap, m_ride, m_seize, m_stampede, m_toil, m_trade, m_transport,
+    nightcat, pony, provisions, refuge, ringleader, riverboat, scrapiron, sled, snowvillage,
+    stablehand, traveler2, warder, warhorse, witchmeet,
+    w_butterfly, w_camel, w_frog, w_goat, w_horse, w_mole, w_monkey, w_mouse, w_mule, w_otter,
+    w_owl, w_ox, w_pig, w_rat, w_seal, w_sheep, w_squirrel, w_turtle, w_worm,
+    chapel2, darkmarket, dismantle, legate, fencedvillage, bugyo, borderland, nestegg, skipper,
+    youngload, p_sauna, steambath, icebath, e_summon,
   };
 
   // 種類ごとの枠の色（ドット絵テーマでカードのふちに使う）
@@ -2266,6 +3509,14 @@
     'action-victory': '#5a8a3a',
     duration: '#d0762a',
     event: '#8a8f98',
+    night: '#2b2f5a',
+    landmark: '#5f7f4a',
+    project: '#b0682c',
+    way: '#5a8fa0',
+    boon: '#d8b640',
+    hex: '#6a3a7a',
+    state: '#7a7a7a',
+    artifact: '#8a6a3a',
   };
 
   const cache = new Map();
