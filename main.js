@@ -25,17 +25,20 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js');
 }
 
-// ---- 見た目: 'simple'（線と面だけ）/ 'pixel'（RPG 風のドット絵。絵は pixel-cards.js） ----
+// ---- 見た目: 'simple'（線と面だけ）/ 'pixel'（RPG 風のドット絵。絵は pixel-cards.js）/ 'card'（トレーディングカード風。絵は card-art.js） ----
 const themeBtn = document.getElementById('themeBtn');
-let theme = load('theme', 'simple') === 'pixel' ? 'pixel' : 'simple';
+const THEMES = ['simple', 'pixel', 'card'];
+const THEME_LABEL = { simple: '見た目: シンプル', pixel: '見た目: ドット絵', card: '見た目: カード' };
+const THEME_COLOR = { simple: '#2b2320', pixel: '#14162b', card: '#0f2e1e' };
+let theme = THEMES.includes(load('theme', 'simple')) ? load('theme', 'simple') : 'simple';
 const PIXEL_FONT = "'DotGothic16', monospace";
 function applyTheme() {
   document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]').content = theme === 'pixel' ? '#14162b' : '#2b2320';
-  themeBtn.textContent = theme === 'pixel' ? '見た目: ドット絵' : '見た目: シンプル';
+  document.querySelector('meta[name="theme-color"]').content = THEME_COLOR[theme];
+  themeBtn.textContent = THEME_LABEL[theme];
 }
 themeBtn.addEventListener('click', () => {
-  theme = theme === 'pixel' ? 'simple' : 'pixel';
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
   save('theme', theme);
   applyTheme();
   if (game) renderTurn();
@@ -173,6 +176,13 @@ function renderTurn() {
   if (game.attack) { runAttackQueue(); }
 }
 
+// 見た目「カード」の種類の帯・数値の書式（engine.js の desc 文字列を見た目用に整えるだけ。ルールには触らない）
+const TYPE_LABEL = { treasure: '財宝', victory: '勝利点', action: 'アクション', 'action-attack': 'アクション－アタック', 'action-reaction': 'アクション－リアクション' };
+function descLines(card) {
+  if (!card.desc) return [];
+  return card.desc.split(/[ 。]/).filter(Boolean).map((text) => ({ text, strong: /^[+]?\d/.test(text) }));
+}
+
 function cardNode(id, clickable, onClick, count) {
   const card = CARDS[id];
   // 押せないカードもタップで説明が開けるよう button の disabled にはしない
@@ -185,6 +195,26 @@ function cardNode(id, clickable, onClick, count) {
     window.PixelCards.draw(canvas.getContext('2d'), id);
     icon.appendChild(canvas);
     node.appendChild(icon);
+  } else if (theme === 'card' && window.CardArt) {
+    node.classList.add('tcgcard');
+    node.appendChild(el('div', { class: 'tcgcard__top' }, [
+      el('span', { class: 'tcgcard__cost', text: String(card.cost) }),
+      el('span', { class: 'tcgcard__name', text: card.name }),
+    ]));
+    const art = el('div', { class: 'tcgcard__art' });
+    art.innerHTML = window.CardArt.render(id);
+    node.appendChild(art);
+    node.appendChild(el('div', { class: 'tcgcard__type', text: TYPE_LABEL[card.type] || card.type }));
+    const body = el('div', { class: 'tcgcard__body' });
+    if (card.points) body.appendChild(el('span', { class: 'tcgcard__stat', text: `${card.points}点` }));
+    if (card.value) body.appendChild(el('span', { class: 'tcgcard__stat', text: `${card.value}金` }));
+    for (const line of descLines(card)) body.appendChild(el('span', { class: line.strong ? 'tcgcard__line tcgcard__line--strong' : 'tcgcard__line', text: line.text }));
+    node.appendChild(body);
+    if (count != null) node.appendChild(el('span', { class: 'tcgcard__count', text: `残り${count}` }));
+    node.addEventListener('click', () => {
+      if (onClick) { soundPlay(); onClick(); } else node.classList.toggle('card--peek');
+    });
+    return node;
   } else {
     node.appendChild(el('span', { class: 'card__icon' }));
   }
