@@ -29,8 +29,8 @@ function traveller(next) {
     if (!(yield* askYesNo(g, pi, `${nm(self)}を${nm(next)}と取り替えますか？`, '取り替える', 'しない', [self, next]))) return;
     const at = g.playArea.lastIndexOf(self);
     if (at < 0) return;
+    if (!returnCard(g, self)) return; // 戻す山がなければ取り替えない
     g.playArea.splice(at, 1);
-    returnCard(g, self);
     g.nonSupply[next] -= 1;
     p.discard.push(next);
     log(g, `${p.name}が${nm(self)}を${nm(next)}と取り替えた。`);

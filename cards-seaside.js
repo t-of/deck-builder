@@ -353,7 +353,7 @@ const firstEdition = [
       const same = p.hand.map((c, k) => (c === id ? k : -1)).filter((k) => k >= 0);
       const max = Math.min(2, same.length);
       const n = yield* askChoose(g, pi, `${nm(id)}を何枚サプライに戻しますか？`, Array.from({ length: max + 1 }, (_, k) => ({ value: max - k, label: `${max - k} 枚` })), [id]);
-      for (const c of takeFromHand(p, same.slice(0, n))) returnCard(g, c);
+      for (const c of takeFromHand(p, same.slice(0, n))) if (!returnCard(g, c)) p.hand.push(c);
       if (n) log(g, `${p.name}が${nm(id)}を ${n} 枚サプライに戻した。`);
       yield* attackOthers(g, function* (ti) { yield* gain(g, ti, id); });
     },

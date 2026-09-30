@@ -399,7 +399,7 @@ HOOKS.setup.push((g) => {
       if (!c) break;
       const i = p.deck.indexOf('estate');
       const j = p.hand.indexOf('estate');
-      if (i >= 0) { p.deck[i] = c; returnCard(g, 'estate') || g.trash.push('estate'); } else if (j >= 0) { p.hand[j] = c; returnCard(g, 'estate') || g.trash.push('estate'); } else returnCard(g, c);
+      if (i >= 0) { p.deck[i] = c; returnCard(g, 'estate') || g.trash.push('estate'); } else if (j >= 0) { p.hand[j] = c; returnCard(g, 'estate') || g.trash.push('estate'); } else if (!returnCard(g, c)) g.trash.push(c);
     }
   }
 });
@@ -537,7 +537,7 @@ HOOKS.endTurn.push(function* (g) {
   }
   // 向こう見ずな札は山に戻る。疲れを知らない札は山札の上へ（引いたあと）
   for (const id of [...g.playArea]) {
-    if (hasTrait(g, 't_reckless', id) && !g.turn.stay.includes(id)) { g.playArea.splice(g.playArea.indexOf(id), 1); returnCard(g, id); }
+    if (hasTrait(g, 't_reckless', id) && !g.turn.stay.includes(id)) { const [c] = g.playArea.splice(g.playArea.indexOf(id), 1); if (!returnCard(g, c)) p.discard.push(c); }
     else if (hasTrait(g, 't_tireless', id) && !g.turn.stay.includes(id)) (p.mats.tireless = p.mats.tireless || []).push(...g.playArea.splice(g.playArea.indexOf(id), 1));
   }
   // 長旅: 場の札を捨てない（そのまま追加の手番へ）

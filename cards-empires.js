@@ -116,8 +116,8 @@ const splitCards = [
     *onCleanup(g) {
       while (g.turn.bivouacBack > 0 && g.playArea.includes('bivouac')) {
         g.turn.bivouacBack -= 1;
-        g.playArea.splice(g.playArea.indexOf('bivouac'), 1);
-        returnCard(g, 'bivouac');
+        const [c] = g.playArea.splice(g.playArea.indexOf('bivouac'), 1);
+        if (!returnCard(g, c)) currentPlayer(g).discard.push(c); // 山がなくなっていれば捨て札へ
       }
     },
   },
