@@ -594,8 +594,6 @@ function renderTurn() {
   if (t.phase === 'buy' && t.noBuy) stats.appendChild(el('span', { class: 'muted', text: 'この手番は買えない' }));
   if (game.controller != null) stats.appendChild(el('span', { class: 'muted', text: `${game.players[game.controller].name}が操作中` }));
 
-  document.getElementById('trashLabel').textContent = `廃棄置き場 ${game.trash.length} 枚`;
-
   const others = document.getElementById('othersRow');
   clear(others);
   game.players.forEach((op, i) => {
@@ -684,6 +682,14 @@ function renderTurn() {
     group.appendChild(row);
     supply.appendChild(group);
   }
+  // 廃棄置き場: 王国のカードの右に、色を変えた枠で枚数と中身を出す
+  supply.appendChild(el('div', { class: 'supplyGroup' }, [
+    el('h3', { class: 'supplyGroup__label', text: '廃棄置き場' }),
+    el('div', { class: 'trashBox' }, [
+      el('p', { class: 'trashBox__count', text: `${game.trash.length} 枚` }),
+      el('p', { class: 'trashBox__list', text: counts(game.trash) }),
+    ]),
+  ]));
 
   // イベント・プロジェクト・ランドマークなど（サプライの横に置く札）。買えれば押せる
   document.getElementById('landscapesLabel').hidden = game.landscapes.length === 0 && !game.boons && !game.hexes;
