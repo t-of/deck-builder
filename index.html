@@ -86,8 +86,10 @@
       </div>
 
       <!-- 手番を渡す画面 -->
-      <div id="pass" class="panel" hidden>
+      <div id="pass" class="panel screenCard" hidden>
+        <p class="screenCard__eyebrow">手番の交代</p>
         <p class="panel__lead panel__lead--pass" id="passLabel"></p>
+        <p class="screenCard__note">画面を渡したら押してください</p>
         <button class="pill pill--accent" id="passBtn">見る</button>
       </div>
 
@@ -97,9 +99,10 @@
         <div class="hud">
           <p class="phasePill" id="phasePill"></p>
           <div class="hud__stats" id="stats"></div>
+          <p class="turnHint" id="turnHint"></p>
           <div class="hud__buttons" id="turnButtons"></div>
         </div>
-        <p class="sectionLabel" id="cpuThinking" hidden>CPU が考えています…</p>
+        <p class="cpuThinking" id="cpuThinking" hidden>CPU が考えています<span class="cpuThinking__dots"><span></span><span></span><span></span></span></p>
         <p class="sectionLabel">場に出したカード</p>
         <div class="cards cards--play" id="playArea"></div>
         <div class="othersRow" id="matsRow"></div>
@@ -118,15 +121,17 @@
       </div>
 
       <!-- 問い（カード効果・アタックなど） -->
-      <div id="choiceOverlay" class="panel" hidden>
+      <div id="choiceOverlay" class="panel screenCard" hidden>
+        <p class="screenCard__eyebrow" id="choiceWho"></p>
         <p class="panel__lead" id="choiceLabel"></p>
+        <p class="screenCard__note" id="choiceCount"></p>
         <div class="cards" id="choiceGrid"></div>
         <div class="choiceButtons" id="choiceButtons"></div>
         <button class="pill pill--accent" id="choiceConfirm">決定</button>
       </div>
 
       <!-- 結果画面 -->
-      <div id="result" class="panel" hidden>
+      <div id="result" class="panel screenCard screenCard--wide" hidden>
         <p class="panel__lead">結果発表</p>
         <div class="podium" id="podium"></div>
         <ol id="ranking" class="ranking"></ol>

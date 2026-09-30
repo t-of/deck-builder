@@ -21,7 +21,7 @@ import './cards-risingsun.js';
 import {
   CARDS, SETS, PRESETS, BASIC_IDS, kingdomPool, randomKingdom, styleType, costOf, is, pileOf, isLandscape,
   newGame, currentPlayer, turnController, playAction, playTreasureGen, playAllTreasures,
-  enterBuyPhase, canBuy, buyCard, beginTurn, endTurn, spendCoffers, payDebt, finalResults,
+  enterBuyPhase, canBuy, buyCard, beginTurn, endTurn, spendCoffers, payDebt, finalResults, allCards,
   landscapePool, canBuyEvent, buyEvent, enterNightPhase, canPlayNight, playNight, spendVillager,
   canPlayAction, shadowsInDeck, playShadow, isTreasureNow,
 } from './engine.js';
@@ -107,6 +107,19 @@ function el(tag, props = {}, children = []) {
 }
 const clear = (node) => { while (node.firstChild) node.removeChild(node.firstChild); };
 
+// 前回と比べて「増えた」枚を見分ける（同じ id が複数あるときは、前回より多い分だけ新しいとみなす）。
+// ponytail: 札の同一性までは追わず枚数の比較だけ。入れ替わりを完全に当てたいなら id にインスタンス番号を振る必要がある
+function newnessMarks(prevIds, curIds) {
+  const prevCount = new Map();
+  for (const id of prevIds) prevCount.set(id, (prevCount.get(id) || 0) + 1);
+  const seen = new Map();
+  return curIds.map((id) => {
+    const n = (seen.get(id) || 0) + 1;
+    seen.set(id, n);
+    return n > (prevCount.get(id) || 0);
+  });
+}
+
 // 種類の帯の文言（CARDS[id].types から組み立てる）
 const TYPE_WORD = {
   treasure: '財宝', victory: '勝利点', curse: '呪い', action: 'アクション', attack: 'アタック', reaction: 'リアクション',
@@ -139,6 +152,7 @@ let shownPlayer = null; // 今この端末に手札を見せている人（渡�
 let pendingGen = null;   // 今進めているジェネレータ（カード・購入・手番の始め/終わりのどれか）
 let pendingDone = null;  // 終わったときに呼ぶ（省略時は backToTurn）
 let selected = new Set();
+let prevRender = null; // 直前の renderTurn の手札・場・サプライ・数字（動きを付けるための比較用。新しい対局では null に戻す）
 
 // ---- カードの見た目 ----
 // cost を渡さなければ CARDS[id].cost（対局前の画面用）。対局中は costOf(game, id) を渡す。
@@ -526,6 +540,7 @@ document.getElementById('startBtn').addEventListener('click', () => {
   kingdom = k;
   persistSetup();
   shownPlayer = null;
+  prevRender = null;
   game = newGame(players, kingdom, seats.map(seatName), { landscapes: activeLandscapes() });
   startTurnPass();
 });
@@ -570,13 +585,15 @@ function renderTurn() {
   clear(stats);
   stats.appendChild(el('span', { class: 'hud__name', text: p.name }));
   const medals = el('div', { class: 'medals' });
-  const medal = (label, n) => el('span', { class: 'medal' }, [
+  // 前回より増えていたら medal--bump を付けて跳ねさせる（reduced-motion では CSS 側で動かさない）
+  const medal = (label, n, prevN) => el('span', { class: `medal${prevN != null && n > prevN ? ' medal--bump' : ''}` }, [
     el('span', { class: 'medal__n', text: String(n) }),
     el('span', { class: 'medal__label', text: label }),
   ]);
-  medals.appendChild(medal('アクション', t.actions));
-  medals.appendChild(medal('購入', t.buys));
-  medals.appendChild(medal('金', t.money));
+  const prevNums = prevRender && prevRender.pi === game.current ? prevRender.nums : {};
+  medals.appendChild(medal('アクション', t.actions, prevNums.actions));
+  medals.appendChild(medal('購入', t.buys, prevNums.buys));
+  medals.appendChild(medal('金', t.money, prevNums.money));
   if (p.tokens.vp > 0) medals.appendChild(medal('勝利点', p.tokens.vp));
   if (p.tokens.coffers > 0) medals.appendChild(medal('財源', p.tokens.coffers));
   if (t.potions > 0) medals.appendChild(medal('霊薬', t.potions));
@@ -633,7 +650,13 @@ function renderTurn() {
 
   const playArea = document.getElementById('playArea');
   clear(playArea);
-  for (const id of [...p.inPlay, ...game.playArea]) playArea.appendChild(gcNode(id, false));
+  const playIds = [...p.inPlay, ...game.playArea];
+  const playNew = newnessMarks(prevRender ? prevRender.play : [], playIds);
+  playIds.forEach((id, i) => {
+    const node = gcNode(id, false);
+    if (playNew[i]) node.classList.add('is-new-play');
+    playArea.appendChild(node);
+  });
 
   // 自分のマットは中身を、手番を終えれば相手にも代わるので隠す必要はない
   const mats = document.getElementById('matsRow');
@@ -661,7 +684,11 @@ function renderTurn() {
     for (const id of ids) {
       const count = game.supply[id];
       const buyable = humanControls && canBuy(game, id);
-      row.appendChild(gcNode(id, buyable, () => run(buyCard(game, id), (ok) => { if (ok) soundBuy(); backToTurn(); }), count));
+      const node = gcNode(id, buyable, () => run(buyCard(game, id), (ok) => { if (ok) soundBuy(); backToTurn(); }), count);
+      // 前回よりこの山の残りが減っていれば、誰かが買った合図にほのかに光らせる
+      const prevCount = prevRender && prevRender.supply[id];
+      if (prevCount != null && count < prevCount) node.classList.add('is-bought');
+      row.appendChild(node);
       // 森の賢者: 対局の始めに脇に置いた 3 つの恵みを、その札の横に並べる
       if (id === 'druid' && game.druidBoons) for (const b of game.druidBoons) row.appendChild(gcNode(b, false));
     }
@@ -699,7 +726,10 @@ function renderTurn() {
 
   const hand = document.getElementById('hand');
   clear(hand);
-  p.hand.forEach((id) => {
+  // 手札を扇のように並べるための位置（--i/--n）と、新しく引いた札の見分け（山札から来た合図でスライドイン）
+  const handNew = newnessMarks(prevRender && prevRender.pi === game.current ? prevRender.hand : [], p.hand);
+  hand.style.setProperty('--n', String(p.hand.length));
+  p.hand.forEach((id, i) => {
     const playableAction = humanControls && t.phase === 'action' && canPlayAction(game, id);
     const playableTreasure = humanControls && t.phase === 'buy' && isTreasureNow(game, id);
     const playableNight = humanControls && t.phase === 'night' && canPlayNight(game, id);
@@ -707,12 +737,42 @@ function renderTurn() {
       : playableTreasure ? () => run(playTreasureGen(game, id))
       : playableNight ? () => run(playNight(game, id))
       : null;
-    hand.appendChild(gcNode(id, !!onClick, onClick));
+    const node = gcNode(id, !!onClick, onClick);
+    node.style.setProperty('--i', String(i));
+    if (handNew[i]) node.classList.add('is-new-draw');
+    hand.appendChild(node);
   });
+
+  // 次にすることの案内（HUD の近くに短く出す）
+  document.getElementById('turnHint').textContent = !humanControls ? '' : turnHint(game, p, t);
 
   const log = document.getElementById('log');
   clear(log);
   for (const line of game.log.slice(-4)) log.appendChild(el('p', { text: line }));
+
+  // 次回の renderTurn で「増えた・減った」を見分けるための記録
+  prevRender = {
+    pi: game.current,
+    hand: [...p.hand],
+    play: playIds,
+    supply: { ...game.supply },
+    nums: { actions: t.actions, buys: t.buys, money: t.money },
+  };
+}
+
+// 次に何をすればいいかの短い案内（HUD の近くに出す）
+function turnHint(g, p, t) {
+  if (t.phase === 'action') {
+    if (p.hand.some((id) => canPlayAction(g, id))) return 'アクションを使うか、「購入フェイズへ」';
+    return '使えるアクションがなければ「購入フェイズへ」';
+  }
+  if (t.phase === 'buy') {
+    if (p.hand.some((id) => isTreasureNow(g, id))) return '財宝を出してから、買いたい札をタップ';
+    if (Object.keys(g.supply).some((id) => canBuy(g, id))) return '買いたい札をタップ';
+    return '買うものがなければ「手番を終える」';
+  }
+  if (t.phase === 'night') return '夜の札を使うか、「手番を終える」';
+  return '';
 }
 
 function onEndTurn() {
@@ -817,7 +877,9 @@ function showQuestion(q) {
 function renderQuestion(q) {
   selected = new Set();
   showScreen('choice');
+  document.getElementById('choiceWho').textContent = `${game.players[q.player].name} が選ぶ`;
   document.getElementById('choiceLabel').textContent = q.purpose;
+  const countEl = document.getElementById('choiceCount');
   const grid = document.getElementById('choiceGrid');
   clear(grid);
   const buttonsBox = document.getElementById('choiceButtons');
@@ -827,11 +889,13 @@ function renderQuestion(q) {
   confirm.onclick = null;
 
   if (q.type === 'supply') {
+    countEl.textContent = q.optional ? '1枚選ぶか、獲得しないを選んでください' : '1枚選んでください';
     for (const id of q.options) grid.appendChild(gcNode(id, true, () => answer(id)));
     if (q.optional) buttonsBox.appendChild(el('button', { class: 'pill', text: '獲得しない', onclick: () => answer(null) }));
     return;
   }
   if (q.type === 'choose') {
+    countEl.textContent = '1つ選んでください';
     for (const id of (q.cards || [])) grid.appendChild(gcNode(id, false));
     for (const c of q.choices) buttonsBox.appendChild(el('button', { class: 'pill pill--accent', text: c.label, onclick: () => answer(c.value) }));
     return;
@@ -856,6 +920,7 @@ function renderQuestion(q) {
     for (const child of grid.children) child.classList.toggle('card--picked', selected.has(Number(child.dataset.pos)));
     confirm.disabled = selected.size < q.min;
     confirm.textContent = `決定（${selected.size}/${q.max}）`;
+    countEl.textContent = `あと${Math.max(q.min - selected.size, 0)}枚は選んでください（最大${q.max}枚）`;
   }
   updatePicked();
 }
@@ -866,6 +931,28 @@ function answer(value) {
 // ==================================================================
 // 結果
 // ==================================================================
+// 点の内訳（勝利点の札・トークンなど）を短い文言の配列で返す。engine.js の score() と同じ数え方をなぞる
+function scoreBreakdown(pl, g) {
+  const all = allCards(pl);
+  const counts = new Map();
+  for (const id of all) counts.set(id, (counts.get(id) || 0) + 1);
+  const lines = [];
+  for (const [id, n] of counts) {
+    const c = CARDS[id];
+    const per = (c.points || 0) + (c.pointsFn ? c.pointsFn(all) : 0);
+    if (per) lines.push(`${c.name}×${n}（${per * n}点）`);
+  }
+  for (const id of new Set(all)) {
+    if (CARDS[id].scoreBonus) { const v = CARDS[id].scoreBonus(pl); if (v) lines.push(`${CARDS[id].name}（${v}点）`); }
+  }
+  for (const id of g.landscapes) {
+    if (CARDS[id].score) { const v = CARDS[id].score(g, pl, all); if (v) lines.push(`${CARDS[id].name}（${v}点）`); }
+  }
+  for (const id of pl.states || []) { const v = CARDS[id].points || 0; if (v) lines.push(`${CARDS[id].name}（${v}点）`); }
+  if (pl.tokens.vp > 0) lines.push(`勝利点トークン（${pl.tokens.vp}点）`);
+  return lines;
+}
+
 function showResult() {
   showScreen('result');
   const results = finalResults(game);
@@ -882,22 +969,44 @@ function showResult() {
   top.forEach((r, i) => {
     const rank = i + 1;
     const step = el('div', { class: 'podium__step', 'data-rank': String(rank) });
-    if (rank === 1) step.appendChild(el('span', { class: 'podium__crown', text: '★' }));
+    if (rank === 1) {
+      step.appendChild(el('span', { class: 'podium__crown', text: '★' }));
+      step.appendChild(confettiNode());
+    }
     step.appendChild(el('span', { class: 'podium__rank', text: `${rank}位` }));
     step.appendChild(el('span', { class: 'podium__name', text: r.name }));
     step.appendChild(el('span', { class: 'podium__score', text: scoreText(r) }));
+    const breakdown = scoreBreakdown(game.players[r.index], game).join('・');
+    if (breakdown) step.appendChild(el('span', { class: 'podium__breakdown', text: breakdown }));
     podium.appendChild(step);
   });
 
   const ranking = document.getElementById('ranking');
   clear(ranking);
   results.slice(3).forEach((r, i) => {
-    ranking.appendChild(el('li', { text: `${i + 4}位 ${r.name} ${scoreText(r)}` }));
+    const li = el('li', {}, [el('span', { class: 'ranking__main', text: `${i + 4}位 ${r.name} ${scoreText(r)}` })]);
+    const breakdown = scoreBreakdown(game.players[r.index], game).join('・');
+    if (breakdown) li.appendChild(el('span', { class: 'ranking__breakdown', text: breakdown }));
+    ranking.appendChild(li);
   });
+}
+// 1位を祝う紙吹雪（CSS のアニメだけで散らす。reduced-motion では止まったまま見えなくてよいので display は消さない）
+function confettiNode() {
+  const box = el('div', { class: 'confetti' });
+  for (let i = 0; i < 14; i++) {
+    const piece = document.createElement('span');
+    piece.className = 'confetti__piece';
+    piece.style.setProperty('--x', `${Math.round(Math.random() * 200 - 100)}%`);
+    piece.style.setProperty('--d', `${(Math.random() * 0.6).toFixed(2)}s`);
+    piece.style.setProperty('--r', `${Math.round(Math.random() * 360)}deg`);
+    box.appendChild(piece);
+  }
+  return box;
 }
 document.getElementById('restartBtn').addEventListener('click', () => {
   game = null;
   shownPlayer = null;
+  prevRender = null;
   showScreen('setup');
   renderSetup();
 });
