@@ -15,11 +15,15 @@ import './cards-nocturne.js';
 import './cards-renaissance.js';
 import './cards-menagerie.js';
 import './cards-promo.js';
+import './cards-allies.js';
+import './cards-plunder.js';
+import './cards-risingsun.js';
 import {
   CARDS, SETS, PRESETS, BASIC_IDS, kingdomPool, randomKingdom, styleType, costOf, is, pileOf, isLandscape,
   newGame, currentPlayer, turnController, playAction, playTreasureGen, playAllTreasures,
   enterBuyPhase, canBuy, buyCard, beginTurn, endTurn, spendCoffers, payDebt, finalResults,
   landscapePool, canBuyEvent, buyEvent, enterNightPhase, canPlayNight, playNight, spendVillager,
+  canPlayAction, shadowsInDeck, playShadow,
 } from './engine.js';
 
 // localStorage はほかのアプリと共有される（同じ t-of.github.io のため）。
@@ -107,6 +111,9 @@ const TYPE_WORD = {
   reserve: 'リザーブ', traveller: 'トラベラー', event: 'イベント', duration: '持続',
   night: '夜行', fate: '幸運', doom: '不運', heirloom: '家宝', spirit: '精霊', zombie: '屍', boon: '恵み', hex: '呪詛', state: '状態',
   project: 'プロジェクト', artifact: 'アーティファクト', command: '命令', landmark: 'ランドマーク', way: 'ならい',
+  liaison: '連携', shadow: '影', omen: '前兆', prophecy: '予言', trait: '特性', ally: '同盟', loot: '戦利品',
+  augur: '占い師', clash: 'いくさ', fort: '砦', odyssey: '旅', townsfolk: '町の衆', wizard: '術者',
+  castle: '城', gathering: '集め', knight: '騎士', ruins: 'がれき', shelter: '避難所', looter: '略奪者', reward: '褒賞', prize: '賞品',
 };
 const typeLabel = (id) => CARDS[id].types.map((t) => TYPE_WORD[t] || t).join('・');
 // マット（p.mats の項目名）の日本語名
@@ -208,6 +215,10 @@ function gcNode(id, clickable, onClick, count) {
   if (game.pileDebt && game.pileDebt[id] > 0) badges.push(`借${game.pileDebt[id]}`);
   if (game.landmarkVP && game.landmarkVP[id] > 0) badges.push(`★${game.landmarkVP[id]}`);
   if (id === 'darkmarket' && game.blackMarket) badges.push(`闇の市 残り${game.blackMarket.length}枚`);
+  // 特性: この山についた特性の名前を小さく出す
+  if (game.traits) for (const [tid, pile] of Object.entries(game.traits)) if (pileOf(id) === pile) badges.push(`特性:${CARDS[tid].name}`);
+  // 予言: ランドスケープの列で、残りの太陽トークンか「効いている」を出す
+  if (is(id, 'prophecy') && game.landscapes.includes(id)) badges.push(game.sun > 0 ? `☀${game.sun}` : '効いている');
   game.players.forEach((pl, i) => {
     for (const [key, pile] of Object.entries(pl.tokens.pile || {})) {
       if (pile === pileOf(id)) badges.push(`${i + 1}人目: ${PILE_LABEL[key] || key}`);
@@ -228,6 +239,7 @@ function tokenBits(p) {
   if (p.tokens.minusCoin) bits.push('-1金の印');
   if (p.tokens.minusCard) bits.push('-1カードの印');
   if (p.tokens.debt > 0) bits.push(`借金 ${p.tokens.debt}`);
+  if (p.tokens.favors > 0) bits.push(`好意 ${p.tokens.favors}`);
   return bits;
 }
 // 状態・持っているアーティファクトの文言（席番号 pi）
@@ -247,6 +259,15 @@ function pileButton(label, pile) {
     node.textContent = peek ? `捨て札: ${top ? CARDS[top].name : 'なし'}` : `${label} ${pile.deck.length}枚`;
   });
   return node;
+}
+
+// 影の札が今使えるか（canPlayAction は手札にある札しか見ないので、一時的に手札へ入れて調べる）
+function canPlayShadow(id) {
+  const p = currentPlayer(game);
+  p.hand.push(id);
+  const ok = canPlayAction(game, id);
+  p.hand.pop();
+  return ok;
 }
 
 function rerender() {
@@ -561,10 +582,21 @@ function renderTurn() {
   clear(nonSupply);
   for (const id of nonSupplyIds) nonSupply.appendChild(gcNode(id, false, null, game.nonSupply[id]));
 
+  // 影の札（山札にある影）: アクションフェイズに手札の横に並べる
+  const shadowLabel = document.getElementById('shadowLabel');
+  const shadowRow = document.getElementById('shadowRow');
+  clear(shadowRow);
+  const shadows = t.phase === 'action' ? shadowsInDeck(game) : [];
+  shadowLabel.hidden = shadows.length === 0;
+  for (const id of shadows) {
+    const playable = canPlayShadow(id);
+    shadowRow.appendChild(gcNode(id, playable, playable ? () => run(playShadow(game, id)) : null));
+  }
+
   const hand = document.getElementById('hand');
   clear(hand);
   p.hand.forEach((id) => {
-    const playableAction = t.phase === 'action' && t.actions > 0 && is(id, 'action');
+    const playableAction = t.phase === 'action' && canPlayAction(game, id);
     const playableTreasure = t.phase === 'buy' && is(id, 'treasure');
     const playableNight = t.phase === 'night' && canPlayNight(game, id);
     const onClick = playableAction ? () => run(playAction(game, id))
