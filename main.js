@@ -709,15 +709,40 @@ function scheduleCpuMove(pi) {
   const needsPlan = (seat.level === 'strong' || seat.level === 'expert') && !(game.cpuPlans && game.cpuPlans[pi]);
   if (needsPlan) {
     document.getElementById('cpuThinking').hidden = false;
-    setTimeout(() => {
-      cpuPlanFor(game, pi, seat.level);
+    planInWorker(pi, seat.level, () => {
       document.getElementById('cpuThinking').hidden = true;
       doCpuMove(pi);
-    }, 30);
+    });
     return;
   }
   setTimeout(() => doCpuMove(pi), cpuDelay());
 }
+// 狙いの札を決める自己対局は、画面が止まらないよう Web Worker（planner.js）で回す。使えなければこのスレッドで
+let planner = null;
+let planSeq = 0;
+function planInWorker(pi, level, done) {
+  const g = game;
+  const finish = (plan, duchyAt) => {
+    if (game !== g) return; // 待っているあいだに対局が変わった
+    g.cpuPlans = g.cpuPlans || {};
+    g.cpuPlans[pi] = Object.assign(plan, duchyAt != null ? { duchyAt } : {});
+    done();
+  };
+  try {
+    if (!planner && typeof Worker !== 'undefined') planner = new Worker('./planner.js', { type: 'module' });
+  } catch { planner = null; }
+  if (!planner) { setTimeout(() => { cpuPlanFor(g, pi, level); done(); }, 30); return; }
+  const id = ++planSeq;
+  const onMsg = (e) => {
+    if (e.data.id !== id) return;
+    planner.removeEventListener('message', onMsg);
+    finish(e.data.plan, e.data.duchyAt);
+  };
+  planner.addEventListener('message', onMsg);
+  planner.addEventListener('error', () => { planner = null; cpuPlanFor(g, pi, level); done(); }, { once: true });
+  planner.postMessage({ id, kingdom: g.kingdom.filter((k) => k in g.supply || g.stacks[k]), landscapes: g.landscapes, players: g.players.length, colony: 'colony' in g.supply, level });
+}
+
 // CPU の次の1手を決めて実行する（simulate() と同じ組み合わせ）
 function doCpuMove(pi) {
   if (game.over) { showResult(); return; }
