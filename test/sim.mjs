@@ -50,9 +50,11 @@ const total = (g) => {
     players: g.players.reduce((s, p) => s + allCards(p).length, 0), trash: g.trash.length, play: g.playArea.length,
     supply: Object.values(g.supply).reduce((a, b) => a + b, 0), non: Object.values(g.nonSupply).reduce((a, b) => a + b, 0),
     bm: (g.blackMarket || []).length,
+    wind: (g.windRemoved || 0) - (g.windAdded || 0), // 神の風で入れ替わった札
     stacks: -Object.keys(g.stacks).reduce((a, k) => a + (k in g.supply ? g.supply[k] : g.nonSupply[k]) - g.stacks[k].length, 0),
   };
   const t = Object.values(parts).reduce((a, b) => a + b, 0);
+  g.lastParts = parts;
   if (!Number.isFinite(t)) console.error('NAN', JSON.stringify(parts), JSON.stringify(g.supply), JSON.stringify(g.nonSupply), Object.keys(g.stacks));
   return t;
 }
@@ -93,7 +95,9 @@ export function simulate(kingdom, n, landscapes = []) {
     }
     enterNightPhase(g);
     for (const id of [...p.hand]) if (canPlayNight(g, id) && Math.random() < 0.8) { run(playNight(g, id)); assert.equal(total(g), start, `カードの枚数が変わった（夜 ${id}）`); }
+    const before = JSON.stringify(g.lastParts);
     run(endTurn(g));
+    if (total(g) !== start) console.error('DIFF', before, JSON.stringify(g.lastParts), g.landscapes, g.kingdom.join(','), g.log.slice(-6).join(' / '));
     assert.equal(total(g), start, 'カードの枚数が変わった');
   }
   const r = finalResults(g);

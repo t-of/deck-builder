@@ -511,7 +511,8 @@ export function* playOutOfTurn(game, pi, id) {
 // 手札のアクションを今使えるか（総大将の印・船出の手番の 3 枚まで などを見る）
 export function canPlayAction(game, cardId) {
   const player = currentPlayer(game);
-  if (game.turn.phase !== 'action' || game.turn.actions <= 0 || !is(cardId, 'action') || !player.hand.includes(cardId)) return false;
+  const enlightened = game.enlightened && is(cardId, 'treasure'); // 悟り: 財宝もアクションとして使える
+  if (game.turn.phase !== 'action' || game.turn.actions <= 0 || !(is(cardId, 'action') || enlightened) || !player.hand.includes(cardId)) return false;
   if (player.tokens.warlorded > 0 && game.playArea.filter((id) => id === cardId).length >= 2) return false;
   if (game.turn.handPlayLimit != null && (game.turn.handPlays || 0) >= game.turn.handPlayLimit) return false;
   return true;
@@ -541,6 +542,12 @@ export function* playAction(game, cardId) {
   game.playArea.push(cardId);
   game.turn.actions -= 1;
   log(game, `${player.name}が「${CARDS[cardId].name}」を使用。`);
+  // 悟り: アクションフェイズに使った財宝（アクションでないもの）は、効果の代わりに +1 カード +1 アクション
+  if (game.enlightened && is(cardId, 'treasure') && !is(cardId, 'action')) {
+    drawCards(player, 1);
+    game.turn.actions += 1;
+    return;
+  }
   for (const h of HOOKS.play) yield* h(game, cardId);
   // 魅入られた人（tokens.enchanted）: この手番に最初に使うアクションは、効果の代わりに +1 カード +1 アクション
   if (player.tokens.enchanted > 0 && !game.turn.enchantUsed) {

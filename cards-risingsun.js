@@ -2,7 +2,6 @@
 // 拡張「旭日」のカード（王国 25 種）、予言 13 種、イベント 10 種。名前は本家と別の言い回し。
 // 影（shadow）: 山札にあれば手札と同じように使える（engine の playShadow）。混ぜると山札の一番下へ。
 // 前兆（omen）: +1 太陽 = 予言の上の太陽トークンを 1 つ取る。最後の 1 つを取ると、予言が効き始める。
-// ponytail: 予言の「神風」（王国カードを入れ替える）と「悟り」（財宝をアクションとして使う）はまだ入れていない。
 import {
   CARDS, HOOKS, defineCards, is, drawCards, takeTop, putOnDeck, takeFromHand, trashCards, discardCards,
   gain, costOf, askHand, askSupply, askCards, askChoose, askYesNo, attackOthers, eachOther, resolve, reveal,
@@ -23,6 +22,22 @@ function* sun(g, pi) {
   if (g.sun > 0) return;
   log(g, `予言「${CARDS[prophecy(g)].name}」が効き始めた。`);
   if (prophecy(g) === 'r_emperor') yield* emperorGift(g, pi);
+  if (prophecy(g) === 'r_enlight') g.enlightened = true;
+  if (prophecy(g) === 'r_wind') divineWind(g);
+}
+// 神風: サプライの王国カードをすべて取り除き、新しい 10 種を並べる（特別な準備のいらない拡張から選ぶ）
+const WIND_SETS = ['base', 'base1', 'intrigue', 'intrigue1', 'seaside', 'hinterlands', 'guilds'];
+function divineWind(g) {
+  const basics = ['copper', 'silver', 'gold', 'platinum', 'potion', 'estate', 'duchy', 'province', 'colony', 'curse'];
+  const old = Object.keys(g.supply).filter((id) => !basics.includes(id));
+  const pool = kingdomPool(WIND_SETS).filter((id) => !old.includes(id) && !CARDS[id].pile && !['traderoute', 'apprentice', 'ferry', 'duel', 'tourney', 'breadmaker'].includes(id));
+  const next = shuffle(pool).slice(0, 10);
+  const vp = g.players.length === 2 ? 8 : 12;
+  // 取り除いた札の数は g.windRemoved に残す（札の数を確かめるテストのため）。足した札は g.windAdded
+  for (const id of old) { g.windRemoved = (g.windRemoved || 0) + g.supply[id]; delete g.supply[id]; delete g.stacks[id]; }
+  for (const id of next) { g.supply[id] = is(id, 'victory') ? vp : 10; g.windAdded = (g.windAdded || 0) + g.supply[id]; }
+  g.kingdom.splice(0, g.kingdom.length, ...next);
+  log(g, `神風が吹き、サプライの王国カードが入れ替わった: ${next.map(nm).join('')}`);
 }
 function* emperorGift(g, pi) { yield* gain(g, pi, yield* askSupply(g, pi, '慈悲の帝: アクションを手札に獲得', 99, (id) => is(id, 'action')), 'hand'); }
 function* trashSelf(g, p, id) {
@@ -163,6 +178,8 @@ const kingdom = [
 const PR = ['prophecy'];
 const pr = (id, name, main, desc) => ({ id, name, types: PR, cost: 0, main, desc });
 const prophecies = [
+  pr('r_wind', '神の風', '王国カードを\n入れ替える', '効き始めたとき、サプライの王国カードをすべて取り除き、新しい 10 種を並べる'),
+  pr('r_enlight', '目覚め', '財宝もアクション', '財宝はアクションとしても使える。アクションフェイズに財宝を使うと、効果の代わりに +1 カード +1 アクション'),
   pr('r_army', '迫る軍勢', 'アタックのあと +1 金', 'アタックを使ったあと +1 金'),
   pr('r_biding', '待ちの時', '手札を持ち越す', '片付けの始めに手札を脇に置き、次の手番の始めに手札に戻す'),
   pr('r_bureau', 'お役所仕事', '獲得で銅', 'コスト 0 でない札を獲得したとき、銅を獲得する'),
