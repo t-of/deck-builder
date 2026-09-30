@@ -157,10 +157,12 @@ button { font: inherit; color: inherit; }
 [data-theme="pixel"] .panel__lead { color: var(--fg); font-size: 18px; letter-spacing: 1px; }
 [data-theme="pixel"] .log { border-top: 2px solid var(--fg); }
 
-/* ---- 見た目「カード」: 本物のトレーディングカードのような 1 枚絵。絵は card-art.js ---- */
+/* ---- 見た目「カード」: 羊皮紙のトレーディングカードのような 1 枚絵。絵は art/*.png（ドット絵） ----
+   大きさはすべて em で組み、.tcgcard の font-size だけで拡大縮小する（小さい手札・サプライ用と、
+   タップで開く拡大表示 .card--peek とで font-size を変えるだけで、比率はそのまま） */
 [data-theme="card"] {
   --bg: #0e2a1c; --fg: #f2ecd8; --muted: #b9c9b6; --accent: #e8b83a;
-  --frame: #9c7a3e; --frame-d: #5c4318; /* デフォルト（アクション）の枠色。種類ごとに data-type で上書き */
+  --frame: #7a5a2e; /* デフォルト（アクション）の枠色。種類ごとに data-type で上書き */
 }
 [data-theme="card"] html, [data-theme="card"] body {
   background: radial-gradient(ellipse at 50% -10%, #1c5c38 0%, #0e2a1c 60%, #082014 100%);
@@ -178,11 +180,11 @@ button { font: inherit; color: inherit; }
 }
 [data-theme="card"] .pill--accent { background: var(--accent); color: #2a1c06; border-color: #a8792a; font-weight: 700; }
 
-[data-theme="card"] .tcgcard[data-type="treasure"] { --frame: #caa233; --frame-d: #6c4d10; }
-[data-theme="card"] .tcgcard[data-type="victory"] { --frame: #3f8a52; --frame-d: #1c4a28; }
-[data-theme="card"] .tcgcard[data-type="action"] { --frame: #9c7a3e; --frame-d: #5c4318; }
-[data-theme="card"] .tcgcard[data-type="action-attack"] { --frame: #b8402c; --frame-d: #6c1e12; }
-[data-theme="card"] .tcgcard[data-type="action-reaction"] { --frame: #3a6cb0; --frame-d: #1c3868; }
+[data-theme="card"] .tcgcard[data-type="treasure"] { --frame: #9a7418; }
+[data-theme="card"] .tcgcard[data-type="victory"] { --frame: #3d7a4a; }
+[data-theme="card"] .tcgcard[data-type="action"] { --frame: #7a5a2e; }
+[data-theme="card"] .tcgcard[data-type="action-attack"] { --frame: #9a3322; }
+[data-theme="card"] .tcgcard[data-type="action-reaction"] { --frame: #2f5f9a; }
 
 [data-theme="card"] .tcgcard {
   position: relative;
@@ -192,92 +194,117 @@ button { font: inherit; color: inherit; }
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 3px;
-  border: 3px solid var(--frame-d);
-  border-radius: 8px;
-  background: linear-gradient(180deg, #f4ecd6, #e3d5a9);
-  box-shadow: inset 0 0 0 2px var(--frame), 0 2px 5px rgba(0, 0, 0, 0.5);
+  gap: 0.3em;
+  padding: 0.35em;
+  border: 0.2em solid #1b1410;
+  border-radius: 0.6em;
+  background: linear-gradient(180deg, #efe6cf 0%, #ddcfae 100%);
+  box-shadow: inset 0 0 0 0.15em var(--frame), 0 2px 5px rgba(0, 0, 0, 0.5);
   color: #2a2010;
   text-align: left;
-  font-size: 7px;
+  font-size: 8px;
+  font-family: 'Shippori Mincho B1', serif;
 }
 [data-theme="card"] .tcgcard.card--peek {
   position: fixed;
   inset: 0;
   margin: auto;
-  width: min(78vw, 300px);
+  width: min(86vw, 360px);
   z-index: 20;
-  font-size: 13px;
-  box-shadow: inset 0 0 0 3px var(--frame), 0 10px 30px rgba(0, 0, 0, 0.7);
+  font-size: min(4.4vw, 16px);
+  box-shadow: inset 0 0 0 0.15em var(--frame), 0 10px 30px rgba(0, 0, 0, 0.7);
 }
-[data-theme="card"] .tcgcard__top {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  background: var(--frame);
-  border-radius: 4px 4px 0 0;
-  padding: 2px 4px;
-}
-[data-theme="card"] .tcgcard__cost {
+[data-theme="card"] .tcgcard__name {
   flex: none;
-  width: 1.6em;
-  height: 1.6em;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff3c0, #caa233 60%, #6c4d10);
-  border: 1px solid #4a3208;
-  color: #2a1c06;
-  font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-[data-theme="card"] .tcgcard__name {
-  flex: 1;
-  min-width: 0;
+  padding: 0.3em 0.4em;
+  border-radius: 0.5em;
+  background: linear-gradient(180deg, #f8f1de 0%, #e2d4b0 100%);
+  border: 0.07em solid #8a6f44;
+  box-shadow: inset 0 -0.15em 0 rgba(90, 64, 30, 0.25);
   font-weight: 800;
-  color: #fff;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+  font-size: 1.6em;
+  letter-spacing: 0.12em;
+  color: #2a1d10;
+  text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 [data-theme="card"] .tcgcard__art {
-  flex: 1 1 auto;
+  flex: 3 1 0;
   min-height: 0;
-  margin: 0 2px;
-  background: radial-gradient(circle at 50% 30%, #dfe8dc, #b6c2b0);
-  border: 1px solid var(--frame-d);
+  border: 0.25em solid #2a1d10;
+  border-radius: 0.15em;
+  overflow: hidden;
+  background: #140e0a;
 }
-[data-theme="card"] .tcgcard__art svg { width: 100%; height: 100%; display: block; }
-[data-theme="card"] .tcgcard__type {
-  margin: 0 2px;
-  padding: 1px 2px;
-  background: var(--frame);
-  color: #fff;
-  text-align: center;
-}
+[data-theme="card"] .tcgcard__art img { width: 100%; height: 100%; display: block; object-fit: cover; image-rendering: pixelated; }
 [data-theme="card"] .tcgcard__body {
+  flex: 2 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 2px 4px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2em;
+  padding: 0.2em 0.5em;
+  border-radius: 0.3em;
+  background: rgba(255, 250, 236, 0.55);
+  border: 0.05em solid rgba(90, 64, 30, 0.35);
+  text-align: center;
   overflow: hidden;
-  line-height: 1.2;
 }
-[data-theme="card"] .tcgcard__line--strong { font-weight: 800; font-size: 1.15em; }
-[data-theme="card"] .tcgcard__stat { font-weight: 800; font-size: 1.8em; text-align: center; }
+[data-theme="card"] .tcgcard__main { font-weight: 800; font-size: 1.3em; line-height: 1.15; color: #1e140a; white-space: pre-line; }
+[data-theme="card"] .tcgcard__main--small { font-size: 0.85em; }
+[data-theme="card"] .tcgcard__sub { display: none; font-size: 0.65em; font-weight: 600; color: #4a3a26; line-height: 1.3; }
+[data-theme="card"] .tcgcard.card--peek .tcgcard__sub { display: block; }
+[data-theme="card"] .tcgcard__bottom { flex: none; display: flex; align-items: center; gap: 0.4em; }
+[data-theme="card"] .tcgcard__cost {
+  flex: none;
+  width: 1.8em;
+  height: 1.8em;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff3c0 0%, #e0b23c 45%, #8a5e14 100%);
+  border: 0.1em solid #4a3208;
+  color: #2a1c06;
+  font-weight: 800;
+  font-size: 1em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+[data-theme="card"] .tcgcard__type {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 1.7em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.35em;
+  background: var(--frame);
+  color: #fbf3de;
+  font-weight: 800;
+  font-size: 0.8em;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 0.3em;
+}
 [data-theme="card"] .tcgcard__count {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 0.3em;
+  right: 0.3em;
   background: #1c1204;
   color: #f4ecd6;
-  border-radius: 8px;
-  padding: 1px 4px;
-  font-size: 0.9em;
+  border-radius: 1em;
+  padding: 0.1em 0.4em;
+  font-size: 0.85em;
 }
-[data-theme="card"] .tcgcard.card--active { box-shadow: inset 0 0 0 2px var(--frame), 0 0 0 2px var(--accent), 0 2px 5px rgba(0, 0, 0, 0.5); }
+[data-theme="card"] .tcgcard.card--active { box-shadow: inset 0 0 0 0.15em var(--frame), 0 0 0 2px var(--accent), 0 2px 5px rgba(0, 0, 0, 0.5); }
 /* 手札は少し重ねて並べ、360px 幅でも5枚が横一列に収まるようにする */
 [data-theme="card"] .cards--hand { flex-wrap: nowrap; overflow-x: auto; padding: 2px; }
 [data-theme="card"] .cards--hand .tcgcard { margin-right: -30px; }
@@ -289,4 +316,4 @@ button { font: inherit; color: inherit; }
 [data-theme] .cards--supply .card__name { font-size: 16px; }
 [data-theme] .cards--supply .card__desc { font-size: 12px; }
 [data-theme="card"] .cards--supply { grid-auto-columns: 112px; }
-[data-theme="card"] .cards--supply .tcgcard { width: 100%; min-height: 0; padding: 4px; font-size: 10px; }
+[data-theme="card"] .cards--supply .tcgcard { width: 100%; min-height: 0; padding: 0.35em; font-size: 10px; }

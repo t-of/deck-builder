@@ -29,8 +29,8 @@ if ('serviceWorker' in navigator) {
 const themeBtn = document.getElementById('themeBtn');
 const THEMES = ['simple', 'pixel', 'card'];
 const THEME_LABEL = { simple: '見た目: シンプル', pixel: '見た目: ドット絵', card: '見た目: カード' };
-const THEME_COLOR = { simple: '#2b2320', pixel: '#14162b', card: '#0f2e1e' };
-let theme = THEMES.includes(load('theme', 'simple')) ? load('theme', 'simple') : 'simple';
+const THEME_COLOR = { simple: '#2b2320', pixel: '#14162b', card: '#0e2a1c' };
+let theme = THEMES.includes(load('theme', 'card')) ? load('theme', 'card') : 'card';
 const PIXEL_FONT = "'DotGothic16', monospace";
 function applyTheme() {
   document.documentElement.dataset.theme = theme;
@@ -176,12 +176,26 @@ function renderTurn() {
   if (game.attack) { runAttackQueue(); }
 }
 
-// 見た目「カード」の種類の帯・数値の書式（engine.js の desc 文字列を見た目用に整えるだけ。ルールには触らない）
-const TYPE_LABEL = { treasure: '財宝', victory: '勝利点', action: 'アクション', 'action-attack': 'アクション－アタック', 'action-reaction': 'アクション－リアクション' };
-function descLines(card) {
-  if (!card.desc) return [];
-  return card.desc.split(/[ 。]/).filter(Boolean).map((text) => ({ text, strong: /^[+]?\d/.test(text) }));
-}
+// 見た目「カード」の種類の帯・効果の文言（engine.js の desc とは別に、絵札風の短い言い回しを持つ。ルールには触らない）
+const TYPE_LABEL = { treasure: '財宝', victory: '勝利点', action: 'アクション', 'action-attack': 'アクション・アタック', 'action-reaction': 'アクション・リアクション' };
+const CARD_COPY = {
+  copper:      { main: '+1 金', sub: '使うと、お金が 1 増える' },
+  silver:      { main: '+2 金', sub: '使うと、お金が 2 増える' },
+  gold:        { main: '+3 金', sub: '使うと、お金が 3 増える' },
+  estate:      { main: '1 点', sub: 'ゲームの終わりに数える' },
+  duchy:       { main: '3 点', sub: 'ゲームの終わりに数える' },
+  province:    { main: '6 点', sub: 'ゲームの終わりに数える' },
+  warehouse:   { main: '+1 アクション', sub: '手札を好きな枚数捨て、同じ枚数引く' },
+  moat:        { main: '+2 カード', sub: '他の人のアタックを、手札から見せると受けない' },
+  moneylender: { main: '+1 カード\n+1 アクション', sub: 'この手番で最初に銀を出すと +1 金' },
+  village:     { main: '+1 カード\n+2 アクション', sub: '' },
+  workshop:    { main: 'カードを獲得', sub: 'コスト 4 以下のカードを 1 枚得る' },
+  mercenary:   { main: '+2 金', sub: '他の全員は、手札が 3 枚になるまで捨てる' },
+  remodel:     { main: '廃棄して獲得', sub: '手札を 1 枚廃棄し、そのコスト +2 以下のカードを 1 枚得る' },
+  smithy:      { main: '+3 カード', sub: '山札から 3 枚引く' },
+  market:      { main: '+1 カード　+1 アクション\n+1 購入　+1 金', sub: '' },
+  mine:        { main: '財宝を格上げ', sub: '手札の財宝を 1 枚廃棄し、コスト +3 以下の財宝を手札に得る' },
+};
 
 function cardNode(id, clickable, onClick, count) {
   const card = CARDS[id];
@@ -195,21 +209,26 @@ function cardNode(id, clickable, onClick, count) {
     window.PixelCards.draw(canvas.getContext('2d'), id);
     icon.appendChild(canvas);
     node.appendChild(icon);
-  } else if (theme === 'card' && window.CardArt) {
+  } else if (theme === 'card') {
     node.classList.add('tcgcard');
-    node.appendChild(el('div', { class: 'tcgcard__top' }, [
-      el('span', { class: 'tcgcard__cost', text: String(card.cost) }),
-      el('span', { class: 'tcgcard__name', text: card.name }),
-    ]));
+    node.appendChild(el('div', { class: 'tcgcard__name', text: card.name }));
     const art = el('div', { class: 'tcgcard__art' });
-    art.innerHTML = window.CardArt.render(id);
+    const img = document.createElement('img');
+    img.src = `./art/${id}.png`;
+    img.alt = card.name;
+    art.appendChild(img);
     node.appendChild(art);
-    node.appendChild(el('div', { class: 'tcgcard__type', text: TYPE_LABEL[card.type] || card.type }));
+    const copy = CARD_COPY[id] || { main: '', sub: '' };
     const body = el('div', { class: 'tcgcard__body' });
-    if (card.points) body.appendChild(el('span', { class: 'tcgcard__stat', text: `${card.points}点` }));
-    if (card.value) body.appendChild(el('span', { class: 'tcgcard__stat', text: `${card.value}金` }));
-    for (const line of descLines(card)) body.appendChild(el('span', { class: line.strong ? 'tcgcard__line tcgcard__line--strong' : 'tcgcard__line', text: line.text }));
+    // 効果が2行にまたがる（+1 カード + 1 アクションなど）ときは、はみ出さないよう字を少し小さくする
+    const mainClass = copy.main.includes('\n') ? 'tcgcard__main tcgcard__main--small' : 'tcgcard__main';
+    body.appendChild(el('span', { class: mainClass, text: copy.main }));
+    if (copy.sub) body.appendChild(el('span', { class: 'tcgcard__sub', text: copy.sub }));
     node.appendChild(body);
+    node.appendChild(el('div', { class: 'tcgcard__bottom' }, [
+      el('span', { class: 'tcgcard__cost', text: String(card.cost) }),
+      el('span', { class: 'tcgcard__type', text: TYPE_LABEL[card.type] || card.type }),
+    ]));
     if (count != null) node.appendChild(el('span', { class: 'tcgcard__count', text: `残り${count}` }));
     node.addEventListener('click', () => {
       if (onClick) { soundPlay(); onClick(); } else node.classList.toggle('card--peek');

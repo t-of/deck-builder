@@ -9,7 +9,7 @@
 // ブラウザの HTTP キャッシュを通さない（install は reload、fetch は no-cache）。古い main.js と新しい index.html が混ざって動かなくなるのを防ぐ。
 
 const PREFIX = 'deck-builder-';
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = `${PREFIX}${VERSION}`;
 const FONT_CACHE = `${PREFIX}fonts`;
 
@@ -20,7 +20,6 @@ const SHELL = [
   './main.js',
   './engine.js',
   './pixel-cards.js',
-  './card-art.js',
   './manifest.webmanifest',
   './webapp-kit/webapp-kit.css',
   './webapp-kit/webapp-kit.js',
@@ -28,6 +27,22 @@ const SHELL = [
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
+  './art/copper.png',
+  './art/silver.png',
+  './art/gold.png',
+  './art/estate.png',
+  './art/duchy.png',
+  './art/province.png',
+  './art/warehouse.png',
+  './art/moat.png',
+  './art/moneylender.png',
+  './art/village.png',
+  './art/workshop.png',
+  './art/mercenary.png',
+  './art/remodel.png',
+  './art/smithy.png',
+  './art/market.png',
+  './art/mine.png',
 ];
 
 self.addEventListener('install', (e) => {
