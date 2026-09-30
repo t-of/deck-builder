@@ -705,6 +705,13 @@ function renderTurn() {
     if (game.hexes) landscapesBox.appendChild(pileButton('呪詛の山', game.hexes));
     supply.appendChild(el('div', { class: 'supplyGroup' }, [el('h3', { class: 'supplyGroup__label', text: 'イベントなど' }), landscapesBox]));
   }
+  // サプライ外の山（褒賞・賞品など）。イベントと同じく廃棄置き場の左に置く。買えない、タップで説明だけ
+  const nonSupplyIds = Object.keys(game.nonSupply).filter((id) => game.nonSupply[id] > 0);
+  if (nonSupplyIds.length) {
+    const nonSupplyBox = el('div', { class: 'cards supplyGroup__row' });
+    for (const id of nonSupplyIds) nonSupplyBox.appendChild(gcNode(id, false, null, game.nonSupply[id]));
+    supply.appendChild(el('div', { class: 'supplyGroup' }, [el('h3', { class: 'supplyGroup__label', text: 'サプライ外' }), nonSupplyBox]));
+  }
   // 廃棄置き場: 王国のカードの右に、色を変えた枠で枚数と中身を出す
   supply.appendChild(el('div', { class: 'supplyGroup' }, [
     el('h3', { class: 'supplyGroup__label', text: '廃棄置き場' }),
@@ -713,13 +720,6 @@ function renderTurn() {
       el('p', { class: 'trashBox__list', text: counts(game.trash) }),
     ]),
   ]));
-
-  // サプライ外の山（褒賞・賞品など）。買えない、タップで説明だけ
-  const nonSupplyIds = Object.keys(game.nonSupply).filter((id) => game.nonSupply[id] > 0);
-  document.getElementById('nonSupplyLabel').hidden = nonSupplyIds.length === 0;
-  const nonSupply = document.getElementById('nonSupply');
-  clear(nonSupply);
-  for (const id of nonSupplyIds) nonSupply.appendChild(gcNode(id, false, null, game.nonSupply[id]));
 
   // 影の札（山札にある影）: アクションフェイズに手札の横に並べる
   const shadowLabel = document.getElementById('shadowLabel');
