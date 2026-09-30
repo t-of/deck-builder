@@ -433,7 +433,7 @@ export function planFor(game, pi, level) {
   if (game.cpuPlans[pi]) return game.cpuPlans[pi];
   if (game.cpuPlanning) return []; // 自己対局の中では考え直さない（決めていなければ BM）
   game.cpuPlanning = true;
-  const n = 6;
+  const n = level === 'expert' ? 8 : 6;
   const kingdom = game.kingdom.filter((id) => id in game.supply || game.stacks[id]);
   const landscapes = game.landscapes;
   const score = (plan, games = n) => {
@@ -457,12 +457,12 @@ export function planFor(game, pi, level) {
   results.sort((a, b) => b.s - a.s);
   // さいきょう: 上位 6 つをもっと多く試し直し、上位 3 つの組み合わせも試す
   if (level === 'expert' && results.length) {
-    const top = results.slice(0, 6).map((r) => ({ plan: r.plan, s: score(r.plan, 24) }));
+    const top = results.slice(0, 6).map((r) => ({ plan: r.plan, s: score(r.plan, 32) }));
     const tops = [...top].sort((a, b) => b.s - a.s).slice(0, 3);
     for (let a = 0; a < tops.length; a++) for (let b = a + 1; b < tops.length; b++) {
       if (tops[a].plan[0].pile === tops[b].plan[0].pile) continue;
       const plan = [tops[a].plan[0], tops[b].plan[0]];
-      top.push({ plan, s: score(plan, 24) });
+      top.push({ plan, s: score(plan, 32) });
     }
     results = top.sort((a, b) => b.s - a.s);
   }
