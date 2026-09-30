@@ -61,7 +61,7 @@ function scoreOf(game, pi) {
 // 自分のデッキの様子
 function deckInfo(game, pi) {
   const p = game.players[pi];
-  const all = allCards(p);
+  const all = pi === game.current ? [...allCards(p), ...game.playArea] : allCards(p); // 手番中は場の札も自分の札
   let money = 0;
   let terminals = 0;
   let villages = 0;
