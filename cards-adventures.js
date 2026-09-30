@@ -138,7 +138,7 @@ const kingdom = [
     *play(g, p) { toTavern(g, p, 'copycat'); },
     call: {
       when: 'gain',
-      can: (g, p, got) => costOf(g, got.id) <= 6 && g.supply[pileOf(got.id)] > 0 && !CARDS[got.id].potion,
+      can: (g, p, got) => costOf(g, got.id) <= 6 && g.supply[pileOf(got.id)] > 0,
       *run(g, p, pi, got) { yield* gain(g, pi, g.supply[got.id] != null ? got.id : pileOf(got.id)); },
     },
   },
@@ -254,8 +254,7 @@ const kingdom = [
     *play(g, p) { g.turn.actions += 1; toTavern(g, p, 'carriage'); },
     call: {
       when: 'afterAction',
-      can: (g, p, ctx) => g.playArea.includes(ctx.id),
-      once: true,
+      can: (g, p, ctx) => g.playArea.includes(ctx.id), // 何枚あっても、続けて呼び出せる
       *run(g, p, pi, ctx) { log(g, `${nm(ctx.id)}をもう一度使う。`); yield* resolve(g, ctx.id); },
     },
   },
