@@ -37,6 +37,7 @@
   <main class="app">
     <header class="bar">
       <h1 class="bar__title">deck-builder</h1>
+      <div class="log" id="log"></div>
       <div class="bar__actions">
         <button class="pill" data-wak="install" hidden>アプリにする</button>
         <button class="pill" data-wak="share">共有</button>
@@ -95,8 +96,6 @@
       <div id="game" class="game" hidden>
         <div class="othersRow" id="othersRow"></div>
         <div class="game__table">
-          <p class="sectionLabel">場に出したカード</p>
-          <div class="cards cards--play" id="playArea"></div>
           <div class="othersRow" id="matsRow"></div>
           <p class="sectionLabel" id="trashLabel"></p>
           <p class="sectionLabel sectionLabel--supply">サプライ</p>
@@ -106,8 +105,18 @@
           <p class="sectionLabel" id="nonSupplyLabel" hidden>サプライ外</p>
           <div class="cards" id="nonSupply"></div>
         </div>
-        <!-- 広い画面ではフェイズの欄・手札・記録を横に並べる -->
+        <!-- 広い画面では場・手札・フェイズの欄を横に並べる（記録は上のバー） -->
         <div class="game__bottom">
+          <div class="game__play">
+            <p class="sectionLabel">場に出したカード</p>
+            <div class="cards cards--play" id="playArea"></div>
+          </div>
+          <div class="game__hand">
+            <p class="sectionLabel" id="shadowLabel" hidden>山札の影の札</p>
+            <div class="cards cards--hand" id="shadowRow"></div>
+            <p class="sectionLabel">手札</p>
+            <div class="cards cards--hand" id="hand"></div>
+          </div>
           <div class="game__side">
             <div class="hud">
               <p class="phasePill" id="phasePill"></p>
@@ -117,13 +126,6 @@
             </div>
             <p class="cpuThinking" id="cpuThinking" hidden>CPU が考えています<span class="cpuThinking__dots"><span></span><span></span><span></span></span></p>
           </div>
-          <div class="game__hand">
-            <p class="sectionLabel" id="shadowLabel" hidden>山札の影の札</p>
-            <div class="cards cards--hand" id="shadowRow"></div>
-            <p class="sectionLabel">手札</p>
-            <div class="cards cards--hand" id="hand"></div>
-          </div>
-          <div class="log" id="log"></div>
         </div>
       </div>
 

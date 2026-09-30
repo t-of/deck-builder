@@ -113,6 +113,11 @@ button { font: inherit; color: inherit; }
 .sectionLabel { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
 .log { font-size: 11px; color: var(--muted); border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 4px; }
 .log p { margin: 1px 0; }
+/* 記録は上のバーの真ん中に、新しい 2 行だけ出す。対局前は隠す */
+.bar .log { flex: 1 1 auto; min-width: 0; align-self: stretch; display: flex; flex-direction: column; justify-content: center; border: none; padding: 0 8px; }
+.bar .log p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar .log p:nth-last-child(n+3) { display: none; }
+.app:has(#setup:not([hidden])) .bar .log { visibility: hidden; }
 
 /* ---- カード ---- */
 .cards { display: flex; flex-wrap: wrap; gap: 6px; min-height: 36px; }
@@ -287,13 +292,12 @@ button { font: inherit; color: inherit; }
 }
 [data-theme="card"] .bar { border-bottom: 1px solid rgba(232, 184, 58, 0.25); padding-bottom: 8px; }
 [data-theme="card"] .bar__title { font-size: 20px; letter-spacing: 0.1em; color: var(--accent); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
-[data-theme="card"] .panel, [data-theme="card"] .hud, [data-theme="card"] .otherCard, [data-theme="card"] .log {
+[data-theme="card"] .panel, [data-theme="card"] .hud, [data-theme="card"] .otherCard {
   background: linear-gradient(180deg, rgba(20, 46, 32, 0.6), rgba(0, 0, 0, 0.32));
   border: 1px solid rgba(232, 184, 58, 0.28);
   border-radius: 10px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 10px rgba(0, 0, 0, 0.35);
 }
-[data-theme="card"] .log { border-top: 1px solid rgba(232, 184, 58, 0.28); }
 [data-theme="card"] .pill, [data-theme="card"] .playercount button, [data-theme="card"] .chip {
   border: 1px solid #5a4218;
   background: linear-gradient(180deg, #9a7a3e 0%, #6a4e22 100%);
@@ -503,7 +507,7 @@ button { font: inherit; color: inherit; }
 [data-theme="card"] .supplyGroup__row .tcgcard { width: 100%; min-height: 0; padding: 0.35em; font-size: 10px; }
 
 /* ---- 対局画面の並び。狭い画面は上から「ほかの人・フェイズの欄・場とサプライ・手札・記録」 ---- */
-.game__table, .game__hand { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.game__table, .game__play, .game__hand { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .game__bottom, .game__side { display: contents; }
 .game__side > * { order: -1; }
 #othersRow { order: -2; }
@@ -514,13 +518,12 @@ button { font: inherit; color: inherit; }
 @media (min-width: 720px) {
   .app { height: 100dvh; }
   .game {
-    --ch: clamp(100px, calc((100dvh - 440px) / 2.7), 220px);
+    --ch: clamp(100px, calc((100dvh - 440px) / 2.2), 220px);
     --cw: min(calc(var(--ch) * 63 / 88), calc((100vw - 110px) / 9.4));
   }
   .sectionLabel--supply { display: none; }
-  .game__bottom { display: grid; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(160px, 260px); gap: 12px; align-items: start; }
+  .game__bottom { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(240px, 300px); gap: 12px; align-items: start; }
   .game__side { display: flex; flex-direction: column; gap: 8px; }
-  .game__bottom .log { align-self: stretch; overflow-y: auto; padding: 6px 8px; }
   [data-theme="card"] .supplyGroup__row { grid-auto-columns: var(--cw); }
   [data-theme="card"] .supplyGroup__row .tcgcard { font-size: calc(var(--cw) / 11.2); }
   [data-theme="card"] .cards--play { flex-wrap: nowrap; overflow-x: auto; min-height: calc(var(--cw) * 0.7 * 88 / 63 + 4px); padding: 2px; }
