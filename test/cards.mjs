@@ -1,0 +1,334 @@
+// カードごとの決まった場面のチェック。 node test/cards.mjs
+import assert from 'node:assert/strict';
+import { CARDS, newGame, playAction, score, startBuyPhase, playTreasure, buyCard, finalResults } from '../engine.js';
+import '../cards-base.js';
+
+const K = ['warehouse', 'moat', 'village', 'command', 'sentinel', 'sorcerer', 'meadow', 'official', 'highwayman', 'moneylender'];
+function setup(hand, deck = []) {
+  const g = newGame(2, K);
+  g.players[0].hand = [...hand];
+  g.players[0].deck = [...deck];
+  g.players[0].discard = [];
+  return g;
+}
+// 答えを順に返して最後まで回す。出た問いを返す
+function run(gen, answers = []) {
+  const qs = [];
+  let s = gen.next();
+  while (!s.done) { qs.push(s.value); s = gen.next(answers.shift()); }
+  return qs;
+}
+
+// 号令＋集落: +2 カード +4 アクション（号令で1使うので 4）
+let g = setup(['command', 'village', 'copper'], ['estate', 'estate', 'estate']);
+run(playAction(g, 'command'), [[0]]);
+assert.equal(g.turn.actions, 4);
+assert.equal(g.players[0].hand.length, 3);
+
+// 呪術師: 相手が災いを得る。水濠を持っていれば防ぐ
+g = setup(['sorcerer'], ['copper', 'copper']);
+g.players[1].hand = ['moat', 'copper'];
+run(playAction(g, 'sorcerer'));
+assert.equal(g.players[1].discard.includes('curse'), false);
+g = setup(['sorcerer'], ['copper', 'copper']);
+g.players[1].hand = ['copper'];
+run(playAction(g, 'sorcerer'));
+assert.ok(g.players[1].discard.includes('curse'));
+
+// 番兵: 2 枚とも戻して、選んだ方が一番上
+g = setup(['sentinel'], ['gold', 'estate', 'copper']); // 末尾が一番上: copper を引き、estate・gold を見る
+run(playAction(g, 'sentinel'), ['keep', 'keep', [1]]); // 見た順 [estate, gold] の 1=gold を上に
+assert.deepEqual(g.players[0].deck.slice(-2), ['estate', 'gold']);
+
+// 花畑: 20 枚なら 2 点ずつ
+g = setup([]);
+const p = g.players[0];
+p.deck = [...Array(18).fill('copper'), 'meadow', 'meadow'];
+assert.equal(score(p), 4);
+
+// 徴税官: 相手は小屋を山札の上に戻す（1 種類しかないので問わない）
+g = setup(['official']);
+g.players[1].hand = ['estate', 'copper', 'estate'];
+const qs = run(playAction(g, 'official'));
+assert.equal(qs.length, 0);
+assert.equal(g.players[1].deck.at(-1), 'estate');
+assert.equal(g.players[0].deck.at(-1), 'silver');
+
+// 追いはぎ: 銀と金なら相手が選ぶ。選ばれた方が廃棄
+g = setup(['highwayman']);
+g.players[1].deck = ['silver', 'gold'];
+const q2 = run(playAction(g, 'highwayman'), [[1]]);
+assert.equal(q2[0].player, 1);
+assert.deepEqual(g.trash, [q2[0].cards[1]]);
+
+// 両替商 2 枚で最初の銀が +2、次の銀は +0
+g = setup(['moneylender', 'moneylender', 'silver', 'silver'], ['estate', 'estate']);
+g.turn.actions = 2;
+run(playAction(g, 'moneylender')); run(playAction(g, 'moneylender'));
+startBuyPhase(g); playTreasure(g, 'silver'); playTreasure(g, 'silver');
+assert.equal(g.turn.money, 6);
+let b = buyCard(g, 'gold'), bs = b.next(); while (!bs.done) bs = b.next();
+assert.ok(bs.value);
+
+// 同点・同手番なら同じ順位
+g = newGame(2, K);
+const r = finalResults(g);
+assert.equal(r[0].rank, 1); assert.equal(r[1].rank, 1);
+console.log('ok: cards');
+
+// ---- 陰謀 ----
+await import('../cards-intrigue.js');
+const { costOf } = await import('../engine.js');
+const K2 = ['carnival', 'suspension', 'plotter', 'envoy', 'mansion', 'marquis', 'jailer', 'refine', 'tunnel', 'moat'];
+function setup2(hand, deck = []) {
+  const g = newGame(2, K2);
+  Object.assign(g.players[0], { hand: [...hand], deck: [...deck], discard: [] });
+  return g;
+}
+// つり橋 2 枚で領地が 6
+g = setup2(['suspension', 'suspension']); g.turn.actions = 2;
+run(playAction(g, 'suspension')); run(playAction(g, 'suspension'));
+assert.equal(costOf(g, 'province'), 6); assert.equal(g.turn.buys, 3);
+// 仮装行列: 1 枚ずつ左へ
+g = setup2(['carnival', 'gold'], ['estate', 'estate']);
+g.players[1].hand = ['curse'];
+run(playAction(g, 'carnival'), [[0], []]);
+assert.ok(g.players[1].hand.includes('gold')); assert.ok(g.players[0].hand.includes('curse'));
+// 使節のリアクション: 牢番に見せて 2 引き 3 捨て、そのあと牢番の選択
+g = setup2(['jailer'], ['copper', 'copper', 'copper']);
+g.players[1].hand = ['envoy', 'copper', 'copper', 'copper', 'estate'];
+g.players[1].deck = ['silver', 'silver'];
+const q3 = run(playAction(g, 'jailer'), [true, [1, 2, 3], 'curse']);
+assert.equal(q3[0].player, 1);
+assert.equal(g.players[1].hand.length, 5); // 5+2-3+災い1
+assert.ok(g.players[1].hand.includes('curse'));
+// 豪邸・侯爵の点
+g = setup2([]);
+g.players[0].deck = ['mansion', 'marquis', 'duchy', 'duchy'];
+g.players[0].discard = [];
+assert.equal(score(g.players[0]), 2 + 2 + 6);
+// 黒幕: 3 回目なら +1 カード +1 アクション
+g = setup2(['plotter'], ['copper']); g.turn.actionsPlayed = 2;
+run(playAction(g, 'plotter'));
+assert.equal(g.turn.actions, 1); assert.equal(g.turn.money, 2);
+console.log('ok: intrigue');
+
+// ---- 海辺 ----
+await import('../cards-seaside.js');
+const { beginTurn, endTurn } = await import('../engine.js');
+const K3 = ['wagon', 'fort', 'beacon', 'coffer', 'privateer', 'sorcerer', 'command', 'cove', 'islet', 'pier'];
+function setup3(hand, deck = []) {
+  const g = newGame(2, K3);
+  Object.assign(g.players[0], { hand: [...hand], deck: [...deck], discard: [] });
+  return g;
+}
+const rest = (g) => { run(endTurn(g)); run(beginTurn(g)); };
+// 荷馬車: 場に残り、次の手番の始めに +1 カード、その手番の終わりに捨て札へ
+g = setup3(['wagon'], Array(20).fill('copper'));
+run(playAction(g, 'wagon'));
+run(endTurn(g));
+assert.deepEqual(g.players[0].inPlay, ['wagon']);
+rest(g); // 相手の手番を終えて自分へ
+run(beginTurn(g)); // （rest で相手の beginTurn を回したので、ここで自分の分）
+assert.equal(g.players[0].hand.length, 6);
+run(endTurn(g));
+assert.equal(g.players[0].inPlay.length, 0);
+assert.ok(g.players[0].discard.includes('wagon'));
+// 出城: 追加の手番は同じ人、手札 3 枚。追加の手番では続かない
+g = setup3(['fort'], Array(20).fill('copper'));
+run(playAction(g, 'fort'));
+run(endTurn(g));
+assert.equal(g.current, 0); assert.equal(g.players[0].hand.length, 3); assert.ok(g.extraTurn);
+run(beginTurn(g));
+run(endTurn(g));
+assert.equal(g.current, 1);
+// かがり火: 場にあるあいだアタックを受けない
+g = setup3(['beacon'], Array(10).fill('copper'));
+run(playAction(g, 'beacon'));
+run(endTurn(g));
+g.players[1].hand = ['sorcerer'];
+run(beginTurn(g));
+run(playAction(g, 'sorcerer'));
+assert.ok(!allCardsOf(g.players[0]).includes('curse'));
+function allCardsOf(p) { return [...p.deck, ...p.hand, ...p.discard]; }
+// 号令＋荷馬車: 2 回分 +1 カード、号令も場に残る
+g = setup3(['command', 'wagon'], Array(20).fill('copper'));
+run(playAction(g, 'command'), [[0]]);
+run(endTurn(g));
+assert.deepEqual(g.players[0].inPlay.sort(), ['command', 'wagon']);
+// 私掠船: 相手は最初に出した銀を廃棄
+g = setup3(['privateer'], Array(10).fill('copper'));
+run(playAction(g, 'privateer'));
+run(endTurn(g));
+run(beginTurn(g));
+g.players[1].hand = ['silver', 'silver'];
+startBuyPhase(g); playTreasure(g, 'silver'); playTreasure(g, 'silver');
+assert.equal(g.turn.money, 4); assert.deepEqual(g.trash, ['silver']);
+// 小島: マットに置いて点に数える
+g = setup3(['islet', 'province'], Array(10).fill('copper'));
+run(playAction(g, 'islet'));
+assert.deepEqual(g.players[0].mats.islet, ['islet', 'province']);
+assert.ok(score(g.players[0]) >= 8);
+console.log('ok: seaside');
+
+// ---- 繁栄 ----
+await import('../cards-prosperity.js');
+const { canBuy, playAllTreasures } = await import('../engine.js');
+const K4 = ['charlatan', 'hawker', 'firetower', 'council', 'banker', 'stele', 'stash', 'boulevard', 'village', 'smithy'];
+function setup4(hand, deck = [], opts = { colony: true }) {
+  const g = newGame(2, K4, null, opts);
+  Object.assign(g.players[0], { hand: [...hand], deck: [...deck], discard: [] });
+  return g;
+}
+// 新天地・白金の山、まやかし師で災いが財宝
+g = setup4(['curse', 'copper', 'banker']);
+assert.equal(g.supply.colony, 8); assert.equal(g.supply.platinum, 12);
+startBuyPhase(g); playAllTreasures(g);
+assert.equal(g.turn.money, 1 + 1 + 3);
+// 呼び売り: 場のアクション 2 枚で 4 下がる（購入フェイズだけ）
+g = setup4(['village', 'smithy'], Array(10).fill('copper'));
+run(playAction(g, 'village')); run(playAction(g, 'smithy'));
+assert.equal(costOf(g, 'hawker'), 8);
+startBuyPhase(g);
+assert.equal(costOf(g, 'hawker'), 4);
+// 大通り: 銅を出していると買えない
+g.turn.money = 10; g.playArea.push('copper');
+assert.equal(canBuy(g, 'boulevard'), false);
+// 御前会議＋石碑: +6 金 +3 点
+g = setup4(['council', 'stele']);
+run(playAction(g, 'council'), [[0]]);
+assert.equal(g.turn.money, 6); assert.equal(g.players[0].tokens.vp, 3);
+// 火の見やぐら: 獲得した銀を山札の上へ
+g = setup4(['firetower']);
+startBuyPhase(g); g.turn.money = 3;
+run(buyCard(g, 'silver'), ['deck']);
+assert.equal(g.players[0].deck.at(-1), 'silver');
+// 新天地の山が空になると終わり
+g = setup4([]);
+g.supply.colony = 0;
+run(endTurn(g));
+assert.ok(g.over);
+console.log('ok: prosperity');
+
+// ---- 異郷 ----
+await import('../cards-hinterlands.js');
+const K5 = ['silverdealer', 'gatevillage', 'underpass', 'pyrite', 'warehouse', 'fields', 'causeway', 'watchdog', 'mercenary', 'drifter'];
+function setup5(hand, deck = []) {
+  const g = newGame(2, K5, null, { colony: false });
+  Object.assign(g.players[0], { hand: [...hand], deck: [...deck], discard: [] });
+  return g;
+}
+// 銀の商人: 買った関所の村の代わりに銀
+g = setup5(['silverdealer']);
+startBuyPhase(g); g.turn.money = 6;
+run(buyCard(g, 'gatevillage'), ['silver', true]); // 関所の村の獲得時の効果（銀）→ 銀の商人で交換
+assert.equal(g.supply.gatevillage, 10); assert.deepEqual(g.players[0].discard, ['silver', 'silver']);
+// 関所の村: 獲得したら安いものも
+g = setup5([]);
+startBuyPhase(g); g.turn.money = 6;
+run(buyCard(g, 'gatevillage'), ['drifter']);
+assert.deepEqual(g.players[0].discard.sort(), ['drifter', 'gatevillage']);
+assert.equal(g.turn.money, 2); // 流れ者を獲得して +2
+// 地下道: 倉庫で捨てたら金
+g = setup5(['warehouse', 'underpass'], ['copper']);
+run(playAction(g, 'warehouse'), [[0], true]);
+assert.ok(g.players[0].discard.includes('gold'));
+// にせ金: 相手が領地を獲得したら廃棄して金を山札の上
+g = setup5([]);
+g.players[1].hand = ['pyrite', 'copper'];
+startBuyPhase(g); g.turn.money = 8;
+run(buyCard(g, 'province'), [true]);
+assert.equal(g.players[1].deck.at(-1), 'gold'); assert.ok(g.trash.includes('pyrite'));
+// にせ金 3 枚: 1 + 4 + 4
+g = setup5(['pyrite', 'pyrite', 'pyrite']);
+startBuyPhase(g); playAllTreasures(g);
+assert.equal(g.turn.money, 9);
+// 見張り犬: 傭兵の前に使って 4 枚引く（手札 5 枚以下なので）
+g = setup5(['mercenary']);
+g.players[1].hand = ['watchdog', 'copper', 'copper'];
+g.players[1].deck = Array(6).fill('estate');
+run(playAction(g, 'mercenary'), [true, [0, 1, 2]]);
+assert.equal(g.players[1].hand.length, 3); assert.deepEqual(g.players[1].inPlay, ['watchdog']);
+console.log('ok: hinterlands');
+
+// ---- 収穫祭＆ギルド ----
+await import('../cards-guilds.js');
+const { spendCoffers } = await import('../engine.js');
+const K6 = ['apprentice', 'duel', 'breadmaker', 'shoer', 'gem', 'mugger', 'ferry', 'sideshow', 'expo', 'tourney'];
+g = newGame(2, K6, null, { colony: false });
+assert.ok(g.bane && g.supply[g.bane] > 0);
+assert.equal(g.players[1].tokens.coffers, 1);
+assert.equal(g.nonSupply.courser, 2); assert.equal(g.nonSupply.steed, 1);
+assert.ok(g.ferryPile && g.nonSupply[g.ferryPile] > 0);
+// 過払い: 逸品に 3 払って銀 3 枚
+Object.assign(g.players[0], { hand: [], deck: [], discard: [] });
+startBuyPhase(g); g.turn.money = 6;
+run(buyCard(g, 'gem'), [3]);
+assert.equal(g.players[0].discard.filter((x) => x === 'silver').length, 3);
+// 財源を使う
+spendCoffers(g, 1);
+assert.equal(g.turn.money, 1); assert.equal(g.players[0].tokens.coffers, 0);
+// 見習い魔女: 厄よけを見せると災いを受けない
+g.players[0].hand = ['apprentice']; g.players[0].deck = ['copper', 'copper'];
+g.turn = { ...g.turn, phase: 'action', actions: 1 };
+g.players[1].hand = [g.bane];
+run(playAction(g, 'apprentice'));
+assert.ok(![...g.players[1].discard, ...g.players[1].hand].includes('curse'));
+// 博覧会: 10 種で 4 点
+assert.equal(CARDS.expo.pointsFn(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']), 4);
+console.log('ok: guilds');
+
+// ---- 錬金術 ----
+await import('../cards-alchemy.js');
+const K7 = ['takeover', 'adept', 'remodel', 'vinerack', 'arcanestone', 'village', 'smithy', 'market', 'moat', 'cellar'].filter((id) => CARDS[id]);
+g = newGame(3, K7, null, { colony: false });
+assert.equal(g.supply.potion, 16);
+// 霊薬がないとポーションの札は買えない
+startBuyPhase(g); g.turn.money = 10;
+assert.equal(canBuy(g, 'adept'), false);
+g.players[0].hand = ['potion']; playAllTreasures(g);
+assert.ok(canBuy(g, 'adept'));
+// 乗っ取り: 1 人目が使うと、2 人目の追加の手番を 1 人目が操作する
+g = newGame(3, K7, null, { colony: false });
+g.players[0].hand = ['takeover'];
+run(playAction(g, 'takeover'));
+run(endTurn(g));
+assert.equal(g.current, 1); assert.equal(g.controller, 0);
+g.players[1].hand = ['remodel', 'gold'];
+const qs7 = run(playAction(g, 'remodel'), [[0], 'province']);
+assert.equal(qs7.length === 0 || qs7.every((q) => q.player === 0 && q.owner === 1), true);
+assert.ok(g.players[0].discard.includes('province')); // 獲得は操作した人へ
+assert.ok(g.players[1].mats.possessed.includes('gold')); // 廃棄は脇へ
+const turns1 = g.players[1].turnsTaken;
+run(endTurn(g));
+assert.equal(g.current, 1); assert.equal(g.controller, null); // 次は 2 人目のふつうの手番
+assert.ok(g.players[1].discard.includes('gold'));
+assert.equal(g.players[1].turnsTaken, turns1);
+console.log('ok: alchemy');
+
+// ---- 暗黒時代 ----
+await import('../cards-darkages.js');
+const K8 = ['knights', 'zealot', 'stronghold', 'marketsquare', 'recluse', 'fief', 'ravager', 'rats', 'waif', 'impostor'];
+g = newGame(3, K8, null, { colony: false, shelters: true });
+assert.equal(g.supply.knights, 10); assert.equal(g.stacks.knights.length, 10);
+assert.equal(g.supply.ruins, 20); assert.ok(g.players[0].deck.concat(g.players[0].hand).includes('shack'));
+// 騎士の山は一番上の札を獲得
+const topKnight = g.stacks.knights.at(-1);
+Object.assign(g.players[0], { hand: [], deck: [], discard: [] });
+startBuyPhase(g); g.turn.money = 5;
+run(buyCard(g, 'knights'));
+assert.deepEqual(g.players[0].discard, [topKnight]); assert.equal(g.supply.knights, 9);
+// 邪教徒: 相手はがれき（重なった山の札）を獲得
+g.turn = { ...g.turn, phase: 'action', actions: 1 };
+g.players[0].hand = ['zealot']; g.players[0].deck = ['copper', 'copper'];
+g.players[1].hand = []; g.players[2].hand = [];
+run(playAction(g, 'zealot'));
+assert.ok(CARDS[g.players[1].discard.at(-1)].pile === 'ruins');
+// 砦: 廃棄すると手札に戻る。広小路で金
+g.players[0].hand = ['stronghold', 'marketsquare', 'rats']; g.players[0].deck = ['copper'];
+g.turn.actions = 1;
+run(playAction(g, 'rats'), [[0], true]); // どぶネズミ: 砦を廃棄 → 広小路を捨てて金
+assert.ok(g.players[0].hand.includes('stronghold')); assert.ok(g.players[0].discard.includes('gold'));
+// 知行地: 銀 3 枚で 1 点
+assert.equal(CARDS.fief.pointsFn(['silver', 'silver', 'silver', 'fief']), 1);
+console.log('ok: darkages');

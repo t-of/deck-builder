@@ -46,14 +46,26 @@
     </header>
 
     <section class="stage" id="stage">
-      <!-- 人数選び -->
-      <div id="setup" class="panel">
+      <!-- 人数・カードの組選び -->
+      <div id="setup" class="panel setup">
         <p class="panel__lead">人数を選んでください</p>
         <div class="playercount" id="playercount">
           <button data-n="2">2人</button>
           <button data-n="3">3人</button>
           <button data-n="4">4人</button>
         </div>
+
+        <p class="panel__lead">遊ぶカードの組を選んでください</p>
+        <div class="tabs" id="modeTabs">
+          <button data-mode="preset">おすすめ</button>
+          <button data-mode="random">おまかせ</button>
+          <button data-mode="custom">自分で選ぶ</button>
+        </div>
+        <div id="modePane"></div>
+
+        <p class="sectionLabel" id="previewLabel">選ばれた10種（タップで説明）</p>
+        <div class="cards" id="kingdomPreview"></div>
+        <button class="pill pill--accent" id="startBtn" disabled>始める</button>
       </div>
 
       <!-- 手番を渡す画面 -->
@@ -71,25 +83,23 @@
         </div>
         <p class="sectionLabel">場に出したカード</p>
         <div class="cards cards--play" id="playArea"></div>
+        <div class="othersRow" id="matsRow"></div>
+        <p class="sectionLabel" id="trashLabel"></p>
         <p class="sectionLabel">サプライ</p>
         <div class="cards cards--supply" id="supply"></div>
+        <p class="sectionLabel" id="nonSupplyLabel" hidden>サプライ外</p>
+        <div class="cards" id="nonSupply"></div>
         <p class="sectionLabel">手札</p>
         <div class="cards cards--hand" id="hand"></div>
         <div class="log" id="log"></div>
       </div>
 
-      <!-- カード効果・アタックの捨てる枚数を選ぶ -->
+      <!-- 問い（カード効果・アタックなど） -->
       <div id="choiceOverlay" class="panel" hidden>
         <p class="panel__lead" id="choiceLabel"></p>
         <div class="cards" id="choiceGrid"></div>
+        <div class="choiceButtons" id="choiceButtons"></div>
         <button class="pill pill--accent" id="choiceConfirm">決定</button>
-      </div>
-
-      <!-- アタック：水濠を見せるか -->
-      <div id="attackMoat" class="panel" hidden>
-        <p class="panel__lead" id="attackMoatLabel"></p>
-        <button class="pill pill--accent" id="moatYes">見せる</button>
-        <button class="pill" id="moatNo">見せない</button>
       </div>
 
       <!-- 結果画面 -->
