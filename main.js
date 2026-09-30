@@ -130,7 +130,6 @@ const TYPE_WORD = {
   augur: '占い師', clash: 'いくさ', fort: '砦', odyssey: '旅', townsfolk: '町の衆', wizard: '術者',
   castle: '城', gathering: '集め', knight: '騎士', ruins: 'がれき', shelter: '避難所', looter: '略奪者', reward: '褒賞', prize: '賞品',
 };
-const typeLabel = (id) => CARDS[id].types.map((t) => TYPE_WORD[t] || t).join('・');
 // マット（p.mats の項目名）の日本語名
 const MAT_LABEL = { tavern: '酒場マット', exile: '追放' };
 // 他の人にも中身を見せるマット（それ以外は枚数だけ）
@@ -179,7 +178,9 @@ function cardNode(id, clickable, onClick, count, cost, badge) {
     node.appendChild(icon);
   } else if (theme === 'card') {
     node.classList.add('tcgcard');
-    node.appendChild(el('div', { class: 'tcgcard__name', text: card.name }));
+    const name = el('div', { class: 'tcgcard__name', text: card.name });
+    name.style.setProperty('--len', [...card.name].length);
+    node.appendChild(name);
     const art = el('div', { class: 'tcgcard__art' });
     const img = document.createElement('img');
     img.src = `./art/${id}.png`;
@@ -189,18 +190,18 @@ function cardNode(id, clickable, onClick, count, cost, badge) {
     node.appendChild(art);
     const body = el('div', { class: 'tcgcard__body' });
     const mainClass = card.main.includes('\n') ? 'tcgcard__main tcgcard__main--small' : 'tcgcard__main';
-    body.appendChild(el('span', { class: mainClass, text: card.main }));
+    const main = el('span', { class: mainClass, text: card.main });
+    main.style.setProperty('--w', Math.max(...card.main.split('\n').map(textWidth)));
+    body.appendChild(main);
     if (card.desc) body.appendChild(el('span', { class: 'tcgcard__sub', text: card.desc }));
     node.appendChild(body);
     node.appendChild(el('div', { class: 'tcgcard__bottom' }, [
       el('span', { class: `tcgcard__cost${discounted ? ' tcgcard__cost--down' : ''}`, text: `${showCost}${potionText}${debtText}` }),
-      el('span', { class: 'tcgcard__type', text: typeLabel(id) }),
+      el('span', { class: 'tcgcard__type' }, card.types.map((t, i) => el('span', { text: (i ? '・' : '') + (TYPE_WORD[t] || t) }))),
     ]));
     if (count != null) node.appendChild(el('span', { class: 'tcgcard__count', text: `残り${count}` }));
     if (badge) node.appendChild(el('span', { class: 'tcgcard__embargo', text: badge }));
-    node.addEventListener('click', () => {
-      if (onClick) { soundPlay(); onClick(); } else node.classList.toggle('card--peek');
-    });
+    bindCard(node, onClick);
     return node;
   } else {
     node.appendChild(el('span', { class: 'card__icon' }));
@@ -211,10 +212,41 @@ function cardNode(id, clickable, onClick, count, cost, badge) {
   if (badge) node.appendChild(el('span', { class: 'card__count', text: badge }));
   if (card.main) node.appendChild(el('span', { class: 'card__desc', text: card.main }));
   if (card.desc) node.appendChild(el('span', { class: 'card__desc', text: card.desc }));
-  node.addEventListener('click', () => {
-    if (onClick) { soundPlay(); onClick(); } else node.classList.toggle('card--peek');
-  });
+  bindCard(node, onClick);
   return node;
+}
+// 文言の幅（全角 1、半角 0.55）。小さい札で文字の大きさを幅に合わせるのに使う
+const textWidth = (text) => [...text].reduce((w, c) => w + (c.charCodeAt(0) < 0x100 ? 0.55 : 1), 0);
+// 押せる札は押すと動き、押せない札は押すと詳しく見る。長押し・右クリックはどちらでも詳しく見る
+function bindCard(node, onClick) {
+  let timer = null;
+  let long = false;
+  const stop = () => { clearTimeout(timer); timer = null; };
+  node.addEventListener('pointerdown', () => {
+    long = false;
+    stop();
+    timer = setTimeout(() => { long = true; showCardDetail(node); }, 450);
+  });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) node.addEventListener(ev, stop);
+  node.addEventListener('contextmenu', (e) => { e.preventDefault(); stop(); if (!long) showCardDetail(node); });
+  node.addEventListener('click', () => {
+    if (long) { long = false; return; }
+    if (onClick) { soundPlay(); onClick(); } else showCardDetail(node);
+  });
+}
+// 札を複製して画面の真ん中に大きく出す。どこを押しても閉じる
+function showCardDetail(node) {
+  if (document.querySelector('.cardDetail')) return;
+  const big = node.cloneNode(true);
+  big.classList.remove('card--active', 'card--picked');
+  big.classList.add('card--peek');
+  big.tabIndex = -1;
+  const back = el('div', { class: 'cardDetail', role: 'dialog', 'aria-label': 'カードの詳しい説明' }, [big]);
+  const close = () => { back.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  back.addEventListener('click', close);
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(back);
 }
 // 山に置かれた印（tokens.pile）の文言
 const PILE_LABEL = { card: '+1カード', action: '+1アクション', buy: '+1購入', coin: '+1金', cost: '-2コスト', trash: '廃棄' };
