@@ -594,7 +594,6 @@ function renderTurn() {
   if (t.potions > 0) medals.appendChild(medal('霊薬', t.potions));
   if (p.tokens.villagers > 0) medals.appendChild(medal('村人', p.tokens.villagers));
   stats.appendChild(medals);
-  stats.appendChild(el('span', { class: 'muted', text: `山札 ${p.deck.length}・捨て札 ${p.discard.length}` }));
   stats.appendChild(el('span', { class: 'muted', text: tokenBits(p).join('・') }));
   if (ownerBits(game, game.current).length) stats.appendChild(el('span', { class: 'muted', text: ownerBits(game, game.current).join('・') }));
   if (t.phase === 'buy' && t.noBuy) stats.appendChild(el('span', { class: 'muted', text: 'この手番は買えない' }));
@@ -744,9 +743,9 @@ function renderTurn() {
       : null;
     const node = gcNode(id, !!onClick, onClick);
     node.style.setProperty('--i', String(i));
-    if (handNew[i]) node.classList.add('is-new-draw');
     hand.appendChild(node);
   });
+  animateDraw(p, [...hand.children].filter((_, i) => handNew[i]));
 
   // 次にすることの案内（HUD の近くに短く出す）
   document.getElementById('turnHint').textContent = !humanControls ? '' : turnHint(game, p, t);
@@ -763,6 +762,66 @@ function renderTurn() {
     supply: { ...game.supply },
     nums: { actions: t.actions, buys: t.buys, money: t.money },
   };
+}
+
+// 山札・捨て札の枚数を出し、新しく引いた札を山札の位置から 1 枚ずつ飛ばす。
+// この描画までに山札を混ぜていれば、先に捨て札から山札へ札が移る演出を入れ、混ぜた後に引いた札はその後に飛ばす
+const seenShuffle = new Map(); // 席ごとに、演出済みの混ぜの回数
+function animateDraw(p, newNodes) {
+  const deckPile = document.getElementById('deckPile');
+  const discardPile = document.getElementById('discardPile');
+  deckPile.querySelector('.pile__n').textContent = String(p.deck.length);
+  discardPile.querySelector('.pile__n').textContent = String(p.discard.length);
+  deckPile.classList.toggle('is-empty', p.deck.length === 0);
+  discardPile.classList.toggle('is-empty', p.discard.length === 0);
+  for (const g of document.querySelectorAll('.pileGhost')) g.remove();
+  const pi = game.players.indexOf(p);
+  const sh = p.shuffled;
+  const shuffledNow = sh && sh.n > (seenShuffle.get(pi) || 0);
+  if (sh) seenShuffle.set(pi, sh.n);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const deckRect = deckPile.getBoundingClientRect();
+  const STEP = 120; // 1 枚ごとの間（ms）
+  const SHUFFLE = 800; // 補充の演出の長さ（ms）
+  // 混ぜる前に引いた札 → 補充 → 混ぜた後に引いた札 の順に並べる
+  const hand = document.getElementById('hand');
+  const before = [];
+  const after = [];
+  for (const node of newNodes) {
+    const idx = [...hand.children].indexOf(node);
+    (shuffledNow && idx >= sh.handLen ? after : before).push(node);
+  }
+  const fly = (node, delay) => {
+    const r = node.getBoundingClientRect();
+    node.style.setProperty('--dx', `${deckRect.left + deckRect.width / 2 - (r.left + r.width / 2)}px`);
+    node.style.setProperty('--dy', `${deckRect.top + deckRect.height / 2 - (r.top + r.height / 2)}px`);
+    node.style.animationDelay = `${delay}ms`;
+    node.classList.add('is-new-draw');
+  };
+  before.forEach((node, k) => fly(node, k * STEP));
+  if (!shuffledNow) return;
+  const start = before.length * STEP;
+  // 捨て札から山札へ、裏向きの札が何枚か流れていく
+  const dr = discardPile.getBoundingClientRect();
+  const piles = document.getElementById('piles');
+  const pr = piles.getBoundingClientRect();
+  for (let k = 0; k < 5; k++) {
+    const ghost = el('div', { class: 'pileGhost' });
+    ghost.style.left = `${dr.left - pr.left}px`;
+    ghost.style.top = `${dr.top - pr.top}px`;
+    ghost.style.width = `${dr.width}px`;
+    ghost.style.height = `${dr.height}px`;
+    ghost.style.setProperty('--gx', `${deckRect.left - dr.left}px`);
+    ghost.style.setProperty('--gy', `${deckRect.top - dr.top}px`);
+    ghost.style.animationDelay = `${start + k * 90}ms`;
+    ghost.addEventListener('animationend', () => ghost.remove());
+    piles.appendChild(ghost);
+  }
+  deckPile.style.setProperty('--shuffle-delay', `${start + 450}ms`);
+  deckPile.classList.remove('is-shuffling');
+  void deckPile.offsetWidth; // 続けて混ぜたときも演出をやり直す
+  deckPile.classList.add('is-shuffling');
+  after.forEach((node, k) => fly(node, start + SHUFFLE + k * STEP));
 }
 
 // 次に何をすればいいかの短い案内（HUD の近くに出す）

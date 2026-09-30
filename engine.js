@@ -156,6 +156,8 @@ export function takeTop(player) {
     if (player.discard.length === 0) return null;
     player.deck = shuffle(player.discard);
     player.discard = [];
+    // 画面の演出用: 何回目の混ぜか、そのとき手札が何枚だったか（この後に引いた札は捨て札から補充した札）
+    player.shuffled = { n: ((player.shuffled && player.shuffled.n) || 0) + 1, handLen: player.hand.length };
     // 星の地図: 混ぜたとき 1 枚を一番上に置いてよい。ponytail: 問わずに、いちばん高い札を上にする（混ぜるのは問いを出せない場所なので）
     for (const h of HOOKS.shuffle) h(player, player.game);
     // 影（shadow）の札は、混ぜたとき山札の一番下へ
@@ -182,12 +184,13 @@ function drawRaw(player, n) {
   const drawn = [];
   // -1 カードの印: 次に引くとき 1 枚少なく引いて、印を外す
   if (n > 0 && player.tokens.minusCard) { player.tokens.minusCard = false; n -= 1; }
+  // 1 枚ずつ手札に入れる（混ぜた時点の手札の枚数を画面の演出に使うため）
   for (let i = 0; i < n; i++) {
     const id = takeTop(player);
     if (id == null) break;
     drawn.push(id);
+    player.hand.push(id);
   }
-  player.hand.push(...drawn);
   return drawn;
 }
 

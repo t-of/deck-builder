@@ -111,7 +111,14 @@
             <p class="sectionLabel" id="shadowLabel" hidden>山札の影の札</p>
             <div class="cards cards--hand" id="shadowRow"></div>
             <p class="sectionLabel">手札</p>
-            <div class="cards cards--hand" id="hand"></div>
+            <div class="handRow">
+              <div class="cards cards--hand" id="hand"></div>
+              <!-- 山札と捨て札。引いた札はここから手札へ飛ぶ -->
+              <div class="piles" id="piles">
+                <div class="pile pile--deck" id="deckPile"><span class="pile__n"></span><span class="pile__label">山札</span></div>
+                <div class="pile pile--discard" id="discardPile"><span class="pile__n"></span><span class="pile__label">捨て札</span></div>
+              </div>
+            </div>
           </div>
           <div class="game__side">
             <div class="hud">
