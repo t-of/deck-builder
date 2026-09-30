@@ -23,6 +23,7 @@ function* sun(g, pi) {
   log(g, `予言「${CARDS[prophecy(g)].name}」が効き始めた。`);
   if (prophecy(g) === 'r_emperor') yield* emperorGift(g, pi);
   if (prophecy(g) === 'r_enlight') g.enlightened = true;
+  if (prophecy(g) === 'r_trade') g.flourish = true;
   if (prophecy(g) === 'r_wind') divineWind(g);
 }
 // 神風: サプライの王国カードをすべて取り除き、新しい 10 種を並べる（特別な準備のいらない拡張から選ぶ）
@@ -183,7 +184,7 @@ const prophecies = [
   pr('r_army', '迫る軍勢', 'アタックのあと +1 金', 'アタックを使ったあと +1 金'),
   pr('r_biding', '待ちの時', '手札を持ち越す', '片付けの始めに手札を脇に置き、次の手番の始めに手札に戻す'),
   pr('r_bureau', 'お役所仕事', '獲得で銅', 'コスト 0 でない札を獲得したとき、銅を獲得する'),
-  pr('r_trade', '商いの花', 'コスト -1', 'カードのコストが 1 下がる'),
+  pr('r_trade', '商いの花', 'コスト -1', 'カードのコストが 1 下がる。購入が残っていなくても、残ったアクションを購入の代わりに使える'),
   pr('r_harvest', '豊年', '財宝の初出しで\n+1 購入 +1 金', '各手番で、ちがう名前の財宝をはじめて使うとき、先に +1 購入 +1 金'),
   pr('r_leader', '名君', 'アクションで\n+1 アクション', 'アクションを使うたび +1 アクション'),
   pr('r_growth', '伸び盛り', '財宝で安い札も', '財宝を獲得したとき、それより安い札を獲得する'),
@@ -258,6 +259,11 @@ HOOKS.setup.push((g) => {
   const omen = g.kingdom.some((id) => is(id, 'omen'));
   if (omen && !prophecy(g)) g.landscapes.push(shuffle(prophecies.map((x) => x.id))[0]);
   if (prophecy(g)) g.sun = n === 2 ? 5 : n === 3 ? 8 : 10;
+  // 迫る軍勢: アタックの王国カードがなければ 1 山足す
+  if (g.landscapes.includes('r_army') && !g.kingdom.some((id) => is(id, 'attack'))) {
+    const pool = kingdomPool().filter((id) => !(id in g.supply) && is(id, 'attack') && !CARDS[id].pile && !['knights', 'castles'].includes(id) && !id.startsWith('p_'));
+    if (pool.length) { const a = shuffle(pool)[0]; g.supply[a] = 10; g.kingdom.push(a); }
+  }
   if (g.kingdom.includes('ferryboat')) {
     const pool = kingdomPool().filter((id) => !(id in g.supply) && CARDS[id].cost === 5 && is(id, 'action') && !is(id, 'duration') && CARDS[id].play && !CARDS[id].pile);
     g.ferryCard = pool.length ? shuffle(pool)[0] : null;
@@ -280,6 +286,7 @@ HOOKS.gain.push(function* (g, got) {
   const pi = got.pi;
   const p = g.players[pi];
   if (got.id === 'gold') p.tokens.gainedGold = true;
+  if (pi === g.current && g.turn.phase === 'buy') g.turn.buyPhaseGains = (g.turn.buyPhaseGains || 0) + 1; // 川の祠
   if (!g.landscapes || !prophecy(g) || g.sun !== 0) return;
   if (active(g, 'r_bureau') && costOf(g, got.id) !== 0 && got.id !== 'copper') yield* gain(g, pi, 'copper');
   if (active(g, 'r_growth') && is(got.id, 'treasure') && costOf(g, got.id) > 0) yield* gain(g, pi, yield* askSupply(g, pi, `伸び盛り: コスト ${costOf(g, got.id) - 1} 以下を獲得`, costOf(g, got.id) - 1));
@@ -305,7 +312,7 @@ HOOKS.endTurn.push(function* (g) {
   const p = currentPlayer(g);
   const pi = g.current;
   // 川の祠: 購入フェイズに何も獲得していなければ、コスト 4 以下を獲得
-  for (let k = g.turn.rivershrine || 0; k > 0; k--) if (!g.turn.bought.length) yield* gain(g, pi, yield* askSupply(g, pi, '川の祠: コスト 4 以下を獲得', 4));
+  for (let k = g.turn.rivershrine || 0; k > 0; k--) if (!g.turn.buyPhaseGains) yield* gain(g, pi, yield* askSupply(g, pi, '川の祠: コスト 4 以下を獲得', 4));
   if (active(g, 'r_panic')) for (const id of [...g.playArea]) if (is(id, 'treasure') && !g.turn.stay.includes(id)) { g.playArea.splice(g.playArea.indexOf(id), 1); if (!returnCard(g, id)) p.discard.push(id); }
   if (active(g, 'r_biding') && p.hand.length) (p.mats.biding = p.mats.biding || []).push(...p.hand.splice(0));
 });

@@ -704,7 +704,9 @@ export function payDebt(game) {
 export function canBuy(game, cardId) {
   const alt = CARDS[cardId].altCost && CARDS[cardId].altCost(game);
   if (alt && game.turn.phase === 'buy' && game.turn.buys > 0 && game.supply[cardId] > 0 && !game.turn.noBuy && !debtOf(game)) return true;
-  return game.turn.phase === 'buy' && game.turn.buys > 0 && game.supply[cardId] > 0 && !game.turn.banned.includes(cardId) && !game.turn.noBuy
+  // 商いの花（予言）: 購入が残っていなくても、残ったアクションを購入の代わりに使える
+  const buysLeft = game.turn.buys > 0 || (game.flourish && game.turn.actions > 0);
+  return game.turn.phase === 'buy' && buysLeft && game.supply[cardId] > 0 && !game.turn.banned.includes(cardId) && !game.turn.noBuy
     && game.turn.potions >= (CARDS[cardId].potion || 0)
     && !(game.turn.noBuyActions && is(game.stacks[cardId] ? (game.stacks[cardId].at(-1) || cardId) : cardId, 'action'))
     && game.turn.money - debtOf(game) >= costOf(game, cardId) && !(CARDS[cardId].canBuy && !CARDS[cardId].canBuy(game));
@@ -714,7 +716,7 @@ export function canBuy(game, cardId) {
 export function* buyCard(game, cardId) {
   if (!canBuy(game, cardId)) return false;
   payDebt(game);
-  game.turn.buys -= 1;
+  if (game.turn.buys > 0) game.turn.buys -= 1; else game.turn.actions -= 1; // 商いの花
   // 別の払い方（動物の市: 手札のアクションを廃棄して払う）
   const altOk = CARDS[cardId].altCost && CARDS[cardId].altCost(game);
   const canPay = game.turn.money >= costOf(game, cardId);
