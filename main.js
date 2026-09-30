@@ -25,6 +25,8 @@ import {
   landscapePool, canBuyEvent, buyEvent, enterNightPhase, canPlayNight, playNight, spendVillager,
   canPlayAction, shadowsInDeck, playShadow,
 } from './engine.js';
+// CPU（1台の端末で人の代わりに席に着く）。画面からはこの3つだけ使う
+import { LEVELS as CPU_LEVELS, nextMove as cpuNextMove, answer as cpuAnswer, planFor as cpuPlanFor } from './cpu.js';
 
 // localStorage はほかのアプリと共有される（同じ t-of.github.io のため）。
 // キーは必ず 'deck-builder.' で始める。対局中の状態は保存しないが、設定は保存する。
@@ -133,7 +135,7 @@ function showScreen(name) {
 }
 
 let game = null;
-let shownPlayer = 0; // 今この端末に見えている人（渡す画面をはさまず勝手に見せない）
+let shownPlayer = null; // 今この端末に手札を見せている人（渡す画面をはさまず勝手に見せない。CPU の番では動かさない）
 let pendingGen = null;   // 今進めているジェネレータ（カード・購入・手番の始め/終わりのどれか）
 let pendingDone = null;  // 終わったときに呼ぶ（省略時は backToTurn）
 let selected = new Set();
@@ -289,6 +291,24 @@ function validLandscapes(arr) {
 }
 
 let players = [2, 3, 4].includes(load('players', 2)) ? load('players', 2) : 2;
+// 席: { type: 'human' } か { type: 'cpu', level: CPU_LEVELS の id }。既定は1人目が人、ほかは CPU（ふつう）
+function validSeat(s) {
+  return s && (s.type === 'human' || (s.type === 'cpu' && CPU_LEVELS.some((l) => l.id === s.level)));
+}
+let seats = (Array.isArray(load('seats', null)) ? load('seats', null) : []).filter(validSeat);
+function ensureSeats() {
+  const out = [];
+  for (let i = 0; i < players; i++) out.push(seats[i] || (i === 0 ? { type: 'human' } : { type: 'cpu', level: 'normal' }));
+  seats = out;
+}
+ensureSeats();
+let spectatorSpeed = ['normal', 'fast'].includes(load('spectatorSpeed', 'normal')) ? load('spectatorSpeed', 'normal') : 'normal';
+const humanCount = () => seats.filter((s) => s.type === 'human').length;
+const isHumanSeat = (pi) => seats[pi] && seats[pi].type === 'human';
+const allCpu = () => humanCount() === 0;
+const cpuDelay = () => (allCpu() && spectatorSpeed === 'fast' ? 70 : 350);
+const seatName = (s, i) => (s.type === 'human' ? `${i + 1}人目` : `CPU（${CPU_LEVELS.find((l) => l.id === s.level).name}）`);
+
 let mode = ['preset', 'random', 'custom'].includes(load('mode', 'preset')) ? load('mode', 'preset') : 'preset';
 let presetId = PRESETS.some((p) => p.id === load('presetId', null)) ? load('presetId', null) : (PRESETS[0] && PRESETS[0].id);
 let selectedSets = new Set((Array.isArray(load('sets', null)) ? load('sets', null) : []).filter((id) => SETS.some((s) => s.id === id)));
@@ -303,6 +323,8 @@ let customLandscapes = validLandscapes(load('customLandscapes', null));
 
 function persistSetup() {
   save('players', players);
+  save('seats', seats);
+  save('spectatorSpeed', spectatorSpeed);
   save('mode', mode);
   save('presetId', presetId);
   save('sets', [...selectedSets]);
@@ -325,6 +347,9 @@ function renderSetup() {
 
   const countBox = document.getElementById('playercount');
   for (const btn of countBox.children) btn.classList.toggle('pill--accent', Number(btn.dataset.n) === players);
+
+  renderSeatsBox();
+  renderSpeedBox();
 
   const tabs = document.getElementById('modeTabs');
   for (const btn of tabs.children) btn.classList.toggle('pill--accent', btn.dataset.mode === mode);
@@ -351,6 +376,50 @@ function renderSetup() {
 
   const startBtn = document.getElementById('startBtn');
   startBtn.disabled = !activeKingdom();
+}
+
+// 席ごとに「人」か「CPU（強さ）」を選ぶ
+function renderSeatsBox() {
+  const box = document.getElementById('seatsBox');
+  clear(box);
+  for (let i = 0; i < players; i++) {
+    const row = el('div', { class: 'seatRow' });
+    row.appendChild(el('span', { class: 'seatRow__label', text: `${i + 1}人目` }));
+    const chips = el('div', { class: 'chipRow' });
+    chips.appendChild(el('button', {
+      class: `chip${seats[i].type === 'human' ? ' chip--active' : ''}`,
+      text: '人',
+      onclick: () => { seats[i] = { type: 'human' }; persistSetup(); renderSetup(); },
+    }));
+    for (const lv of CPU_LEVELS) {
+      const active = seats[i].type === 'cpu' && seats[i].level === lv.id;
+      chips.appendChild(el('button', {
+        class: `chip${active ? ' chip--active' : ''}`,
+        text: `CPU（${lv.name}）`,
+        onclick: () => { seats[i] = { type: 'cpu', level: lv.id }; persistSetup(); renderSetup(); },
+      }));
+    }
+    row.appendChild(chips);
+    box.appendChild(row);
+  }
+}
+// 全員 CPU のときだけ、観戦の速さを選べる
+function renderSpeedBox() {
+  const box = document.getElementById('speedBox');
+  box.hidden = !allCpu();
+  clear(box);
+  if (box.hidden) return;
+  const row = el('div', { class: 'seatRow' }, [el('span', { class: 'seatRow__label', text: '観戦の速さ' })]);
+  const chips = el('div', { class: 'chipRow' });
+  for (const [id, label] of [['normal', 'ふつう'], ['fast', '速い']]) {
+    chips.appendChild(el('button', {
+      class: `chip${spectatorSpeed === id ? ' chip--active' : ''}`,
+      text: label,
+      onclick: () => { spectatorSpeed = id; persistSetup(); renderSetup(); },
+    }));
+  }
+  row.appendChild(chips);
+  box.appendChild(row);
 }
 
 function renderPresetPane() {
@@ -440,6 +509,7 @@ document.getElementById('playercount').addEventListener('click', (e) => {
   const n = e.target.dataset.n;
   if (!n) return;
   players = Number(n);
+  ensureSeats();
   persistSetup();
   renderSetup();
 });
@@ -455,12 +525,13 @@ document.getElementById('startBtn').addEventListener('click', () => {
   if (!k) return;
   kingdom = k;
   persistSetup();
-  game = newGame(players, kingdom, null, { landscapes: activeLandscapes() });
+  shownPlayer = null;
+  game = newGame(players, kingdom, seats.map(seatName), { landscapes: activeLandscapes() });
   startTurnPass();
 });
 
 // ==================================================================
-// 手番を渡す画面（今この端末を見ている人と、答える人が違うときにはさむ）
+// 手番を渡す画面（今この端末を見ている人と、答える人が違うときにはさむ。人どうしのときだけ出す）
 // ==================================================================
 function goToPass(pi, onReady) {
   document.getElementById('passLabel').textContent = `${game.players[pi].name}に渡してください`;
@@ -469,9 +540,15 @@ function goToPass(pi, onReady) {
   const handler = () => { btn.removeEventListener('click', handler); onReady(); };
   btn.addEventListener('click', handler, { once: true });
 }
+// pi が人で、人が2人以上いて、今見せている人と違うときだけ渡す画面をはさむ。CPU の番・人が1人だけのときは素通り
+function maybeGoToPass(pi, onReady) {
+  if (isHumanSeat(pi) && humanCount() >= 2 && shownPlayer !== pi) { goToPass(pi, () => { shownPlayer = pi; onReady(); }); return; }
+  if (isHumanSeat(pi)) shownPlayer = pi;
+  onReady();
+}
 function startTurnPass() {
   const pi = turnController(game);
-  goToPass(pi, () => { shownPlayer = pi; run(beginTurn(game)); });
+  maybeGoToPass(pi, () => run(beginTurn(game)));
 }
 
 // ==================================================================
@@ -480,6 +557,9 @@ function startTurnPass() {
 function renderTurn() {
   const p = currentPlayer(game);
   const t = game.turn;
+  // 手番を操作する人が CPU のあいだは、押しても何も起きないよう手札・サプライなどを押せなくする
+  const humanControls = isHumanSeat(turnController(game));
+  document.getElementById('cpuThinking').hidden = true;
 
   const stats = document.getElementById('stats');
   clear(stats);
@@ -514,7 +594,9 @@ function renderTurn() {
 
   const buttons = document.getElementById('turnButtons');
   clear(buttons);
-  if (t.phase === 'action') {
+  if (!humanControls) {
+    buttons.appendChild(el('span', { class: 'muted', text: `${p.name}の番です` }));
+  } else if (t.phase === 'action') {
     if (p.tokens.villagers > 0) {
       buttons.appendChild(el('button', { class: 'pill', text: `村人を使う（残り${p.tokens.villagers}）`, onclick: () => { spendVillager(game); renderTurn(); } }));
     }
@@ -558,7 +640,7 @@ function renderTurn() {
   ];
   for (const id of supplyOrder) {
     const count = game.supply[id];
-    const buyable = canBuy(game, id);
+    const buyable = humanControls && canBuy(game, id);
     supply.appendChild(gcNode(id, buyable, () => run(buyCard(game, id), (ok) => { if (ok) soundBuy(); backToTurn(); }), count));
     // 森の賢者: 対局の始めに脇に置いた 3 つの恵みを、その札の横に並べる
     if (id === 'druid' && game.druidBoons) for (const b of game.druidBoons) supply.appendChild(gcNode(b, false));
@@ -569,7 +651,7 @@ function renderTurn() {
   const landscapesBox = document.getElementById('landscapes');
   clear(landscapesBox);
   for (const id of game.landscapes) {
-    const buyable = t.phase === 'buy' && canBuyEvent(game, id);
+    const buyable = humanControls && t.phase === 'buy' && canBuyEvent(game, id);
     landscapesBox.appendChild(gcNode(id, buyable, () => run(buyEvent(game, id), (ok) => { if (ok) soundBuy(); backToTurn(); })));
   }
   if (game.boons) landscapesBox.appendChild(pileButton('恵みの山', game.boons));
@@ -589,16 +671,16 @@ function renderTurn() {
   const shadows = t.phase === 'action' ? shadowsInDeck(game) : [];
   shadowLabel.hidden = shadows.length === 0;
   for (const id of shadows) {
-    const playable = canPlayShadow(id);
+    const playable = humanControls && canPlayShadow(id);
     shadowRow.appendChild(gcNode(id, playable, playable ? () => run(playShadow(game, id)) : null));
   }
 
   const hand = document.getElementById('hand');
   clear(hand);
   p.hand.forEach((id) => {
-    const playableAction = t.phase === 'action' && canPlayAction(game, id);
-    const playableTreasure = t.phase === 'buy' && is(id, 'treasure');
-    const playableNight = t.phase === 'night' && canPlayNight(game, id);
+    const playableAction = humanControls && t.phase === 'action' && canPlayAction(game, id);
+    const playableTreasure = humanControls && t.phase === 'buy' && is(id, 'treasure');
+    const playableNight = humanControls && t.phase === 'night' && canPlayNight(game, id);
     const onClick = playableAction ? () => run(playAction(game, id))
       : playableTreasure ? () => run(playTreasureGen(game, id))
       : playableNight ? () => run(playNight(game, id))
@@ -619,6 +701,41 @@ function onEndTurn() {
   });
 }
 
+// ---- CPU の番を進める ----
+// つよい・さいきょうは、その CPU の最初の手番だけ狙いの札を自己対局で決める（少し止まる）。決め終われば次からは一瞬
+function scheduleCpuMove(pi) {
+  if (game.over) { showResult(); return; }
+  const seat = seats[pi];
+  const needsPlan = (seat.level === 'strong' || seat.level === 'expert') && !(game.cpuPlans && game.cpuPlans[pi]);
+  if (needsPlan) {
+    document.getElementById('cpuThinking').hidden = false;
+    setTimeout(() => {
+      cpuPlanFor(game, pi, seat.level);
+      document.getElementById('cpuThinking').hidden = true;
+      doCpuMove(pi);
+    }, 30);
+    return;
+  }
+  setTimeout(() => doCpuMove(pi), cpuDelay());
+}
+// CPU の次の1手を決めて実行する（simulate() と同じ組み合わせ）
+function doCpuMove(pi) {
+  if (game.over) { showResult(); return; }
+  const level = seats[pi].level;
+  const m = cpuNextMove(game, level);
+  if (m.type === 'action') { run(playAction(game, m.id)); return; }
+  if (m.type === 'shadow') { run(playShadow(game, m.id)); return; }
+  if (m.type === 'villager') { spendVillager(game); backToTurn(); return; }
+  if (m.type === 'buyPhase') { run(enterBuyPhase(game)); return; }
+  if (m.type === 'treasure') { run(playTreasureGen(game, m.id)); return; }
+  if (m.type === 'coffers') { spendCoffers(game, m.n); backToTurn(); return; }
+  if (m.type === 'buy') { run(buyCard(game, m.id), (ok) => { if (ok) soundBuy(); backToTurn(); }); return; }
+  if (m.type === 'event') { run(buyEvent(game, m.id), (ok) => { if (ok) soundBuy(); backToTurn(); }); return; }
+  if (m.type === 'nightPhase') { enterNightPhase(game); backToTurn(); return; }
+  if (m.type === 'night') { run(playNight(game, m.id)); return; }
+  onEndTurn();
+}
+
 // ---- ジェネレータを進める（カード・購入・手番の始め/終わりのどこからでも同じように使う） ----
 // onDone(戻り値) は省略すると backToTurn。問いが出れば showQuestion で答えを待つ
 function run(gen, onDone) {
@@ -635,19 +752,20 @@ function step(result) {
   }
   showQuestion(result.value);
 }
-// 手番の人に画面を戻す（他の人の手札を手番の人に見せない）
+// 手番の人に画面を戻す（他の人の手札を手番の人に見せない）。手番を操作する人が CPU なら、続けて CPU に打たせる
 function backToTurn() {
   if (game.over) { showResult(); return; }
   const pi = turnController(game);
-  if (shownPlayer !== pi) { goToPass(pi, () => { shownPlayer = pi; showScreen('game'); renderTurn(); }); return; }
+  if (isHumanSeat(pi)) { maybeGoToPass(pi, () => { showScreen('game'); renderTurn(); }); return; }
   showScreen('game');
   renderTurn();
+  scheduleCpuMove(pi);
 }
 
-// 問いに答える（4 種類すべてここでまとめる。あとで CPU の席を足すときは、ここで CPU に答えさせる）
+// 問いに答える（4 種類すべてここでまとめる）。答える人が CPU なら、画面を出さずに CPU に答えさせる
 function showQuestion(q) {
-  if (q.player !== shownPlayer) { goToPass(q.player, () => { shownPlayer = q.player; renderQuestion(q); }); return; }
-  renderQuestion(q);
+  if (!isHumanSeat(q.player)) { step(pendingGen.next(cpuAnswer(game, q, seats[q.player].level))); return; }
+  maybeGoToPass(q.player, () => renderQuestion(q));
 }
 function renderQuestion(q) {
   selected = new Set();
@@ -713,6 +831,7 @@ function showResult() {
 }
 document.getElementById('restartBtn').addEventListener('click', () => {
   game = null;
+  shownPlayer = null;
   showScreen('setup');
   renderSetup();
 });
