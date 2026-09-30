@@ -58,7 +58,7 @@ export function newGame(numPlayers) {
 }
 
 function freshTurn() {
-  return { phase: 'action', actions: 1, buys: 1, money: 0, silverBonusArmed: false, silverBonusUsed: false };
+  return { phase: 'action', actions: 1, buys: 1, money: 0, silverBonus: 0 };
 }
 
 export function currentPlayer(game) { return game.players[game.current]; }
@@ -121,7 +121,7 @@ export function* playCard(game, cardId) {
     case 'moneylender':
       drawCards(player, 1);
       game.turn.actions += 1;
-      game.turn.silverBonusArmed = true;
+      game.turn.silverBonus += 1;
       break;
     case 'village':
       drawCards(player, 1);
@@ -185,9 +185,9 @@ export function playTreasure(game, cardId) {
   player.hand.splice(idx, 1);
   game.playArea.push(cardId);
   game.turn.money += CARDS[cardId].value;
-  if (cardId === 'silver' && game.turn.silverBonusArmed && !game.turn.silverBonusUsed) {
-    game.turn.money += 1;
-    game.turn.silverBonusUsed = true;
+  if (cardId === 'silver' && game.turn.silverBonus) {
+    game.turn.money += game.turn.silverBonus; // 両替商 1 枚につき、最初の銀で +1
+    game.turn.silverBonus = 0;
   }
 }
 

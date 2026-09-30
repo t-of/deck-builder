@@ -226,7 +226,12 @@ function finishChoice(answer) {
 
 // ---- 攻撃（傭兵） ----
 function runAttackQueue() {
-  if (!game.attack || game.attack.queue.length === 0) { game.attack = null; renderTurn(); return; }
+  if (!game.attack || game.attack.queue.length === 0) {
+    // 攻撃した人に端末を戻す（最後に攻撃を受けた人に手札を見せない）
+    game.attack = null;
+    goToPass(renderTurn);
+    return;
+  }
   const idx = game.attack.queue[0];
   const target = game.players[idx];
   document.getElementById('passLabel').textContent = `${target.name}に渡してください（アタック）`;
