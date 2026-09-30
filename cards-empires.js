@@ -524,7 +524,7 @@ HOOKS.buy.push(function* (g, id, pi) {
   if (lm(g, 'l_arcade') && is(id, 'action') && g.playArea.includes(id)) takeLm(g, p, 'l_arcade', 2);
   if (lm(g, 'l_ruinedtemple') && id === 'curse') takeLm(g, p, 'l_ruinedtemple', g.landmarkVP.l_ruinedtemple);
   // 縁起物: 次に買ったとき、同じコストのちがう札を獲得してよい
-  while (g.turn.luckycharm > 0) {
+  if (g.turn.luckycharm > 0) { // 1 回の購入につき 1 つずつ使う
     g.turn.luckycharm -= 1;
     const c = costOf(g, id);
     yield* gain(g, pi, yield* askSupply(g, pi, `縁起物: コスト ${c} のちがう札を獲得してよい`, c, (x) => x !== id && costOf(g, x) === c, true));
@@ -560,7 +560,7 @@ HOOKS.afterCleanup.push(function* (g, p, pi) {
     for (let k = 1; k <= n; k++) {
       const bi = (pi + k) % n;
       const opts = [{ value: 0, label: 'パス' }];
-      for (const v of [1, 2, 3, 5, 8, 10, 15, 20, 30, 40]) if (v > high) opts.push({ value: v, label: `借金 ${v}` });
+      for (let v = high + 1; v <= 40; v++) opts.push({ value: v, label: `借金 ${v}` });
       const bid = yield* askChoose(g, bi, `関所越えの入札（今の最高 ${high}）`, opts);
       if (bid > high) { high = bid; winner = bi; }
     }
