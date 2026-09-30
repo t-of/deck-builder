@@ -48,12 +48,14 @@ const kingdom = [
       const bm = g.blackMarket || [];
       const shown = bm.splice(-3);
       if (!shown.length) return;
-      const ok = shown.filter((id) => costOf(g, id) <= g.turn.money && !CARDS[id].potion && !CARDS[id].debt);
+      const ok = shown.filter((id) => costOf(g, id) <= g.turn.money && (CARDS[id].potion || 0) <= g.turn.potions);
       const [i] = yield* askCards(g, pi, '買う札（なしでもよい）', ok, 0, 1);
       if (i != null) {
         const id = ok[i];
         shown.splice(shown.indexOf(id), 1);
         g.turn.money -= costOf(g, id);
+        g.turn.potions -= CARDS[id].potion || 0;
+        if (CARDS[id].debt) p.tokens.debt = (p.tokens.debt || 0) + CARDS[id].debt; // 借金のコストは借金トークンで払う
         log(g, `${p.name}が闇の市で${nm(id)}を買った。`);
         yield* receive(g, pi, id);
       }
@@ -194,7 +196,7 @@ const events = [
 // ---- 決まり ----
 HOOKS.setup.push((g) => {
   if (g.kingdom.includes('p_sauna')) { g.stacks.p_sauna = [...Array(5).fill('icebath'), ...Array(5).fill('steambath')]; g.supply.p_sauna = 10; }
-  if (g.kingdom.includes('darkmarket')) g.blackMarket = shuffle(kingdomPool().filter((id) => !(id in g.supply) && !['knights', 'castles'].includes(id) && !id.startsWith('p_') && CARDS[id].cost <= 8)).slice(0, 15);
+  if (g.kingdom.includes('darkmarket')) g.blackMarket = shuffle(kingdomPool().filter((id) => !(id in g.supply) && !['knights', 'castles'].includes(id) && !id.startsWith('p_'))).slice(0, 15);
 });
 // 蒸し風呂: 場にあるあいだ、銀を出すたびに手札を 1 枚廃棄してよい
 HOOKS.treasure.push(function* (g, id) {
