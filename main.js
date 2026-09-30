@@ -130,6 +130,7 @@ let shownPlayer = null; // 今この端末に手札を見せている人（渡�
 let pendingGen = null;   // 今進めているジェネレータ（カード・購入・手番の始め/終わりのどれか）
 let pendingDone = null;  // 終わったときに呼ぶ（省略時は backToTurn）
 let selected = new Set();
+let lastBought = {}; // 人ごとの、前の手番に買った山の id（ほかの人が何を買ったかをサプライに印で出す）
 let prevRender = null; // 直前の renderTurn の手札・場・サプライ・数字（動きを付けるための比較用。新しい対局では null に戻す）
 
 // ---- カードの見た目 ----
@@ -231,6 +232,12 @@ function gcNode(id, clickable, onClick, count) {
     if ((pl.projects || []).includes(id)) badges.push(`${i + 1}人目`);
   });
   return cardNode(displayId, clickable, onClick, count, costOf(game, id), badges.join(' ') || null);
+}
+// 札の真ん中に短い札（「購入」など）を付けて目立たせる
+function tagCard(node, text) {
+  node.classList.add('is-tagged');
+  node.appendChild(el('span', { class: 'tcgcard__tag', text }));
+  return node;
 }
 // カードの id を名前・枚数でまとめた短い文言（マットの中身など）
 function counts(ids) {
@@ -530,6 +537,7 @@ document.getElementById('startBtn').addEventListener('click', () => {
   persistSetup();
   shownPlayer = null;
   prevRender = null;
+  lastBought = {};
   game = newGame(players, kingdom, seats.map(seatName), { landscapes: activeLandscapes() });
   startTurnPass();
 });
@@ -644,6 +652,8 @@ function renderTurn() {
     if (playNew[i]) node.classList.add('is-new-play');
     playArea.appendChild(node);
   });
+  // この手番に買った札も場に並べ、「購入」の札で見分ける（本当の行き先は捨て札）
+  for (const id of t.bought) playArea.appendChild(tagCard(gcNode(id, false), '購入'));
 
   // 自分のマットは中身を、手番を終えれば相手にも代わるので隠す必要はない
   const mats = document.getElementById('matsRow');
@@ -675,6 +685,13 @@ function renderTurn() {
       // 前回よりこの山の残りが減っていれば、誰かが買った合図にほのかに光らせる
       const prevCount = prevRender && prevRender.supply[id];
       if (prevCount != null && count < prevCount) node.classList.add('is-bought');
+      if (count === 0) node.classList.add('is-empty');
+      // ほかの人が前の手番に買った山に印を付ける
+      const buyers = game.players.map((op, i) => {
+        const n = i === game.current ? 0 : (lastBought[i] || []).filter((b) => b === id).length;
+        return n ? `${i + 1}人目${n > 1 ? `×${n}` : ''}` : null;
+      }).filter(Boolean);
+      if (buyers.length) tagCard(node, `${buyers.join('・')}が購入`);
       row.appendChild(node);
       // 森の賢者: 対局の始めに脇に置いた 3 つの恵みを、その札の横に並べる
       if (id === 'druid' && game.druidBoons) for (const b of game.druidBoons) row.appendChild(gcNode(b, false));
@@ -773,6 +790,7 @@ function turnHint(g, p, t) {
 
 function onEndTurn() {
   soundEnd();
+  lastBought[game.current] = [...game.turn.bought];
   run(endTurn(game), () => {
     if (game.over) { showResult(); return; }
     startTurnPass();

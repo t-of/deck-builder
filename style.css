@@ -496,6 +496,24 @@ button { font: inherit; color: inherit; }
   padding: 0.1em 0.4em;
   font-size: 0.8em;
 }
+/* 残り 0 の山は暗くする。買った札・ほかの人が買った山には真ん中に札を出し、枠を光らせる */
+.is-empty { filter: grayscale(0.8) brightness(0.45); }
+[data-theme="card"] .tcgcard.is-tagged { box-shadow: inset 0 0 0 0.15em var(--frame), 0 0 0 3px #e0a020, 0 2px 5px rgba(0, 0, 0, 0.5); }
+[data-theme="card"] .tcgcard__tag {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 92%;
+  background: #e0a020;
+  color: #1c1204;
+  font-weight: 700;
+  border-radius: 1em;
+  padding: 0.15em 0.5em;
+  font-size: 0.85em;
+  text-align: center;
+  line-height: 1.2;
+}
 [data-theme="card"] .tcgcard__cost--down { outline: 0.15em solid #4ecb6b; outline-offset: 0.05em; }
 [data-theme="card"] .tcgcard.card--active { box-shadow: inset 0 0 0 0.15em var(--frame), 0 0 0 2px var(--accent), 0 2px 5px rgba(0, 0, 0, 0.5); }
 /* 手札は少し重ねて並べ、360px 幅でも5枚が横一列に収まるようにする */
