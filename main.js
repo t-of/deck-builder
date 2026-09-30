@@ -130,7 +130,6 @@ let shownPlayer = null; // 今この端末に手札を見せている人（渡�
 let pendingGen = null;   // 今進めているジェネレータ（カード・購入・手番の始め/終わりのどれか）
 let pendingDone = null;  // 終わったときに呼ぶ（省略時は backToTurn）
 let selected = new Set();
-let lastBought = {}; // 人ごとの、前の手番に買った山の id（ほかの人が何を買ったかをサプライに印で出す）
 let prevRender = null; // 直前の renderTurn の手札・場・サプライ・数字（動きを付けるための比較用。新しい対局では null に戻す）
 
 // ---- カードの見た目 ----
@@ -537,7 +536,6 @@ document.getElementById('startBtn').addEventListener('click', () => {
   persistSetup();
   shownPlayer = null;
   prevRender = null;
-  lastBought = {};
   game = newGame(players, kingdom, seats.map(seatName), { landscapes: activeLandscapes() });
   startTurnPass();
 });
@@ -686,12 +684,9 @@ function renderTurn() {
       const prevCount = prevRender && prevRender.supply[id];
       if (prevCount != null && count < prevCount) node.classList.add('is-bought');
       if (count === 0) node.classList.add('is-empty');
-      // ほかの人が前の手番に買った山に印を付ける
-      const buyers = game.players.map((op, i) => {
-        const n = i === game.current ? 0 : (lastBought[i] || []).filter((b) => b === id).length;
-        return n ? `${i + 1}人目${n > 1 ? `×${n}` : ''}` : null;
-      }).filter(Boolean);
-      if (buyers.length) tagCard(node, `${buyers.join('・')}が購入`);
+      // CPU の手番のあいだ、その手番に買った山に印を付ける
+      const nBought = humanControls ? 0 : t.bought.filter((b) => b === id).length;
+      if (nBought) tagCard(node, `購入${nBought > 1 ? `×${nBought}` : ''}`);
       row.appendChild(node);
       // 森の賢者: 対局の始めに脇に置いた 3 つの恵みを、その札の横に並べる
       if (id === 'druid' && game.druidBoons) for (const b of game.druidBoons) row.appendChild(gcNode(b, false));
@@ -790,7 +785,6 @@ function turnHint(g, p, t) {
 
 function onEndTurn() {
   soundEnd();
-  lastBought[game.current] = [...game.turn.bought];
   run(endTurn(game), () => {
     if (game.over) { showResult(); return; }
     startTurnPass();
