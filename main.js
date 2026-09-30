@@ -679,7 +679,7 @@ function renderTurn() {
   ];
   for (const [label, ids] of supplyGroups) {
     if (!ids.length) continue;
-    supply.appendChild(el('h3', { class: 'supplyGroup__label', text: label }));
+    const group = el('div', { class: 'supplyGroup' }, [el('h3', { class: 'supplyGroup__label', text: label })]);
     const row = el('div', { class: 'cards supplyGroup__row' });
     for (const id of ids) {
       const count = game.supply[id];
@@ -692,7 +692,8 @@ function renderTurn() {
       // 森の賢者: 対局の始めに脇に置いた 3 つの恵みを、その札の横に並べる
       if (id === 'druid' && game.druidBoons) for (const b of game.druidBoons) row.appendChild(gcNode(b, false));
     }
-    supply.appendChild(row);
+    group.appendChild(row);
+    supply.appendChild(group);
   }
 
   // イベント・プロジェクト・ランドマークなど（サプライの横に置く札）。買えれば押せる

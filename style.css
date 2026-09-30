@@ -543,8 +543,10 @@ button { font: inherit; color: inherit; }
 [data-theme="card"] .screenCard__eyebrow { color: var(--accent); }
 [data-theme="card"] .cpuThinking__dots span { background: var(--accent); }
 
-/* サプライは種類ごとに見出しを立てて縦に並べ、組ごとの札は横2行・はみ出す分は横スクロール */
-.supply { display: flex; flex-direction: column; gap: 4px; }
+/* サプライは種類ごとに見出しを立てて横に並べ、入りきらない組は次の行へ折り返す。
+   組ごとの札は横2行・1行に収まらない組だけ横スクロール */
+.supply { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 16px; }
+.supplyGroup { min-width: 0; max-width: 100%; }
 .supplyGroup__label { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
 .supplyGroup__row.cards { display: grid; grid-template-rows: repeat(2, auto); grid-auto-flow: column; grid-auto-columns: 130px; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; }
 [data-theme] .supplyGroup__row .card { width: auto; min-height: 84px; font-size: 13px; padding: 8px 10px; }
