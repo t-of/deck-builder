@@ -36,7 +36,9 @@ def names():
         if not (f.startswith('cards-') and f.endswith('.js')):
             continue
         src = open(os.path.join(ROOT, f), encoding='utf-8').read()
-        for m in re.finditer(r"id: '([a-z_]+)',\s*name: '([^']+)'", src):
+        for m in re.finditer(r"id: '([a-z_0-9]+)',\s*name: '([^']+)'", src):
+            out[m.group(1)] = m.group(2)
+        for m in re.finditer(r"id: '([a-z_0-9]+)', \.\.\.\w+\('[a-z_0-9]+'\), name: '([^']+)'", src):  # 4 種の山の中の札
             out[m.group(1)] = m.group(2)
         for m in re.finditer(r"\w+\('([a-z_0-9]+)', '([^']+)'", src):  # project('j_…', '名前', …) や way('w_…', …)
             out.setdefault(m.group(1), m.group(2))
