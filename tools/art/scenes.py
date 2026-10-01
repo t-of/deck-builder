@@ -649,8 +649,9 @@ import parts_menagerie  # noqa: E402
 import parts_allies  # noqa: E402
 import parts_plunder  # noqa: E402
 import parts_risingsun  # noqa: E402
+import parts_promo  # noqa: E402
 
-for _mod in (parts_darkages, parts_adventures, parts_empires, parts_nocturne, parts_renaissance, parts_menagerie, parts_allies, parts_plunder, parts_risingsun):
+for _mod in (parts_darkages, parts_adventures, parts_empires, parts_nocturne, parts_renaissance, parts_menagerie, parts_allies, parts_plunder, parts_risingsun, parts_promo):
     PARTS.update({n: f for n, f in vars(_mod).items() if callable(f) and not n.startswith('_') and n not in PARTS and n != 'PROPS'})
     PROPS.update(getattr(_mod, 'PROPS', {}))
 
@@ -669,6 +670,7 @@ import scenes_menagerie  # noqa: E402
 import scenes_allies  # noqa: E402
 import scenes_plunder  # noqa: E402
 import scenes_risingsun  # noqa: E402
+import scenes_promo  # noqa: E402
 
 # 拡張ごとの場面の表。build.py と compare_sheet.py は --set でこの名前を受ける
 SETS = {'base': SCENES, 'intrigue': scenes_intrigue.SCENES, 'seaside': scenes_seaside.SCENES,
@@ -678,7 +680,7 @@ SETS = {'base': SCENES, 'intrigue': scenes_intrigue.SCENES, 'seaside': scenes_se
         'empires': scenes_empires.SCENES, 'nocturne': scenes_nocturne.SCENES,
         'renaissance': scenes_renaissance.SCENES, 'menagerie': scenes_menagerie.SCENES,
         'allies': scenes_allies.SCENES, 'plunder': scenes_plunder.SCENES,
-        'risingsun': scenes_risingsun.SCENES}
+        'risingsun': scenes_risingsun.SCENES, 'promo': scenes_promo.SCENES}
 ALL = {k: v for t in SETS.values() for k, v in t.items()}
 
 
