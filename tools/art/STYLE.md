@@ -164,6 +164,89 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 
 ## 拡張に広げるとき
 
-1. `scenes_<拡張>.py` に `SCENES` を書き、`scenes.py` の `SETS` に足す。
-2. 足りない部品は `parts.py` に足す。色・光・段・輪郭は部品の側で決めない（`c.paint` にランプと形と向きを渡すだけ）。
-3. `compare_sheet.py` で旧絵と並べ、幅 60px でも何の絵か分かるかを見る。
+下の「引き継ぎ」の手順に従う。
+
+## 引き継ぎ
+
+ここまでで描いたのは、基本・陰謀・海辺・繁栄・錬金術・異郷・収穫祭＆ギルド・暗黒時代・冒険・帝国・夜想曲。
+残りは renaissance（`a_*.png` の 5 枚は描き済み）・menagerie・allies・plunder・risingsun・promo。
+
+### 読む順
+
+1. この STYLE.md の上の節（決まり）。
+2. `palette.py`（36 色とランプ）。色は足さない。ランプ（色の段の並び）は足してよいが、`PALETTE` の色だけで組む。
+3. `engine.py`: `Light`（光だまり）、`Canvas.paint`（形・ランプ・明るさ）、`Canvas.brighten`（暈）、`Canvas.dot`（決まった 1 色の点）、
+   形の関数（`ellipse` `poly` `rect` `capsule` `vcyl`）。
+4. `figure.py` の `figure()` の引数（姿勢・服・かぶり物・持ち物）と `ARMS`。
+5. `scenes.py`: 背景の組み立て（`ENVS`）、部品の登録（`PARTS` `PROPS`）、拡張の表（`SETS`）、`render()`。
+6. お手本: `scenes_nocturne.py` と `parts_nocturne.py`（いちばん新しく、書き方がそろっている）。
+
+### 新しい拡張を描く手順
+
+1. 札の一覧を出す。`cards-<拡張>.js` の `id: '...', name: '...'` のうち、**`art/<id>.png` があるもの**が対象
+   （対局の組み合わせ `{ id, name, cards: [...] }` は除く）。`knight('k_ade', ...)` のような関数で作る札は
+   `id:` の形で書かれていないので、`art/` のファイル名と突き合わせて漏れを探す。名前と `main` `desc` から場面を決める。
+2. `tools/art/parts_<拡張>.py` を作る。先頭は `from engine import ...` と `from parts import ...`（前の拡張の部品は
+   `from parts_nocturne import ...` のように使ってよい）。手に持つ物は `(c, fig, hand)` を受ける関数を返す関数にし、
+   ファイル末尾の `PROPS = {...}` に入れる。**既にある部品の関数は書き換えない**（前の絵が変わる）。直したいときは
+   新しい名前で作るか、引数を足して既定値では前と同じ描き方になるようにする。
+3. `tools/art/scenes_<拡張>.py` に `SCENES = {id: dict(light=..., env=..., items=[...])}` を書く。1 枚 1 行のコメント
+   （「名前: 何をどこで」）を付ける。`WARM` `DAWN` `_dawn()` `_night()` などの小さな手助けは各ファイルに写して使う。
+4. `scenes.py` に 3 か所足す: `import parts_<拡張>` と `for _mod in (...)` の並び、`import scenes_<拡張>`、`SETS` に `'<拡張>': scenes_<拡張>.SCENES`。
+5. 描く: `python3 tools/art/build.py --set <拡張>`。何枚かずつ見るときは `python3 tools/art/build.py id1 id2`。
+6. 見る: 3 列に並べた下見（スクラッチパッドで PIL で並べる）と、`python3 tools/art/compare_sheet.py --set <拡張>`
+   （本部の `.audit/deck-art-<拡張>-<n>.png`。旧絵・幅 60px の縮小と並ぶ）。直したら 5 に戻る。
+7. 確かめる（コミットの前に必ず）:
+   ```sh
+   python3 tools/art/build.py                     # 全部描き直す（2〜5 分。長いときはバックグラウンドで）
+   git status --porcelain art | wc -l             # 変わったのがこの拡張の枚数だけか
+   python3 tools/art/build.py --check --set <拡張> # 2 回描いて同じ PNG か
+   ```
+   ほかの拡張の絵が変わっていたら、部品を書き換えてしまっている。意図した直し（例: 馬の作り直し）なら、
+   その絵の拡張の見比べ画像も出し直し、コミットの本文に書く。
+8. STYLE.md の冒頭の「描いたもの」の文を更新し、`git add art/ tools/art/` だけをコミットする（拡張ごとに 1 つ）。
+   `__pycache__` は `.gitignore` 済み。
+
+### よくある失敗と直し方
+
+| 見え方 | 原因 | 直し方 |
+|---|---|---|
+| 巻物が台・箱に見える | 持ち物の `scroll` は縦に長く、胸の前だと卓に見える | `letter`（封書）か、手を上げて `scroll` を短く。広げるなら `held_map_flat` か `doc` |
+| 光の暈が暗い円盤・泡になる | 発光の楕円（`emit`）を薄い明るさで重ねると、暗い段の丸として残る | 暈は `c.brighten(x, y, rx, ry, 0.1〜0.3)` で下の絵を明るくする。発光は芯だけにする |
+| 月が毎回左上に出て単調 | `_night()` の既定が月あり | `moon=None` にして、ランタン・街灯・焚き火・窓・夜明け（`sky_ramp='dawn'`）で灯りを替える。三日月は 4 つ目の値（0.3〜0.6） |
+| 夜の絵ばかり並ぶ | 夜の背景が既定 | 夜明け、暖かい室内（`WARM`）、炉、雪を散らす。拡張の 3〜4 割は夜以外に |
+| 主役が小さくて 60px で潰れる | 人物 h が 100 未満、物の `s` が 1 | 人物は h=108〜116、物は `s=1.4〜2` に。主役の明るい側を暗い背景に当てる |
+| 物が宙に浮く | 床の高さ（`hz`）と部品の `base` がずれている | `base` を床の線より下に。遠くの物は `hills` や `ground` の上に置く |
+| 似た絵が続く | 同じ背景・同じ構図 | 壁を `stone`/`plank`、床を `table`/`flag`/`planks`、外を `coast`/`forest`/`cave`/`pass`/`battlement` で替える |
+| 人物の腕が T 字・木偶っぽい | 腕の姿勢 `aim` `forward` を両腕に | 片腕は `down` `hip` `belly` `chest`。腕を数値 `(肘 dx, dy, 手 dx, dy)` で直接決めてもよい |
+| 光源が右上になる | 月や灯りを右に置いた | 見える灯りはいつも左上の側（x < 112, y < 80 くらい）。`light.halo` も合わせる |
+| 動物の脚や頭が逆向き | `facing` の向き | `horse` は既定で頭が左。`facing=-1` で右 |
+| パレット外の色 | ランプに `PALETTE` にない名前を入れた | `palette.py` の末尾の assert で止まる。色は既にある名前だけで |
+| 2 回描いて違う PNG | `random` を種なしで使った | `hsh(...)` か `c.rng`（カードの id が種）だけを使う |
+
+### 残りの拡張で使えそうな既存の部品
+
+- **動物**（menagerie・allies・plunder で多い）: `horse`（`gallop` `blanket`、作り直し済み）、`dog`、`cat`、`raven`、`camel`、
+  `deer`（parts_darkages）、`goat` `sheep` `bats`（parts_nocturne）、`rat` `big_rat`、`monkey`、`crab` `starfish`。
+  亀・梟・蝶・鼠・カワウソ・牛・ラバ（`w_*`）は無い。`goat` や `dog` の書き方（`X = lambda dx` で向きを返す）を写して作る。
+- **海・船**（plunder）: `sea` `beach` `ship`（`kind='merchant'|'pirate'|'longship'|'ghost'`）`boat` `dock` `long_pier` `island`
+  `foam` `cliff` `cave_mouth` `chest` `pile` `coin_pile` `gem` `map_pieces` `cutlass` `smoke`。
+- **日本の情景**（risingsun）: `torii` `dohyo` `noren` `wood_tub` `steam` `pagoda` `great_gate`（parts_empires）、
+  `paper_lantern` `lantern_string` `gatehouse_roof` `wayside_shrine` `shimenawa_tree` `gohei` `holed_coin`、
+  かぶり物 `jingasa`、持ち物 `katana` `katana_flat`、`hang_banner`。
+- **ルネサンス**（学芸・商い）: `easel` `vase` `gears` `automaton` `telescope` `globe` `books_row` `bookcase` `open_book`
+  `slate` `hourglass` `ship`、旗 `banner` `nobori` `flag_pole`、`sign` `stall` `awning`。
+- **同盟**（allies、人物と組合が多い）: `palace` `house` `guildhall` 系の組み合わせ、`round_table` `chess_board` `throne`、
+  かぶり物ほぼ全部、`face=True`。
+- **人物**: `figure()` の姿勢 14 通り・脚 4 通り、`gown`、`face`、`beard`、持ち物は `scenes.PROPS` のキー一覧を見る。
+
+### 積み残し
+
+- **手長猿**（海辺の `gibbon`）: `parts.monkey` が棒を組んだように硬い。menagerie で猿を使う前に、馬と同じく
+  胴のふくらみ・2 節の腕で作り直す。作り直したら `gibbon` が変わるので、海辺の見比べ画像も出し直す。
+- **狼男**（夜想曲 `wolfman`）: かぶり物 `wolf` の頭が体に比べて小さい。`figure.py` の `kind == 'wolf'` を大きくする
+  （使っているのは `wolfman` だけ）。
+- **天の加護**（`b_sky`）: 空ばかりで地面が暗い。丘を明るく、主役（後光の日）を大きく。
+- **顔**: `face=True` は目・眉・鼻・口を 1 段足すだけ。王や女王が主役の札が多い拡張では、もう 1 段（頬の影など）を足してもよい。
+- 夜想曲の怪異の札は、まだ月が左上に出る絵が多め。
+- **大きさ**: 1 枚 4〜5 KB。全面のノイズがないためで、上限（40 KB）の内。旧版は平均 19〜27 KB。ここまで報告して水準は保てていると言われている。
