@@ -309,7 +309,7 @@ function buyChoice(game, level) {
     if (provLeft === 2 && best > me && has('duchy')) return 'duchy';
   }
   if (colony && has('colony') && money >= 11) return 'colony';
-  if (has('province') && money >= 8 && (info.money >= 14 || late > 0.2 || level === 'normal')) return 'province';
+  if (has('province') && money >= 8) return 'province';
   // 荘園を買い始める時期（領地の残り）。さいきょうは自己対局で決めた値を使う
   const plan0 = SMART(level) && game.cpuPlans ? game.cpuPlans[pi] : null;
   const duchyAt = plan0 && plan0.duchyAt != null ? plan0.duchyAt : (full === 8 ? 4 : 5);
@@ -318,6 +318,9 @@ function buyChoice(game, level) {
   // 王国カード（つよい・さいきょう）: 対局の始めに自己対局で決めた「狙いの札と枚数」を買う
   if (SMART(level)) {
     const plan = planFor(game, pi, level);
+    // 村（+アクション2以上）と引く札（+カード2以上）の組はエンジン: 組み上がるまでは、お金を温存せず最優先で買う
+    const isEngine = plan.some((p) => !p.event && feats(topOf(game, p.pile)).actions >= 2)
+      && plan.some((p) => !p.event && feats(topOf(game, p.pile)).cards >= 2);
     for (const { pile, limit, event } of plan) {
       if (event) {
         // イベント・プロジェクト: 買える回数（limit）まで、ほかに買う札がないお金で
@@ -330,6 +333,7 @@ function buyChoice(game, level) {
       const mine = info.all.filter((id) => pileOf(id) === pile || id === pile).length;
       const cost = costOf(game, pile);
       if (mine >= limit || money < cost) continue;
+      if (isEngine && mine < 2) return pile; // 最初の 2 枚は組み上げ優先。そのあとはお金とのかねあい
       if (cost >= 5 ? money < 8 : money < 6) return pile;
     }
   }
@@ -435,7 +439,7 @@ function candidates(game) {
     if (c.types.includes('victory') && !c.types.includes('action') && !c.types.includes('treasure')) continue;
     if (c.types.includes('ruins') || c.potion || c.debt || c.cost > 7) continue;
     const terminal = c.types.includes('action') && feats(id).terminal;
-    for (const limit of terminal ? [1, 2] : [2, 6]) out.push([{ pile, limit }]);
+    for (const limit of terminal ? [1, 2, 3] : [2, 6]) out.push([{ pile, limit }]);
   }
   // イベント・プロジェクト（1 回だけ・借金や 0 金のものは除く）
   for (const id of game.landscapes) {
@@ -482,14 +486,57 @@ export function planFor(game, pi, level) {
   if (level === 'expert' && results.length) {
     // 1 段目の一番を相手にして、上位を試し直す（強い相手にも勝てる狙いを選ぶ）
     const rival = results[0].plan;
-    const top = results.slice(0, 6).map((r) => ({ plan: r.plan, s: r.plan === rival ? 0.5 : score(r.plan, 24, rival) }));
+    // 村（+アクション2以上）・引く札（+カード2以上）は単独では成績が悪く上位 6 に残らないことがあるが、
+    // 組ませる相手がいれば強い（エンジン）ので、1 つずつは必ず試し直す候補に入れておく
+    const solo = (r) => r.plan.length === 1 && !r.plan[0].event;
+    // 山ごとに一番良い枚数だけ残す（村・引く札の候補を山の種類で見るため）
+    const bestByPile = (pred) => {
+      const byPile = new Map();
+      for (const r of results) {
+        if (!solo(r) || !pred(r)) continue;
+        const pile = r.plan[0].pile;
+        if (!byPile.has(pile) || byPile.get(pile).s < r.s) byPile.set(pile, r);
+      }
+      return [...byPile.values()].sort((a, b) => b.s - a.s);
+    };
+    const villages = bestByPile((r) => feats(topOf(game, r.plan[0].pile)).actions >= 2).slice(0, 2);
+    const draws = bestByPile((r) => feats(topOf(game, r.plan[0].pile)).cards >= 2).slice(0, 2);
+    const village = villages[0];
+    const draw = draws[0];
+    let shortlist = results.slice(0, 6);
+    for (const r of [...villages, ...draws]) if (r && !shortlist.includes(r)) shortlist = [...shortlist, r];
+    const top = shortlist.map((r) => ({ plan: r.plan, s: r.plan === rival ? 0.5 : score(r.plan, 24, rival) }));
     const tops = [...top].sort((a, b) => b.s - a.s).slice(0, 3);
     for (let a = 0; a < tops.length; a++) for (let b = a + 1; b < tops.length; b++) {
       if (tops[a].plan[0].pile === tops[b].plan[0].pile) continue;
       const plan = [tops[a].plan[0], tops[b].plan[0]];
       top.push({ plan, s: score(plan, 24, rival) });
     }
+    // 村・引く札は単独では弱くて上位 3 に残らないことが多いが、組ませて初めて強い（エンジン）ので、
+    // 上位 2 つずつの組はいつも試す（片方しか上位に残らなくても）
+    for (const v of villages) for (const d of draws) {
+      if (v.plan[0].pile === d.plan[0].pile) continue;
+      const plan = [v.plan[0], d.plan[0]];
+      if (top.some((r) => r.plan.length === 2 && r.plan.every((x) => plan.some((y) => y.pile === x.pile)))) continue;
+      top.push({ plan, s: score(plan, 24, rival) });
+    }
     results = top.sort((a, b) => b.s - a.s);
+    // 村＋引く札の組（エンジン）は、単独で決めた枚数では足りないことが多いので、枚数も試し直す
+    if (results[0] && results[0].plan.length === 2) {
+      const [a, b] = results[0].plan;
+      const villagePart = !a.event && feats(topOf(game, a.pile)).actions >= 2 ? a : !b.event && feats(topOf(game, b.pile)).actions >= 2 ? b : null;
+      const drawPart = !a.event && feats(topOf(game, a.pile)).cards >= 2 ? a : !b.event && feats(topOf(game, b.pile)).cards >= 2 ? b : null;
+      if (villagePart && drawPart && villagePart !== drawPart) {
+        const base0 = results[0];
+        for (const vl of [2, 3, 4]) for (const dl of [2, 3, 4]) {
+          if (vl === villagePart.limit && dl === drawPart.limit) continue;
+          const plan = [{ pile: villagePart.pile, limit: vl }, { pile: drawPart.pile, limit: dl }];
+          const sc = score(plan, 24, rival);
+          if (sc > base0.s) results.push({ plan, s: sc });
+        }
+        results.sort((a2, b2) => b2.s - a2.s);
+      }
+    }
     // 荘園を買い始める時期も試す（ふつうは領地の残り 4 枚から）
     const base = results[0];
     if (base && base.plan.length) {
