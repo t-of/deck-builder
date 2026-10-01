@@ -1,7 +1,7 @@
 # カードの絵の決まり（夜の古い城の作戦卓）
 
 deck-builder の `art/*.png` を生成で描くときの決まりと、その作り方。
-描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）、繁栄（`cards-prosperity.js` の 36 枚）、錬金術（`cards-alchemy.js` の 13 枚）、異郷（`cards-hinterlands.js` の 35 枚）、収穫祭＆ギルド（`cards-guilds.js` の 45 枚）、暗黒時代（`cards-darkages.js` の 47 枚。がれき 5 種を含む。騎士 10 人 `k_*` はもとから絵のファイルがない）、冒険（`cards-adventures.js` の 58 枚。イベント 20 を含む）、帝国（`cards-empires.js` の 76 枚。上下 2 種の山 5・城 8・イベント 13・ランドマーク 21 を含む）、夜想曲（`cards-nocturne.js` の 77 枚。恵み 12・呪詛 12・状態 5・家宝 7・精霊などを含む）。残りの拡張は旧版のまま。
+描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）、繁栄（`cards-prosperity.js` の 36 枚）、錬金術（`cards-alchemy.js` の 13 枚）、異郷（`cards-hinterlands.js` の 35 枚）、収穫祭＆ギルド（`cards-guilds.js` の 45 枚）、暗黒時代（`cards-darkages.js` の 47 枚。がれき 5 種を含む。騎士 10 人 `k_*` はもとから絵のファイルがない）、冒険（`cards-adventures.js` の 58 枚。イベント 20 を含む）、帝国（`cards-empires.js` の 76 枚。上下 2 種の山 5・城 8・イベント 13・ランドマーク 21 を含む）、夜想曲（`cards-nocturne.js` の 77 枚。恵み 12・呪詛 12・状態 5・家宝 7・精霊などを含む）、ルネサンス（`cards-renaissance.js` の王国 25 とプロジェクト 19。「もの」5 枚は基本セットの中）。残りの拡張は旧版のまま。
 
 ```sh
 python3 tools/art/build.py                       # 描ける全部を art/ に書く（パレット外の色があれば止まる）
@@ -85,6 +85,7 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 - 腕（`ARMS`）: `down` `hip` `raise` `lift`（頭の高さに掲げる）`forward` `aim` `present` `chest` `belly` `pull` `overhead` `eye` `reach` `low`。
   名前の代わりに (肘 dx, dy, 手 dx, dy) を直接渡してもよい（頭 1 つ分を 1 とする）。
 - 脚: `stand` `stride` `kneel` `crouch`。`lean` で前かがみ。`facing=-1` で左右反転（光は左上のまま）。
+- かぶり物（ルネサンスで足した）: `eboshi`（神主の立烏帽子）、`topknot`（髷）。
 - 服: `tunic`（胴と袖の色）、`robe`（裾の長い衣）、`cloak`（背の外套）、`mantle`（肩掛け）、`apron`、`armor`（胸当て）、`trim`（裾の金の縁）、`belt`。
 - かぶり物: `hood` `hat` `cap` `feather` `helm` `coif` `hair` `crown` `mitre`（僧冠）`tophat` `turban` `witch`（三角帽）`jester`（道化の鈴帽子）、覆面 `mask`、ひげ `beard`。
 - 顔が主役の絵（王・魔女・隠者など）だけ `face=True` で、目 2 つ・眉の影・鼻の照りと影・口を足す。
@@ -168,8 +169,8 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 
 ## 引き継ぎ
 
-ここまでで描いたのは、基本・陰謀・海辺・繁栄・錬金術・異郷・収穫祭＆ギルド・暗黒時代・冒険・帝国・夜想曲。
-残りは renaissance（`a_*.png` の 5 枚は描き済み）・menagerie・allies・plunder・risingsun・promo。
+ここまでで描いたのは、基本・陰謀・海辺・繁栄・錬金術・異郷・収穫祭＆ギルド・暗黒時代・冒険・帝国・夜想曲・ルネサンス。
+残りは menagerie・allies・plunder・risingsun・promo。
 
 ### 読む順
 

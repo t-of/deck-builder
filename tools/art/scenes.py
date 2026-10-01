@@ -19,6 +19,9 @@ def env_room(c, wall='stone', hz=100, floor='table', floor_ramp='wood', wall_gai
         P.stone_wall(c, 0, hz, bw=bw, bh=bh, gain=0.8 * wall_gain)
     elif wall == 'plank':
         P.plank_wall(c, 0, hz, gain=0.8 * wall_gain)
+    elif wall == 'shoji':
+        from parts_renaissance import shoji_wall
+        shoji_wall(c, 0, hz, gain=0.8 * wall_gain)
     if floor == 'table':
         P.table_top(c, hz, floor_ramp, gain=floor_gain)
     elif floor == 'flag':
@@ -641,8 +644,9 @@ import parts_darkages  # noqa: E402
 import parts_adventures  # noqa: E402
 import parts_empires  # noqa: E402
 import parts_nocturne  # noqa: E402
+import parts_renaissance  # noqa: E402
 
-for _mod in (parts_darkages, parts_adventures, parts_empires, parts_nocturne):
+for _mod in (parts_darkages, parts_adventures, parts_empires, parts_nocturne, parts_renaissance):
     PARTS.update({n: f for n, f in vars(_mod).items() if callable(f) and not n.startswith('_') and n not in PARTS and n != 'PROPS'})
     PROPS.update(getattr(_mod, 'PROPS', {}))
 
@@ -656,13 +660,15 @@ import scenes_darkages  # noqa: E402
 import scenes_adventures  # noqa: E402
 import scenes_empires  # noqa: E402
 import scenes_nocturne  # noqa: E402
+import scenes_renaissance  # noqa: E402
 
 # 拡張ごとの場面の表。build.py と compare_sheet.py は --set でこの名前を受ける
 SETS = {'base': SCENES, 'intrigue': scenes_intrigue.SCENES, 'seaside': scenes_seaside.SCENES,
         'prosperity': scenes_prosperity.SCENES, 'alchemy': scenes_alchemy.SCENES,
         'hinterlands': scenes_hinterlands.SCENES, 'guilds': scenes_guilds.SCENES,
         'darkages': scenes_darkages.SCENES, 'adventures': scenes_adventures.SCENES,
-        'empires': scenes_empires.SCENES, 'nocturne': scenes_nocturne.SCENES}
+        'empires': scenes_empires.SCENES, 'nocturne': scenes_nocturne.SCENES,
+        'renaissance': scenes_renaissance.SCENES}
 ALL = {k: v for t in SETS.values() for k, v in t.items()}
 
 
