@@ -1,7 +1,7 @@
 # カードの絵の決まり（夜の古い城の作戦卓）
 
 deck-builder の `art/*.png` を生成で描くときの決まりと、その作り方。
-描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）、繁栄（`cards-prosperity.js` の 36 枚）、錬金術（`cards-alchemy.js` の 13 枚）、異郷（`cards-hinterlands.js` の 35 枚）、収穫祭＆ギルド（`cards-guilds.js` の 45 枚）。残りの拡張は旧版のまま。
+描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）、繁栄（`cards-prosperity.js` の 36 枚）、錬金術（`cards-alchemy.js` の 13 枚）、異郷（`cards-hinterlands.js` の 35 枚）、収穫祭＆ギルド（`cards-guilds.js` の 45 枚）、暗黒時代（`cards-darkages.js` の 47 枚。がれき 5 種を含む。騎士 10 人 `k_*` はもとから絵のファイルがない）。残りの拡張は旧版のまま。
 
 ```sh
 python3 tools/art/build.py                       # 描ける全部を art/ に書く（パレット外の色があれば止まる）
@@ -22,6 +22,7 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 |---|---|
 | `palette.py` | 36 色と、色の段（ランプ） |
 | `engine.py` | 光（`Light`）、画素の器（`Canvas`）、形（楕円・多角形・棒・円柱）、仕上げ（段への丸め・ディザ・輪郭・PNG） |
+| `parts_<拡張>.py` | 暗黒時代から先で足した部品（`from parts import ...` で共通の部品を使う）。`PROPS` に持ち物 |
 | `parts.py` | 部品: 背景（石壁・板壁・卓・石畳・夜空・丘・森の地面）、灯り、硬貨、建物、木と花、家具・道具、アイコンの主役 |
 | `figure.py` | 人物: 姿勢（腕・脚）、胴・腕・頭の立体、服・かぶり物の差し替え、持ち物 |
 | `scenes.py` | 基本セットの場面データ、背景の組み立て、拡張の表をまとめる `SETS` |
@@ -86,6 +87,7 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 - 脚: `stand` `stride` `kneel` `crouch`。`lean` で前かがみ。`facing=-1` で左右反転（光は左上のまま）。
 - 服: `tunic`（胴と袖の色）、`robe`（裾の長い衣）、`cloak`（背の外套）、`mantle`（肩掛け）、`apron`、`armor`（胸当て）、`trim`（裾の金の縁）、`belt`。
 - かぶり物: `hood` `hat` `cap` `feather` `helm` `coif` `hair` `crown` `mitre`（僧冠）`tophat` `turban` `witch`（三角帽）`jester`（道化の鈴帽子）、覆面 `mask`、ひげ `beard`。
+- 顔が主役の絵（王・魔女・隠者など）だけ `face=True` で、目 2 つ・眉の影・鼻の照りと影・口を足す。
 - 女性: `gown=True`（細い胴と広がる裾）、かぶり物 `long`（長い髪）・`tiara`。
 - 持ち物（手に握らせる）: `staff`（穂先 `spear`・金の玉 `knob`・提灯 `lantern`）`sword` `dagger` `axe` `hammer` `chisel` `bow` `quiver` `book`（開いた帳簿も）`scroll` `bag` `bell` `tray`
   `orb` `held_lantern` `held_coin` `held_map` `spyglass` `shield` `banner` `quill`

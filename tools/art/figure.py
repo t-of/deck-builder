@@ -140,7 +140,7 @@ def _body_normal(fig, keys, folds=0.0, fold_from=None, phase=0.0):
 def figure(c, x, foot, h=92, facing=1, arms=('down', 'down'), legs='stand', lean=0.0,
            tunic='red', robe=False, cloak=None, legs_ramp='cloth', boots='leather', skin='skin',
            head='hood', head_ramp=None, belt='leather', trim=None, armor=False, apron=None,
-           mantle=None, props=(), behind=(), hair='hair', mask=None, young=False, gown=False, beard=None):
+           mantle=None, props=(), behind=(), hair='hair', mask=None, young=False, gown=False, beard=None, face=False):
     """props: [(腕 0/1, 持ち物の関数, 前に描くか)]。持ち物の関数は (c, fig, 手の位置) を受ける。
     behind: 体より奥に描く持ち物（槍の柄など）。"""
     fig = Fig(x, foot, h, facing, arms, legs, lean)
@@ -196,6 +196,8 @@ def figure(c, x, foot, h=92, facing=1, arms=('down', 'down'), legs='stand', lean
     hx, hy = fig.X(0.05, fig.y_head), fig.y_head
     c.paint(capsule(fig.X(0, fig.y_neck - 0.2 * u), fig.y_neck - 0.2 * u, fig.X(0, fig.y_neck + 0.2 * u), fig.y_neck + 0.2 * u, 0.28 * u), skin, gain=0.75)
     _head(c, fig, hx, hy, head, head_ramp or tunic, skin, hair, mask, beard)
+    if face:
+        _face(c, fig, hx, hy, head, beard)
     # ---- 腕と持ち物 ----
     for side in (0, 1):
         sh = fig.joints(side)[0]
@@ -211,6 +213,25 @@ def figure(c, x, foot, h=92, facing=1, arms=('down', 'down'), legs='stand', lean
                 fn(c, fig, fig.hand(side))
     c.cel = 0
     return fig
+
+
+def _face(c, fig, hx, hy, kind, beard):
+    """顔が主役の絵だけ: 目（2 つ）、眉の影、鼻の照りと影、口の 1 段を足す。"""
+    u, f = fig.u, fig.f
+    dx = 0.1 * u if kind == 'hood' else 0.0
+    dy = 0.12 * u if kind == 'hood' else 0.0
+    ex0, ex1 = hx + dx + f * 0.02 * u, hx + dx + f * 0.3 * u
+    ey = hy + dy - 0.04 * u
+    for ex in (ex0, ex1):
+        c.dot(int(ex), int(ey), 'N0')
+        c.dot(int(ex), int(ey - 1), 'G1')
+        c.dot(int(ex - f), int(ey - 1), 'G1')
+    nx = hx + dx + f * 0.2 * u
+    c.dot(int(nx), int(ey + 2), 'K2')
+    c.dot(int(nx + f), int(ey + 3), 'G1')
+    if not beard:
+        for k in range(2):
+            c.dot(int(hx + dx + f * (0.08 + k * 0.12) * u), int(hy + dy + 0.28 * u), 'G1')
 
 
 def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask, beard=None):
