@@ -129,7 +129,8 @@ PROPS = {name: getattr(F, name) for name in (
     'spyglass', 'shield', 'banner', 'quill', 'dagger', 'chisel', 'held_map', 'held_coin', 'quiver',
     'club', 'held_keys', 'held_candelabra', 'parcel', 'letter', 'fan', 'mask_stick', 'pot', 'rod')}
 PROPS.update({name: getattr(P, name) for name in ('spade', 'cutlass', 'cane', 'casket', 'pearl', 'coil_held',
-                                                  'pitchfork', 'torch_held', 'tray_strap', 'held_bottle', 'crook_staff')})
+                                                  'pitchfork', 'torch_held', 'tray_strap', 'held_bottle', 'crook_staff',
+                                                  'basket_held', 'held_flask', 'mortar_held')})
 
 
 def _prop(spec):
@@ -635,10 +636,11 @@ SCENES = {
 import scenes_intrigue  # noqa: E402
 import scenes_seaside  # noqa: E402
 import scenes_prosperity  # noqa: E402
+import scenes_alchemy  # noqa: E402
 
 # 拡張ごとの場面の表。build.py と compare_sheet.py は --set でこの名前を受ける
 SETS = {'base': SCENES, 'intrigue': scenes_intrigue.SCENES, 'seaside': scenes_seaside.SCENES,
-        'prosperity': scenes_prosperity.SCENES}
+        'prosperity': scenes_prosperity.SCENES, 'alchemy': scenes_alchemy.SCENES}
 ALL = {k: v for t in SETS.values() for k, v in t.items()}
 
 
