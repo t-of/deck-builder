@@ -304,15 +304,20 @@ def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask, beard=None):
             c.paint(ellipse(hx + f * ex * u, hy - 0.1 * u, 0.12 * u, 0.12 * u), 'gold', emit=0.8, outline=False)
         c.paint(ellipse(hx, hy - 0.42 * u, rx * 2.0, ry * 0.26), ramp)
         c.paint(rect(hx - rx * 0.85, hy - 1.1 * u, hx + rx * 0.85, hy - 0.42 * u, lambda x, y: nrm((x - hx) / rx * 0.8, 0, 0.7)), ramp)
-    elif kind == 'wolf':  # 狼の頭（尖った耳と突き出た鼻づら）
-        c.paint(ellipse(hx, hy, rx * 1.2, ry * 1.05), 'leather', gain=0.9)
-        c.paint(poly([(hx + f * 0.1 * u, hy - 0.1 * u), (hx + f * 0.1 * u, hy + 0.35 * u), (hx + f * 1.0 * u, hy + 0.25 * u), (hx + f * 0.9 * u, hy + 0.05 * u)], nrm(-0.2, -0.3, 0.9)), 'leather', gain=1.05)
-        for dx in (-0.3, 0.15):
-            c.paint(poly([(hx + f * (dx - 0.15) * u, hy - 0.4 * u), (hx + f * (dx + 0.15) * u, hy - 0.4 * u), (hx + f * dx * u, hy - 1.0 * u)]), 'leather', gain=1.0)
-        c.paint(ellipse(hx + f * 0.3 * u, hy - 0.1 * u, 0.1 * u, 0.08 * u), 'gold', emit=1.0, outline=False)
-        c.dot(int(hx + f * 1.0 * u), int(hy + 0.15 * u), 'N0')
+    elif kind == 'wolf':  # 狼の頭（体に負けない大きさ。尖った耳、突き出た鼻づら、首の毛、牙）
+        wy = hy - 0.1 * u
+        for sg in (-1, 1):  # 首まわりのたてがみ
+            c.paint(poly([(hx - f * 0.6 * u, wy + 0.2 * u), (hx - f * (0.9 + 0.2 * sg) * u, wy + 0.95 * u), (hx + f * 0.2 * u, wy + 0.7 * u)], nrm(-0.3, 0, 0.9)), 'leather', gain=0.8)
+        c.paint(ellipse(hx - f * 0.05 * u, wy, rx * 1.6, ry * 1.25), 'leather', gain=0.95, tex=lambda x, y: -0.07 if (int(x) * 2 + int(y) * 3) % 7 == 0 else 0)
+        c.paint(poly([(hx + f * 0.15 * u, wy - 0.25 * u), (hx + f * 0.2 * u, wy + 0.45 * u), (hx + f * 1.35 * u, wy + 0.35 * u), (hx + f * 1.3 * u, wy + 0.05 * u)], nrm(-0.2, -0.3, 0.9)), 'leather', gain=1.08)
+        c.paint(poly([(hx + f * 0.3 * u, wy + 0.4 * u), (hx + f * 1.15 * u, wy + 0.38 * u), (hx + f * 0.4 * u, wy + 0.62 * u)], nrm(0, 0.3, 0.9)), 'leather', gain=0.8)
+        for dx, g in ((-0.45, 0.85), (0.05, 1.05)):
+            c.paint(poly([(hx + f * (dx - 0.22) * u, wy - 0.45 * u), (hx + f * (dx + 0.22) * u, wy - 0.5 * u), (hx + f * (dx - 0.05) * u, wy - 1.35 * u)], nrm(-0.3, -0.3, 0.8)), 'leather', gain=g)
+            c.paint(poly([(hx + f * (dx - 0.1) * u, wy - 0.55 * u), (hx + f * (dx + 0.1) * u, wy - 0.55 * u), (hx + f * (dx - 0.04) * u, wy - 1.05 * u)]), 'leather', gain=0.55, outline=False)
+        c.paint(ellipse(hx + f * 0.35 * u, wy - 0.15 * u, 0.14 * u, 0.1 * u), 'gold', emit=1.0, outline=False)
+        c.dot(int(hx + f * 1.35 * u), int(wy + 0.12 * u), 'N0')
         for k in range(3):
-            c.dot(int(hx + f * (0.5 + k * 0.15) * u), int(hy + 0.35 * u), 'S3')
+            c.dot(int(hx + f * (0.6 + k * 0.2) * u), int(wy + 0.45 * u), 'S3')
     elif kind == 'horns':  # 小さな角
         for sg in (-1, 1):
             c.paint(capsule(hx + sg * rx * 0.6, hy - 0.4 * u, hx + sg * rx * 1.1, hy - 0.95 * u, 0.12 * u, 0.04 * u), 'paper', gain=1.0)

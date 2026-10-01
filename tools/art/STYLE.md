@@ -1,7 +1,7 @@
 # カードの絵の決まり（夜の古い城の作戦卓）
 
 deck-builder の `art/*.png` を生成で描くときの決まりと、その作り方。
-描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）、繁栄（`cards-prosperity.js` の 36 枚）、錬金術（`cards-alchemy.js` の 13 枚）、異郷（`cards-hinterlands.js` の 35 枚）、収穫祭＆ギルド（`cards-guilds.js` の 45 枚）、暗黒時代（`cards-darkages.js` の 47 枚。がれき 5 種を含む。騎士 10 人 `k_*` はもとから絵のファイルがない）、冒険（`cards-adventures.js` の 58 枚。イベント 20 を含む）、帝国（`cards-empires.js` の 76 枚。上下 2 種の山 5・城 8・イベント 13・ランドマーク 21 を含む）、夜想曲（`cards-nocturne.js` の 77 枚。恵み 12・呪詛 12・状態 5・家宝 7・精霊などを含む）、ルネサンス（`cards-renaissance.js` の王国 25 とプロジェクト 19。「もの」5 枚は基本セットの中）。残りの拡張は旧版のまま。
+描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）、繁栄（`cards-prosperity.js` の 36 枚）、錬金術（`cards-alchemy.js` の 13 枚）、異郷（`cards-hinterlands.js` の 35 枚）、収穫祭＆ギルド（`cards-guilds.js` の 45 枚）、暗黒時代（`cards-darkages.js` の 47 枚。がれき 5 種を含む。騎士 10 人 `k_*` はもとから絵のファイルがない）、冒険（`cards-adventures.js` の 58 枚。イベント 20 を含む）、帝国（`cards-empires.js` の 76 枚。上下 2 種の山 5・城 8・イベント 13・ランドマーク 21 を含む）、夜想曲（`cards-nocturne.js` の 77 枚。恵み 12・呪詛 12・状態 5・家宝 7・精霊などを含む）、ルネサンス（`cards-renaissance.js` の王国 25 とプロジェクト 19。「もの」5 枚は基本セットの中）、動物園（`cards-menagerie.js` の王国 31・イベント 20・ならい 19）。残りの拡張は旧版のまま。
 
 ```sh
 python3 tools/art/build.py                       # 描ける全部を art/ に書く（パレット外の色があれば止まる）
@@ -96,6 +96,8 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
   `parts.py` 側の `spade` `cutlass` `cane` `casket` `pearl` `coil_held` `pitchfork` `torch_held` `tray_strap` `held_bottle` `crook_staff`
   `basket_held` `held_flask` `bindle` `held_dividers` `silver_plate` `toolbox` `scythe` `broom` `cleaver` `hunting_horn` `peel` `juggle` `halberd`
   `flowers_held` `lead_rope` `hoof`。
+- 動物（`parts_menagerie.py`、どれも facing=1 で頭が右）: `owl` `frog` `mole` `mouse` `mule`（horse に長い耳と荷）`otter` `ox` `pig` `seal` `squirrel` `turtle` `worm`
+  `butterfly` `falcon` `dog_stand`（立つ・駆ける犬）`monkey2`（手長猿の作り直し）、馬に乗った人 `rider`（horse の背に裾の長い衣の figure）。
 - 動物（`parts.py`）: `horse`（馬。胴は 3 つのふくらみ、脚は膝で曲がる 2 節、`gallop` で駆け足、`blanket` で馬着）、`dog`、`cat`、`raven`、`camel`、`monkey`（手長猿）。船は `ship`（交易船・私掠船・縞帆の略奪船・霧の船）と `boat`。持ち物を描いてから手を重ねるので、握って見える。
 
 ## 場面データ（`scenes.py` の `SCENES`）
@@ -169,8 +171,8 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 
 ## 引き継ぎ
 
-ここまでで描いたのは、基本・陰謀・海辺・繁栄・錬金術・異郷・収穫祭＆ギルド・暗黒時代・冒険・帝国・夜想曲・ルネサンス。
-残りは menagerie・allies・plunder・risingsun・promo。
+ここまでで描いたのは、基本・陰謀・海辺・繁栄・錬金術・異郷・収穫祭＆ギルド・暗黒時代・冒険・帝国・夜想曲・ルネサンス・動物園。
+残りは allies・plunder・risingsun・promo。
 
 ### 読む順
 
@@ -229,7 +231,7 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 
 - **動物**（menagerie・allies・plunder で多い）: `horse`（`gallop` `blanket`、作り直し済み）、`dog`、`cat`、`raven`、`camel`、
   `deer`（parts_darkages）、`goat` `sheep` `bats`（parts_nocturne）、`rat` `big_rat`、`monkey`、`crab` `starfish`。
-  亀・梟・蝶・鼠・カワウソ・牛・ラバ（`w_*`）は無い。`goat` や `dog` の書き方（`X = lambda dx` で向きを返す）を写して作る。
+  動物園で `owl` `frog` `mole` `mouse` `mule` `otter` `ox` `pig` `seal` `squirrel` `turtle` `worm` `butterfly` `falcon` `dog_stand` `rider` を足した（parts_menagerie）。
 - **海・船**（plunder）: `sea` `beach` `ship`（`kind='merchant'|'pirate'|'longship'|'ghost'`）`boat` `dock` `long_pier` `island`
   `foam` `cliff` `cave_mouth` `chest` `pile` `coin_pile` `gem` `map_pieces` `cutlass` `smoke`。
 - **日本の情景**（risingsun）: `torii` `dohyo` `noren` `wood_tub` `steam` `pagoda` `great_gate`（parts_empires）、
@@ -243,10 +245,8 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 
 ### 積み残し
 
-- **手長猿**（海辺の `gibbon`）: `parts.monkey` が棒を組んだように硬い。menagerie で猿を使う前に、馬と同じく
-  胴のふくらみ・2 節の腕で作り直す。作り直したら `gibbon` が変わるので、海辺の見比べ画像も出し直す。
-- **狼男**（夜想曲 `wolfman`）: かぶり物 `wolf` の頭が体に比べて小さい。`figure.py` の `kind == 'wolf'` を大きくする
-  （使っているのは `wolfman` だけ）。
+- （直した）手長猿は `parts_menagerie.monkey2`（胸と腰のふくらみ、2 節の腕と脚、毛の面の中の顔）に作り直し、海辺の `gibbon` もそれに替えた。
+  狼男の `wolf` の頭は大きくし、首の毛と耳の内を足した。
 - **天の加護**（`b_sky`）: 空ばかりで地面が暗い。丘を明るく、主役（後光の日）を大きく。
 - **顔**: `face=True` は目・眉・鼻・口を 1 段足すだけ。王や女王が主役の札が多い拡張では、もう 1 段（頬の影など）を足してもよい。
 - 夜想曲の怪異の札は、まだ月が左上に出る絵が多め。

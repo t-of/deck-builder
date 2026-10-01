@@ -197,7 +197,7 @@ SCENES = {
         env=('coast', dict(hz=128, moon=None)),
         items=[
             ('rope', dict(x0=60, y0=0, x1=110, y1=56)), ('rope', dict(x0=0, y0=40, x1=224, y1=20)),
-            ('monkey', dict(x=106, y=78, s=1.9)),
+            ('monkey2', dict(x=106, y=66, s=1.9)),
             ('ship_rail', dict(y=134)),
         ]),
     'wagon': dict(  # 荷馬車: 海沿いの道を、馬が幌の荷車を引く
