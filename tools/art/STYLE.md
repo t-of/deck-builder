@@ -1,7 +1,7 @@
 # カードの絵の決まり（夜の古い城の作戦卓）
 
 deck-builder の `art/*.png` を生成で描くときの決まりと、その作り方。
-描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）、繁栄（`cards-prosperity.js` の 36 枚）、錬金術（`cards-alchemy.js` の 13 枚）、異郷（`cards-hinterlands.js` の 35 枚）。残りの拡張は旧版のまま。
+描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）、繁栄（`cards-prosperity.js` の 36 枚）、錬金術（`cards-alchemy.js` の 13 枚）、異郷（`cards-hinterlands.js` の 35 枚）、収穫祭＆ギルド（`cards-guilds.js` の 45 枚）。残りの拡張は旧版のまま。
 
 ```sh
 python3 tools/art/build.py                       # 描ける全部を art/ に書く（パレット外の色があれば止まる）
@@ -85,13 +85,15 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
   名前の代わりに (肘 dx, dy, 手 dx, dy) を直接渡してもよい（頭 1 つ分を 1 とする）。
 - 脚: `stand` `stride` `kneel` `crouch`。`lean` で前かがみ。`facing=-1` で左右反転（光は左上のまま）。
 - 服: `tunic`（胴と袖の色）、`robe`（裾の長い衣）、`cloak`（背の外套）、`mantle`（肩掛け）、`apron`、`armor`（胸当て）、`trim`（裾の金の縁）、`belt`。
-- かぶり物: `hood` `hat` `cap` `feather` `helm` `coif` `hair` `crown` `mitre`（僧冠）`tophat` `turban`、覆面 `mask`、ひげ `beard`。
+- かぶり物: `hood` `hat` `cap` `feather` `helm` `coif` `hair` `crown` `mitre`（僧冠）`tophat` `turban` `witch`（三角帽）`jester`（道化の鈴帽子）、覆面 `mask`、ひげ `beard`。
 - 女性: `gown=True`（細い胴と広がる裾）、かぶり物 `long`（長い髪）・`tiara`。
 - 持ち物（手に握らせる）: `staff`（穂先 `spear`・金の玉 `knob`・提灯 `lantern`）`sword` `dagger` `axe` `hammer` `chisel` `bow` `quiver` `book`（開いた帳簿も）`scroll` `bag` `bell` `tray`
   `orb` `held_lantern` `held_coin` `held_map` `spyglass` `shield` `banner` `quill`
   `club` `held_keys` `held_candelabra` `parcel` `letter` `fan` `mask_stick` `pot` `rod`、
-  `parts.py` 側の `spade` `cutlass` `cane` `casket` `pearl` `coil_held`。
-- 動物（`parts.py`）: `horse`（馬）、`monkey`（手長猿）。船は `ship`（交易船・私掠船・縞帆の略奪船・霧の船）と `boat`。持ち物を描いてから手を重ねるので、握って見える。
+  `parts.py` 側の `spade` `cutlass` `cane` `casket` `pearl` `coil_held` `pitchfork` `torch_held` `tray_strap` `held_bottle` `crook_staff`
+  `basket_held` `held_flask` `bindle` `held_dividers` `silver_plate` `toolbox` `scythe` `broom` `cleaver` `hunting_horn` `peel` `juggle` `halberd`
+  `flowers_held` `lead_rope` `hoof`。
+- 動物（`parts.py`）: `horse`（馬。胴は 3 つのふくらみ、脚は膝で曲がる 2 節、`gallop` で駆け足、`blanket` で馬着）、`dog`、`cat`、`raven`、`camel`、`monkey`（手長猿）。船は `ship`（交易船・私掠船・縞帆の略奪船・霧の船）と `boat`。持ち物を描いてから手を重ねるので、握って見える。
 
 ## 場面データ（`scenes.py` の `SCENES`）
 

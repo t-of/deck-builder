@@ -2227,25 +2227,60 @@ def monkey(c, x, y, s=1.0):
     c.paint(ellipse(hx - 4 * k, hy - 31 * k, 2.4 * k, 2.4 * k), 'leather', gain=1.2)
 
 
-def horse(c, x, base, s=1.0, ramp='leather', facing=1):
-    """馬（横から、顔は左）: 胴、首、頭、4 本の脚、たてがみと尾。"""
+def horse(c, x, base, s=1.0, ramp='leather', facing=1, blanket=None, gallop=False):
+    """馬（横から、顔は左）。胴は胸・腹・尻の 3 つのふくらみ、脚は腿と脛の 2 節で膝が曲がり、
+    首は弓なりの面、頭は額から鼻先へ細る。たてがみと尾は毛の束。gallop で駆け足の脚。"""
     k = s
     f = facing
     X = lambda dx: x + f * -dx * k  # dx>0 で頭の側
-    bx, by = x, base - 46 * k
-    for dx, g in ((14, 0.75), (-16, 0.75)):
-        c.paint(capsule(X(dx + 3), by + 6 * k, X(dx + 5), base - 2, 3.4 * k, 2.4 * k), ramp, gain=g)
-    c.paint(capsule(X(-26), by - 2 * k, X(-36), by + 22 * k, 2.4 * k, 1.4 * k), 'hair', gain=1.0)
-    c.paint(ellipse(bx, by, 26 * k, 13 * k), ramp, gain=1.0)
-    c.paint(capsule(X(18), by - 4 * k, X(30), by - 26 * k, 7 * k, 5 * k), ramp, gain=1.0)
-    c.paint(capsule(X(30), by - 26 * k, X(42), by - 18 * k, 4.5 * k, 3 * k), ramp, gain=1.05)
-    c.paint(poly([(X(26), by - 30 * k), (X(28), by - 36 * k), (X(31), by - 30 * k)]), ramp, gain=1.0)
-    for i in range(6):
-        c.paint(capsule(X(16 + i * 2.4), by - 6 * k - i * 3.6 * k, X(12 + i * 2.4), by - 2 * k - i * 3.6 * k, 1.4 * k), 'hair', gain=1.0, outline=False)
-    c.dot(int(X(33)), int(by - 25 * k), 'N0')
-    for dx, g in ((18, 1.0), (-14, 0.95)):
-        c.paint(capsule(X(dx), by + 6 * k, X(dx - 2), base - 2, 3.6 * k, 2.5 * k), ramp, gain=g)
-        c.paint(ellipse(X(dx - 2), base - 1, 2.8 * k, 1.6 * k), 'hair', gain=0.9)
+    by = base - 44 * k
+
+    def leg(hip, knee, fet, g, r0=4.2):
+        hx, hy = X(hip[0]), by + hip[1] * k
+        kx, ky = X(knee[0]), by + knee[1] * k
+        fx, fy = X(fet[0]), by + fet[1] * k
+        c.paint(capsule(hx, hy, kx, ky, r0 * k, 2.4 * k), ramp, gain=g)
+        c.paint(capsule(kx, ky, fx, fy, 2.2 * k, 1.7 * k), ramp, gain=g)
+        c.paint(ellipse(fx - f * 0.8 * k, fy + 1.4 * k, 2.6 * k, 1.8 * k), 'hair', gain=0.8)
+    foot = 43
+    if gallop:
+        back = [((-16, 4), (-30, 22), (-44, 34)), ((-20, 4), (-22, 24), (-34, 40))]
+        front = [((18, 4), (34, 10), (30, 24)), ((14, 4), (26, 22), (14, 36))]
+    else:
+        back = [((-16, 4), (-22, 24), (-19, foot)), ((-22, 4), (-26, 24), (-24, foot))]
+        front = [((18, 4), (19, 24), (19, foot)), ((13, 4), (14, 24), (12, foot))]
+    leg(*back[0], 0.7)
+    leg(*front[0], 0.75)
+    # 尾（毛の束が流れる）
+    for i in range(4):
+        sway = (i - 1.5) * 1.6
+        pts = [(X(-28), by - 4 * k)] + [(X(-30 - t * 10 - (8 * t if gallop else 0)), by - 4 * k + t * (28 if not gallop else 16) * k + sway * t * k) for t in (0.33, 0.66, 1.0)]
+        for a2, b2 in zip(pts, pts[1:]):
+            c.paint(capsule(a2[0], a2[1], b2[0], b2[1], 2.0 * k, 1.2 * k), 'hair', gain=0.9 + 0.05 * i, outline=False)
+    o = c.obj()
+    c.paint(ellipse(X(-18), by - 2 * k, 13 * k, 13 * k), ramp, oid=o, gain=0.95)
+    c.paint(ellipse(X(0), by, 24 * k, 12 * k), ramp, oid=o, gain=1.0)
+    c.paint(ellipse(X(17), by - 1 * k, 11 * k, 12.5 * k), ramp, oid=o, gain=1.05)
+    # 首（弓なりの面）と頭
+    neck = [(X(10), by - 6 * k), (X(18), by - 26 * k), (X(26), by - 36 * k), (X(32), by - 34 * k), (X(30), by - 24 * k), (X(27), by + 2 * k)]
+    c.paint(poly(neck, lambda px, py: nrm(-0.25, -0.35, 0.85)), ramp, gain=1.05)
+    head = [(X(28), by - 38 * k), (X(34), by - 39 * k), (X(46), by - 26 * k), (X(47), by - 21 * k), (X(42), by - 19 * k), (X(30), by - 26 * k)]
+    c.paint(poly(head, lambda px, py: nrm(-0.2, -0.4, 0.85)), ramp, gain=1.1)
+    c.paint(ellipse(X(31), by - 28 * k, 3.5 * k, 3.2 * k), ramp, gain=1.0, outline=False)
+    for dx in (28, 31):
+        c.paint(poly([(X(dx), by - 37 * k), (X(dx + 3), by - 38 * k), (X(dx + 1), by - 45 * k)], nrm(-0.3, -0.4, 0.8)), ramp, gain=1.0)
+    c.dot(int(X(35)), int(by - 33 * k), 'N0')
+    c.dot(int(X(45)), int(by - 22 * k), 'N0')
+    for i in range(7):
+        t = i / 6
+        mx, my = X(26 - t * 14), by - (37 - t * 30) * k
+        c.paint(capsule(mx, my, mx + f * (3 + 3 * t) * k, my + (4 + 2 * t) * k, 1.6 * k, 0.8 * k), 'hair', gain=1.0, outline=False)
+    if blanket:  # 馬着（金の縁の布）
+        c.paint(poly([(X(22), by - 10 * k), (X(-22), by - 10 * k), (X(-26), by + 12 * k), (X(26), by + 12 * k)],
+                     lambda px, py: nrm(0.3 * math.sin(px / 3), 0, 0.9)), blanket, gain=1.0)
+        c.paint(rect(min(X(26), X(-26)), by + 10 * k, max(X(26), X(-26)), by + 13 * k), 'gold', gain=1.0, outline=False)
+    leg(*back[1], 1.0)
+    leg(*front[1], 1.05)
 
 
 def wagon(c, x, base, w=70, cover='paper'):
@@ -3765,3 +3800,466 @@ def toolbox():
         c.paint(capsule(x - 0.6 * u, y - 0.2 * u, x + 0.6 * u, y - 0.2 * u, 0.12 * u), 'wood')
         c.paint(capsule(x - 0.9 * u, y - 0.1 * u, x - 0.4 * u, y - 0.9 * u, 0.12 * u), 'silver', gain=1.0)
     return draw
+
+
+# ================= 収穫祭＆ギルド（guilds）で足した部品 =================
+
+def royal_crown(c, x, y, w=70, h=44, ramp='gold', arches=True):
+    """王冠: 宝石の帯、尖り、上のアーチと十字の玉。"""
+    band_y = y
+    c.paint(ellipse(x, band_y, w / 2, w * 0.13), ramp, gain=0.7)
+    if arches:
+        for sg in (-1, 1):
+            pts = [(x + sg * w * 0.45 * math.cos(t), band_y - h * 0.9 * math.sin(t)) for t in [i / 10 * math.pi / 2 for i in range(11)]]
+            for a, b in zip(pts, pts[1:]):
+                c.paint(capsule(a[0], a[1], b[0], b[1], 2.2), ramp, spec=0.7, shine=5)
+        c.paint(ellipse(x, band_y - h * 0.5, w * 0.36, h * 0.42, clip=lambda px, py: py < band_y - 4), 'red', gain=0.8)
+        c.paint(ellipse(x, band_y - h * 0.95, 4, 4), ramp, spec=0.7)
+        c.paint(rect(x - 1, band_y - h * 0.95 - 10, x + 1, band_y - h * 0.95 - 3), ramp, gain=1.1)
+        c.paint(rect(x - 4, band_y - h * 0.95 - 8, x + 4, band_y - h * 0.95 - 6), ramp, gain=1.1)
+    for k in range(5):
+        px = x - w * 0.4 + k * w * 0.2
+        c.paint(poly([(px - 5, band_y - 4), (px + 5, band_y - 4), (px, band_y - 18 + (4 if k % 2 else 0))], nrm(-0.3, -0.3, 0.9)), ramp, spec=0.7)
+        c.paint(ellipse(px, band_y - 16 + (4 if k % 2 else 0), 2.6, 2.6), ramp, spec=0.8)
+    c.paint(rect(x - w / 2, band_y - 6, x + w / 2, band_y + 6, lambda px, py: nrm((px - x) / w * 1.4, 0, 0.8)), ramp, spec=0.7, shine=5)
+    for k, col in enumerate(('red', 'blue', 'green', 'blue', 'red')):
+        gem(c, x - w * 0.4 + k * w * 0.2, band_y, 3.4, col)
+
+
+def light_rays(c, x, y, n=9, ln=70, ramp='gold'):
+    """後光の筋（市松で透ける細い三角）。"""
+    for k in range(n):
+        a = -math.pi + (k + 0.5) * math.pi / n
+        w = 0.07
+        pts = [(x, y), (x + math.cos(a - w) * ln, y + math.sin(a - w) * ln), (x + math.cos(a + w) * ln, y + math.sin(a + w) * ln)]
+        pix = [(px, py, n_) for px, py, n_ in poly(pts) if (px + py) % 2 == 0]
+        c.paint(pix, ramp, emit=0.55, outline=False)
+
+
+def laurel(c, x, y, r=34):
+    """月桂冠: 円に並ぶ葉と、下で結んだ赤い紐。"""
+    for sg in (-1, 1):
+        for k in range(9):
+            a = math.pi / 2 + sg * (0.35 + k * 0.28)
+            px, py = x + math.cos(a) * r, y - math.sin(a) * r * 0.9
+            c.paint(ellipse(px, py, 5, 3), 'green', gain=1.0 + 0.1 * (k % 2), spec=0.3)
+    c.paint(poly([(x - 4, y + r * 0.9), (x + 4, y + r * 0.9), (x + 10, y + r * 0.9 + 16), (x, y + r * 0.9 + 6), (x - 10, y + r * 0.9 + 16)]), 'red', gain=1.05)
+
+
+def trumpet(c, x, y, ang=-20, ln=60, banner='blue'):
+    """ラッパ（下がる旗つき）。"""
+    a = math.radians(ang)
+    x1, y1 = x + math.cos(a) * ln, y + math.sin(a) * ln
+    c.paint(capsule(x, y, x1, y1, 1.6, 2.6), 'gold', spec=0.7, shine=5)
+    c.paint(ellipse(x1, y1, 4, 8), 'gold', spec=0.7)
+    mx, my = x + math.cos(a) * ln * 0.5, y + math.sin(a) * ln * 0.5
+    c.paint(poly([(mx - 12, my), (mx + 12, my - 4), (mx + 12, my + 14), (mx, my + 10), (mx - 12, my + 18)], lambda px, py: nrm(0.3 * math.sin(px / 3), 0, 0.9)), banner, gain=1.0)
+
+
+def money_bag(c, x, base, r=34, ramp='leather'):
+    """金の袋: 金の紐で口を縛った大袋、こぼれる金貨。"""
+    c.paint(ellipse(x, base - r, r, r * 0.95), ramp, gain=1.05, spec=0.2)
+    c.paint(poly([(x - 10, base - r * 1.85), (x + 10, base - r * 1.85), (x + 18, base - r * 2.3), (x - 18, base - r * 2.3)], nrm(-0.2, -0.5, 0.8)), ramp, gain=1.0)
+    c.paint(rect(x - 12, base - r * 1.95, x + 12, base - r * 1.8), 'gold', spec=0.6)
+    coin(c, x - 8, base - r * 1.1, r * 0.36, 'gold', tilt=0.95, stamp='crown')
+    for k in range(5):
+        coin(c, x + r * 0.9 + k * 9, base - 2 - (k % 2) * 3, 6, 'gold', stamp=('star', 'crown')[k % 2])
+
+
+def cornucopia(c, x, y, s=1.0):
+    """実りの角: 巻いた角の籠から、果物とパンと葡萄があふれる。"""
+    k = s
+    for i in range(16):
+        t = i / 15
+        cx = x + 50 * k * (1 - t) - 10 * k * math.sin(t * 3)
+        cy = y - 20 * k * math.sin(t * math.pi) + 14 * k * t
+        r = 4 * k + 22 * k * t
+        c.paint(ellipse(cx, cy, r * 0.6, r), 'wood', gain=1.2 - 0.3 * (i % 2), tex=lambda px, py: -0.1 if (px + py) % 4 == 0 else 0)
+    ex, ey = x - 10 * k * math.sin(3), y + 14 * k
+    c.paint(ellipse(ex - 2 * k, ey, 14 * k, 24 * k), 'wood', gain=1.35)
+    c.paint(ellipse(ex - 1 * k, ey, 10 * k, 20 * k), 'wood', gain=0.35, outline=False)
+    mx, my = ex - 2 * k, y + 16 * k
+    for dx, dy, kind in ((-18, 4, 'apple'), (-6, -12, 'grape'), (-28, -6, 'bread'), (-8, 12, 'apple2'), (-34, 14, 'grape'), (-22, 24, 'pear')):
+        px, py = mx + dx * k, my + dy * k
+        if kind.startswith('apple'):
+            c.paint(ellipse(px, py, 7 * k, 6.5 * k), 'red' if kind == 'apple' else 'green', spec=0.5)
+        elif kind == 'grape':
+            for r_, cnt in enumerate((3, 2, 1)):
+                for j in range(cnt):
+                    c.paint(ellipse(px + (j - (cnt - 1) / 2) * 3.6 * k, py + r_ * 3.4 * k, 2.2 * k, 2.2 * k), 'purple', gain=1.15, spec=0.5)
+        elif kind == 'bread':
+            c.paint(ellipse(px, py, 9 * k, 5 * k), 'wood', gain=1.4, spec=0.2)
+        else:
+            c.paint(ellipse(px, py, 5 * k, 7 * k), 'gold', spec=0.4)
+
+
+def turnip(c, x, base, r=40):
+    """大かぶ: 白から紫へ変わる丸い根と、大きな葉。"""
+    for k, (dx, h) in enumerate(((-18, 50), (0, 62), (18, 48), (-8, 40), (10, 44))):
+        c.paint(capsule(x + dx * 0.3, base - r * 1.6, x + dx, base - r * 1.6 - h, 3.2, 1.0), 'green', gain=0.95)
+        c.paint(ellipse(x + dx, base - r * 1.6 - h * 0.8, 9, 14), 'green', gain=1.05 + 0.08 * (k % 2), spec=0.2)
+    c.paint(ellipse(x, base - r * 0.85, r, r * 0.85), 'paper', gain=1.1, spec=0.3)
+    c.paint(ellipse(x, base - r * 1.25, r * 0.85, r * 0.42, clip=lambda px, py: py < base - r * 1.15), 'purple', gain=1.0, spec=0.3)
+    c.paint(capsule(x, base - 4, x + 4, base + 6, 2, 0.4), 'paper', gain=0.9)
+
+
+def windmill(c, x, base, h=80):
+    """風車: 石の塔、円錐の屋根、4 枚の羽根。"""
+    c.paint(poly([(x - 18, base), (x + 18, base), (x + 12, base - h), (x - 12, base - h)], lambda px, py: nrm((px - x) / 18 * 0.8, 0, 0.7)), 'paper', gain=0.9,
+            tex=lambda px, py: -0.06 if int(py) % 8 == 0 else 0)
+    c.paint(poly([(x - 15, base - h), (x + 15, base - h), (x, base - h - 20)], nrm(-0.3, -0.5, 0.8)), 'red', gain=0.9)
+    window(c, x - 3, base - h * 0.6, 6, 8, True, arch=True)
+    c.paint(rect(x - 5, base - 16, x + 5, base), 'wood', gain=0.8)
+    hx, hy = x + 2, base - h - 2
+    for k in range(4):
+        a = k * math.pi / 2 + 0.35
+        ex, ey = hx + math.cos(a) * 52, hy + math.sin(a) * 52
+        c.paint(capsule(hx, hy, ex, ey, 1.5), 'wood', gain=1.0)
+        px, py = -math.sin(a), math.cos(a)
+        pts = [(hx + math.cos(a) * 12, hy + math.sin(a) * 12), (ex, ey), (ex + px * 10, ey + py * 10), (hx + math.cos(a) * 12 + px * 10, hy + math.sin(a) * 12 + py * 10)]
+        o = c.obj()
+        for qx, qy, n in poly(pts, nrm(-0.2, -0.2, 0.9)):
+            c.paint([(qx, qy, n)], 'paper' if (qx + qy) % 4 else 'wood', oid=o, gain=0.95)
+    c.paint(ellipse(hx, hy, 3.5, 3.5), 'wood', gain=1.2)
+
+
+def maypole(c, x, base, h=110, ribbons=('red', 'blue', 'gold', 'green', 'purple', 'paper')):
+    """五月柱: 柱の頂の花輪から、色の帯が広がる。"""
+    c.paint(capsule(x, base, x, base - h, 2.4), 'wood', gain=1.0)
+    for k, col in enumerate(ribbons):
+        a = math.pi * (0.1 + k * 0.16)
+        ex = x + math.cos(a) * 90
+        ey = base - 4 + math.sin(a) * 6
+        pts = [(x + (ex - x) * t + math.sin(t * 6 + k) * 3, base - h + (ey - base + h) * t) for t in [i / 10 for i in range(11)]]
+        for a2, b2 in zip(pts, pts[1:]):
+            c.paint(capsule(a2[0], a2[1], b2[0], b2[1], 1.4), col, gain=1.05)
+    pts = arc_points(x, base - h + 4, 10, 0, math.pi * 2, 14)
+    for px, py in pts:
+        c.paint(ellipse(px, py, 3, 2.4), ('green', 'red')[int(px) % 2], gain=1.0)
+
+
+def potter_wheel(c, x, base):
+    """ろくろ: 回る台の上で形を直す壺と、割れた壺の欠片。"""
+    c.paint(ellipse(x, base, 34, 8), 'wood', gain=0.8)
+    c.paint(rect(x - 34, base - 8, x + 34, base), 'wood', gain=0.75)
+    c.paint(ellipse(x, base - 8, 34, 8, normal=UP), 'wood', gain=1.1, tex=lambda px, py: -0.1 if int(math.hypot((px - x) / 4, py - base + 8)) % 2 == 0 else 0)
+    c.paint(ellipse(x, base - 26, 20, 17), 'copper', gain=1.0, spec=0.4)
+    c.paint(capsule(x, base - 40, x, base - 50, 8, 6), 'copper', gain=1.05, spec=0.4)
+    c.paint(ellipse(x, base - 52, 9, 3), 'copper', gain=1.1)
+    c.paint(ellipse(x, base - 52, 6, 2), 'copper', gain=0.5)
+    for sg in (-1, 1):
+        c.paint(ellipse(x + sg * 24, base - 30, 5, 4), 'skin', gain=1.05)
+    for k in range(5):
+        a = k * 1.3
+        sx, sy = x + 60 + k * 9, base + 6 - (k % 2) * 4
+        c.paint(poly([(sx, sy), (sx + 8, sy - 3), (sx + 5, sy + 4)], nrm(-0.3, -0.5, 0.8)), 'copper', gain=0.95)
+
+
+def bread_oven(c, x, y, w=90, h=60):
+    """パン窯: 煉瓦の丸い窯の口に火、パンの並ぶ棚。"""
+    stone_wall(c, int(y), int(y + h), x0=int(x), x1=int(x + w), bw=8, bh=5, ramp='red', gain=0.85, seed=11)
+    mx, my, mw = x + w * 0.2, y + h * 0.35, w * 0.6
+    pts = [(mx, y + h), (mx, my + mw * 0.3)] + arc_points(mx + mw / 2, my + mw * 0.3, mw / 2, math.pi, 2 * math.pi, 12) + [(mx + mw, y + h)]
+    c.paint(poly(pts), 'fire', emit=lambda px, py, n: 0.95 - (y + h - py) / h * 0.5)
+    for k in range(4):
+        c.paint(ellipse(mx + 8 + k * (mw - 16) / 3, y + h - 6, 6, 3.5), 'wood', gain=1.3, spec=0.2)
+
+
+def hanging_meats(c, x0, x1, y):
+    c.paint(capsule(x0, y, x1, y, 1.6), 'wood', gain=1.0)
+    n = 5
+    for k in range(n):
+        x = x0 + 10 + k * (x1 - x0 - 20) / (n - 1)
+        c.paint(rect(x, y, x + 1, y + 6), 'silver', gain=0.8, outline=False)
+        if k % 2 == 0:
+            c.paint(ellipse(x, y + 20, 8, 14), 'copper', gain=1.0, spec=0.3)
+            c.paint(capsule(x, y + 6, x, y + 10, 2), 'paper', gain=1.0)
+        else:
+            for j in range(4):
+                c.paint(ellipse(x, y + 10 + j * 6, 3, 3.4), 'red', gain=0.95)
+
+
+def bed(c, x, base, w=120):
+    """寝台: 枠、布団、枕、足もとの毛布の折り目。"""
+    c.paint(rect(x - w / 2, base - 40, x - w / 2 + 6, base, nrm(-0.3, 0, 1)), 'wood', gain=1.0)
+    c.paint(rect(x - w / 2, base - 22, x + w / 2, base - 8, nrm(-0.1, 0, 1)), 'wood', gain=0.9)
+    c.paint(rect(x - w / 2 + 4, base - 30, x + w / 2, base - 20, lambda px, py: nrm(0.2 * math.sin(px / 6), -0.5, 0.8)), 'blue', gain=1.0)
+    c.paint(ellipse(x - w / 2 + 20, base - 32, 14, 6), 'paper', gain=1.15)
+    c.paint(rect(x + w / 4, base - 31, x + w / 2, base - 20), 'red', gain=0.9, tex=lambda px, py: -0.1 if int(px) % 6 == 0 else 0)
+
+
+def spools_shelf(c, x0, x1, top, base):
+    """小間物の棚: 糸巻き、リボンの巻き、釦の箱、鋏。"""
+    c.paint(rect(x0, top, x1, base, nrm(0, 0, 1)), 'wood', gain=0.35, outline=False)
+    cols = ('red', 'blue', 'gold', 'green', 'purple', 'paper')
+    for r, y in enumerate((top + 30, top + 60, base - 2)):
+        c.paint(rect(x0, y, x1, y + 3, nrm(0, -0.6, 0.8)), 'wood', gain=1.0)
+        for k in range(int((x1 - x0) / 16)):
+            sx = x0 + 10 + k * 16
+            col = cols[(k + r * 2) % len(cols)]
+            if r == 1:
+                c.paint(ellipse(sx, y - 7, 6, 7), col, gain=1.05, spec=0.3)
+                c.paint(ellipse(sx, y - 7, 2, 2), 'wood', gain=0.8, outline=False)
+            else:
+                c.paint(rect(sx - 4, y - 14, sx + 4, y - 2, lambda px, py, sx=sx: nrm((px - sx) / 4 * 0.8, 0, 0.7)), col, gain=1.05)
+                c.paint(rect(sx - 5, y - 15, sx + 5, y - 13), 'wood', gain=1.1)
+                c.paint(rect(sx - 5, y - 3, sx + 5, y - 1), 'wood', gain=1.1)
+    for x in (x0, x1 - 4):
+        c.paint(rect(x, top, x + 4, base, nrm(-0.3, 0, 0.95)), 'wood', gain=0.9)
+
+
+def telescope(c, x, base):
+    """星を見る大きな望遠鏡（三脚の上）。"""
+    for dx in (-16, 4, 16):
+        c.paint(capsule(x, base - 44, x + dx, base, 1.4), 'wood', gain=0.9)
+    c.paint(capsule(x - 30, base - 30, x + 30, base - 70, 4, 6), 'gold', spec=0.7, shine=5)
+    c.paint(ellipse(x + 30, base - 70, 4, 7), 'water', emit=0.6)
+    for t in (0.3, 0.6):
+        cx, cy = x - 30 + 60 * t, base - 30 - 40 * t
+        c.paint(capsule(cx - 2, cy - 3, cx + 2, cy + 3, 5), 'gold', gain=0.8)
+
+
+def constellation(c, pts):
+    for a, b in zip(pts, pts[1:]):
+        for t in range(0, 10, 2):
+            ax, ay = a[0] + (b[0] - a[0]) * t / 10, a[1] + (b[1] - a[1]) * t / 10
+            c.dot(int(ax), int(ay), 'S1')
+    for x, y in pts:
+        c.dot(x, y, 'S3')
+        c.dot(x + 1, y, 'S2')
+        c.dot(x, y + 1, 'S2')
+
+
+def wheat_sheaves(c, x, base, n=3):
+    """麦の束（縛った茎と、垂れた穂）。"""
+    for k in range(n):
+        sx = x + k * 40
+        c.paint(poly([(sx - 8, base), (sx + 8, base), (sx + 4, base - 22), (sx - 4, base - 22)], lambda px, py: nrm((px - sx) / 8 * 0.7, 0, 0.8)), 'gold', gain=0.95,
+                tex=lambda px, py: -0.1 if int(px) % 2 == 0 else 0)
+        for j in range(13):
+            dx = (j - 6) * 1.5
+            c.paint(capsule(sx + dx * 0.3, base - 20, sx + dx * 2.0, base - 38, 0.9), 'gold', gain=0.75 + (j % 2) * 0.1, outline=False)
+            c.paint(ellipse(sx + dx * 2.2, base - 42, 2.0, 4.2), 'gold', gain=0.85 + (j % 3) * 0.08)
+        c.paint(rect(sx - 5, base - 20, sx + 5, base - 17), 'leather', gain=1.0)
+
+
+def pavilion(c, x, base, w=60, h=60, ramp='red'):
+    """武芸大会の天幕（丸い屋根と縞の幕）。"""
+    o = c.obj()
+    for px, py, n in poly([(x - w / 2, base), (x - w / 2, base - h * 0.6), (x + w / 2, base - h * 0.6), (x + w / 2, base)], lambda px, py: nrm((px - x) / w * 1.2, 0, 0.8)):
+        c.paint([(px, py, n)], ramp if int((px - x) / 8 + 20) % 2 else 'paper', oid=o, gain=0.95)
+    c.paint(poly([(x - w / 2 - 4, base - h * 0.6), (x + w / 2 + 4, base - h * 0.6), (x, base - h)], lambda px, py: nrm((px - x) / w, -0.4, 0.8)), ramp, gain=1.0)
+    c.paint(capsule(x, base - h, x, base - h - 14, 1), 'wood')
+    c.paint(poly([(x, base - h - 14), (x + 12, base - h - 11), (x, base - h - 8)]), 'gold', gain=1.0)
+
+
+def lance_rack(c, x, base):
+    for k in range(3):
+        c.paint(capsule(x + k * 10, base, x + k * 10 + 8, base - 90, 1.6, 1.0), ('red', 'blue', 'paper')[k], gain=1.0)
+    c.paint(rect(x - 6, base - 30, x + 34, base - 26, nrm(0, -0.4, 0.9)), 'wood', gain=1.0)
+
+
+def big_gem(c, x, y, r=40, ramp='green'):
+    """逸品: 多面にカットした大きな宝石（台の上）。"""
+    c.paint(poly([(x - r * 0.7, y + r * 0.95), (x + r * 0.7, y + r * 0.95), (x + r * 0.5, y + r * 0.75), (x - r * 0.5, y + r * 0.75)], nrm(-0.2, -0.5, 0.8)), 'gold', spec=0.7)
+    top = [(x - r, y), (x - r * 0.55, y - r * 0.5), (x + r * 0.55, y - r * 0.5), (x + r, y)]
+    c.paint(poly(top, nrm(-0.2, -0.8, 0.6)), ramp, gain=1.15, spec=0.8, shine=4)
+    c.paint(poly([(x - r * 0.3, y - r * 0.5), (x + r * 0.3, y - r * 0.5), (x + r * 0.2, y - r * 0.2), (x - r * 0.2, y - r * 0.2)], nrm(-0.1, -0.9, 0.5)), ramp, gain=1.35)
+    facets = [((x - r, y), (x - r * 0.4, y), (x, y + r * 0.8), nrm(-0.7, 0.1, 0.7)), ((x - r * 0.4, y), (x + r * 0.4, y), (x, y + r * 0.8), nrm(0, 0.2, 1)),
+              ((x + r * 0.4, y), (x + r, y), (x, y + r * 0.8), nrm(0.7, 0.3, 0.6))]
+    for a, b, cc, n in facets:
+        c.paint(poly([a, b, cc], n), ramp, gain=1.0, spec=0.5)
+    for k in range(5):
+        c.dot(int(x - r * 0.5 + k * 3), int(y - r * 0.38 - (k % 2)), 'G6')
+
+
+def scythe():
+    def draw(c, fig, hand):
+        u = fig.u
+        x, y = hand
+        tx, ty = x + fig.f * 1.0 * u, y - 3.0 * u
+        c.paint(capsule(x - fig.f * 0.6 * u, y + 2.0 * u, tx, ty, 0.14 * u), 'wood')
+        pts = [(tx + fig.f * 2.6 * u * t, ty + 1.2 * u * t * t) for t in [i / 8 for i in range(9)]]
+        for i, (a, b) in enumerate(zip(pts, pts[1:])):
+            c.paint(capsule(a[0], a[1], b[0], b[1], 0.22 * u * (1 - i / 9)), 'silver', spec=0.7)
+    return draw
+
+
+def broom():
+    def draw(c, fig, hand):
+        u = fig.u
+        x, y = hand
+        bx, by = x + fig.f * 1.2 * u, fig.foot - 0.4 * u
+        c.paint(capsule(x - fig.f * 1.0 * u, y - 2.4 * u, bx, by - 1.2 * u, 0.13 * u), 'wood')
+        for k in range(7):
+            c.paint(capsule(bx, by - 1.2 * u, bx + fig.f * (k - 3) * 0.25 * u, by + 0.4 * u, 0.12 * u), 'sand', gain=1.0)
+    return draw
+
+
+def cleaver():
+    def draw(c, fig, hand):
+        u = fig.u
+        x, y = hand
+        c.paint(capsule(x, y + 0.4 * u, x, y - 0.6 * u, 0.15 * u), 'wood')
+        c.paint(rect(x - 0.2 * u, y - 2.0 * u, x + fig.f * 1.2 * u, y - 0.6 * u, nrm(-0.3, -0.2, 0.9)), 'silver', spec=0.8, shine=5)
+    return draw
+
+
+def hunting_horn():
+    def draw(c, fig, hand):
+        u = fig.u
+        x, y = hand
+        pts = [(x + fig.f * t * 1.6 * u, y - math.sin(t * 2.5) * 0.9 * u) for t in [i / 8 for i in range(9)]]
+        for i, (a, b) in enumerate(zip(pts, pts[1:])):
+            c.paint(capsule(a[0], a[1], b[0], b[1], 0.1 * u + i * 0.05 * u), 'gold', spec=0.7)
+        ex, ey = pts[-1]
+        c.paint(ellipse(ex, ey, 0.3 * u, 0.55 * u), 'gold', spec=0.7)
+    return draw
+
+
+def peel():
+    """パン窯の木べら（先にパン）。"""
+    def draw(c, fig, hand):
+        u = fig.u
+        x, y = hand
+        ex = x + fig.f * 3.2 * u
+        c.paint(capsule(x - fig.f * 0.5 * u, y + 0.2 * u, ex, y - 0.3 * u, 0.13 * u), 'wood')
+        c.paint(ellipse(ex + fig.f * 0.6 * u, y - 0.3 * u, 0.9 * u, 0.3 * u), 'wood', gain=1.2)
+        c.paint(ellipse(ex + fig.f * 0.6 * u, y - 0.65 * u, 0.7 * u, 0.35 * u), 'wood', gain=1.45, spec=0.2)
+    return draw
+
+
+def juggle():
+    """宙に放った 3 つの玉（道化）。"""
+    def draw(c, fig, hand):
+        u = fig.u
+        for k, col in enumerate(('red', 'gold', 'blue')):
+            c.paint(ellipse(fig.x + (k - 1) * 1.4 * u, fig.y_head - 1.4 * u - (k % 2) * 0.8 * u, 0.4 * u, 0.4 * u), col, spec=0.6)
+    return draw
+
+
+def halberd():
+    """近衛の斧槍。"""
+    def draw(c, fig, hand):
+        u = fig.u
+        x, y = hand
+        top = y - 5.4 * u
+        c.paint(capsule(x, fig.foot - 0.1 * u, x, top, 0.14 * u), 'wood')
+        c.paint(poly([(x - 0.2 * u, top), (x + 0.2 * u, top), (x, top - 1.2 * u)]), 'silver', spec=0.7)
+        c.paint(poly([(x, top + 0.3 * u), (x + fig.f * 1.2 * u, top - 0.1 * u), (x + fig.f * 1.3 * u, top + 1.1 * u), (x, top + 0.9 * u)], nrm(-0.3, -0.2, 0.9)), 'silver', spec=0.7)
+        c.paint(poly([(x, top + 0.4 * u), (x - fig.f * 0.6 * u, top + 0.6 * u), (x, top + 0.9 * u)]), 'silver', gain=0.8)
+        c.paint(rect(x - 0.4 * u, top + 1.2 * u, x + 0.4 * u, top + 1.4 * u), 'red', outline=False)
+    return draw
+
+
+def flowers_held():
+    def draw(c, fig, hand):
+        u = fig.u
+        x, y = hand
+        for k, col in enumerate(('red', 'gold', 'paper', 'blue')):
+            c.paint(capsule(x, y, x + (k - 1.5) * 0.3 * u, y - 1.4 * u, 0.06 * u), 'green', outline=False)
+            c.paint(ellipse(x + (k - 1.5) * 0.35 * u, y - 1.5 * u - (k % 2) * 0.3 * u, 0.32 * u, 0.3 * u), col, gain=1.1)
+    return draw
+
+
+def lead_rope():
+    def draw(c, fig, hand):
+        c.paint(capsule(hand[0], hand[1], hand[0] + fig.f * 3.0 * fig.u, hand[1] - 0.6 * fig.u, 0.6), 'leather', gain=1.0, outline=False)
+    return draw
+
+
+def hoof():
+    """持ち上げた蹄に打つ蹄鉄。"""
+    def draw(c, fig, hand):
+        u = fig.u
+        c.paint(capsule(hand[0], hand[1], hand[0] + fig.f * 0.8 * u, hand[1] + 0.3 * u, 0.3 * u), 'silver', gain=1.1, spec=0.6)
+    return draw
+
+
+def plume(c, x, y):
+    """兜の羽根飾り。"""
+    for k in range(5):
+        c.paint(capsule(x, y + 6, x - 6 - k * 3, y - 6 - k * 2, 1.6), 'red', gain=1.0 + 0.05 * k, outline=False)
+
+
+def snow_roof(c, x, base, w, h, roof_h):
+    """家（house と同じ寸法）の破風と屋根に積もった雪。"""
+    apex = (x + w / 2, base - h - roof_h)
+    d = w * 0.55
+    sk = d * 0.45
+    c.paint(capsule(apex[0], apex[1] - 1, x - 2, base - h + 1, 2.2), 'silver', gain=1.2)
+    c.paint(capsule(apex[0], apex[1] - 1, x + w + 2, base - h + 1, 2.2), 'silver', gain=1.05)
+    c.paint(poly([apex, (apex[0] + d, apex[1] - sk), (apex[0] + d + 3, apex[1] - sk + 4), (apex[0] + 3, apex[1] + 4)], UP), 'silver', gain=1.1)
+
+
+def candle_rack(c, x0, x1, y):
+    """芯で吊るした蝋燭の束の列。"""
+    c.paint(capsule(x0, y, x1, y, 1.6), 'wood', gain=1.0)
+    for k in range(int((x1 - x0) / 10)):
+        x = x0 + 5 + k * 10
+        ln = 22 + (k % 3) * 6
+        c.paint(rect(x, y, x + 1, y + 4), 'paper', gain=0.6, outline=False)
+        for dx in (-2, 2):
+            c.paint(capsule(x + dx, y + 4, x + dx, y + ln, 1.4, 1.0), 'paper', gain=1.2)
+
+
+def candle_row(c, x0, x1, base):
+    for k in range(int((x1 - x0) / 14)):
+        x = x0 + 7 + k * 14
+        h = 10 + (k % 3) * 4
+        c.paint(vcyl(x, base - h, base, 3, 1.2), ('paper', 'red', 'paper', 'blue')[k % 4], gain=1.2, add=0.1)
+        flame(c, x, base - h - 4, 1.8, 3.5)
+
+
+def painted_banner(c, x, y):
+    """見世物の絵看板: 二つ首の怪物の絵。"""
+    o = c.paint(rect(x - 30, y - 22, x + 30, y + 22, nrm(-0.2, 0, 1)), 'paper', gain=1.0)
+    c.paint(rect(x - 30, y - 22, x + 30, y - 18), 'red', oid=o, gain=1.0, outline=False)
+    c.paint(ellipse(x, y + 8, 16, 10), 'green', oid=o, gain=1.0, outline=False)
+    for dx in (-10, 10):
+        c.paint(capsule(x + dx * 0.5, y + 2, x + dx, y - 10, 3), 'green', oid=o, gain=1.05, outline=False)
+        c.paint(ellipse(x + dx, y - 12, 4, 3.5), 'green', oid=o, gain=1.1, outline=False)
+        c.dot(int(x + dx + 1), int(y - 13), 'R3')
+
+
+def scissors(c, x, y):
+    for sg in (-1, 1):
+        c.paint(capsule(x - 20, y + sg * 4, x + 16, y - sg * 2, 1.4), 'silver', spec=0.7)
+        pts = arc_points(x - 24, y + sg * 6, 5, 0, math.pi * 2, 12)
+        for a, b in zip(pts, pts[1:]):
+            c.paint(capsule(a[0], a[1], b[0], b[1], 1.0), 'gold', gain=1.0)
+
+
+def pedestal(c, x, base, w=34, h=30):
+    c.paint(rect(x - w / 2, base - h, x + w / 2, base, lambda px, py: nrm((px - x) / w * 1.2, 0, 0.8)), 'stone', gain=1.05)
+    c.paint(rect(x - w / 2 - 4, base - h - 4, x + w / 2 + 4, base - h, UP), 'stone', gain=1.15)
+    c.paint(rect(x - w / 2 - 4, base - 4, x + w / 2 + 4, base, UP), 'stone', gain=0.95)
+
+
+def shield_stand(c, x, base):
+    c.paint(capsule(x, base, x, base - 40, 1.4), 'wood', gain=0.9)
+    w, h = 18, 26
+    y = base - 50
+    pts = [(x - w, y - h * 0.4), (x + w, y - h * 0.4), (x + w, y + 4), (x, y + h * 0.7), (x - w, y + 4)]
+    c.paint(poly(pts, lambda px, py: nrm((px - x) / w * 0.5, 0, 0.85)), 'gold', spec=0.5)
+    c.paint(poly([(x - w + 3, y - h * 0.4 + 3), (x, y - h * 0.4 + 3), (x, y + h * 0.7 - 4), (x - w + 3, y + 3)]), 'red', gain=1.0)
+    c.paint(poly([(x, y - h * 0.4 + 3), (x + w - 3, y - h * 0.4 + 3), (x + w - 3, y + 3), (x, y + h * 0.7 - 4)]), 'blue', gain=0.9)
+
+
+def wheat_field(c, y0):
+    """実った麦の畑（穂の列が奥へ細る）。"""
+    for row in range(8):
+        y = y0 + row * (3 + row * 1.2)
+        step = 4 + row
+        for k in range(int(W / step) + 1):
+            x = k * step + (row % 2) * step / 2
+            h = 4 + row * 2
+            c.paint(capsule(x, y, x + 0.5, y - h, 0.4 + row * 0.1), 'gold', gain=0.8 + row * 0.04, outline=False)
+            c.paint(ellipse(x + 0.5, y - h, 0.8 + row * 0.2, 1.5 + row * 0.35), 'gold', gain=1.0 + row * 0.03, outline=False)
+
+
+def scythe_lean(c, x, base):
+    c.paint(capsule(x, base, x + 10, base - 90, 1.6), 'wood', gain=1.0)
+    pts = [(x + 10 - t * 50, base - 90 + t * t * 20) for t in [i / 8 for i in range(9)]]
+    for i, (a, b) in enumerate(zip(pts, pts[1:])):
+        c.paint(capsule(a[0], a[1], b[0], b[1], 3.0 * (1 - i / 9) + 0.5), 'silver', spec=0.7)

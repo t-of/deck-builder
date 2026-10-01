@@ -240,8 +240,8 @@ def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask, beard=None):
             ty = hy - 0.5 * u
             c.paint(poly([(hx - rx * 0.8, ty + 2), (hx + rx * 0.8, ty + 2), (hx + rx * 0.4, ty - 1), (hx, ty - 0.35 * u), (hx - rx * 0.4, ty - 1)]), 'gold', spec=0.7)
             c.dot(int(hx), int(ty - 1), 'R3')
-    if kind in ('hair', 'cap', 'feather', 'hat', 'helm', 'crown', 'coif', 'mitre', 'tophat', 'turban'):
-        if kind not in ('helm', 'turban'):
+    if kind in ('hair', 'cap', 'feather', 'hat', 'helm', 'crown', 'coif', 'mitre', 'tophat', 'turban', 'witch', 'jester'):
+        if kind not in ('helm', 'turban', 'jester'):
             c.paint(ellipse(hx - f * 0.12 * u, hy - 0.22 * u, rx * 1.08, ry * 0.75,
                             clip=lambda x, y: y < hy - 0.24 * u or ((x - hx) * f < -0.14 * u and y < hy + 0.3 * u)), hair)
         c.dot(*eye, 'G0')
@@ -276,6 +276,17 @@ def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask, beard=None):
         c.paint(ellipse(hx, hy - 0.45 * u, rx * 1.7, ry * 0.25), ramp)
         c.paint(rect(hx - rx * 0.85, hy - 1.35 * u, hx + rx * 0.85, hy - 0.45 * u, lambda x, y: nrm((x - hx) / rx * 0.8, 0, 0.7)), ramp)
         c.paint(rect(hx - rx * 0.85, hy - 0.65 * u, hx + rx * 0.85, hy - 0.5 * u), 'red', outline=False)
+    elif kind == 'witch':
+        c.paint(ellipse(hx, hy - 0.42 * u, rx * 2.1, ry * 0.26), ramp)
+        c.paint(poly([(hx - rx * 0.9, hy - 0.45 * u), (hx + rx * 0.9, hy - 0.45 * u), (hx - f * 0.6 * u, hy - 1.9 * u)],
+                     lambda x, y: nrm((x - hx) / rx * 0.6, -0.2, 0.8)), ramp)
+        c.paint(rect(hx - rx * 0.9, hy - 0.62 * u, hx + rx * 0.9, hy - 0.5 * u), 'gold', outline=False)
+    elif kind == 'jester':
+        for sg, col in ((-1, 'red'), (1, 'gold')):
+            tip = (hx + sg * 1.0 * u, hy - 0.9 * u)
+            c.paint(poly([(hx - rx * 0.1 * sg, hy - 0.2 * u), (hx + sg * rx * 1.1, hy - 0.3 * u), tip]), col, gain=1.0)
+            c.paint(ellipse(tip[0], tip[1] + 0.12 * u, 0.15 * u, 0.15 * u), 'gold', spec=0.6)
+        c.paint(ellipse(hx, hy - 0.35 * u, rx * 1.1, ry * 0.4, clip=lambda x, y: y < hy - 0.2 * u), 'purple')
     elif kind == 'turban':
         c.paint(ellipse(hx - f * 0.05 * u, hy - 0.4 * u, rx * 1.3, ry * 0.75, clip=lambda x, y: y < hy - 0.15 * u), ramp,
                 tex=lambda x, y: -0.08 if int(x - y * 0.6) % 4 == 0 else 0)
