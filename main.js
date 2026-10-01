@@ -683,6 +683,7 @@ function renderTurn() {
       const prevCount = prevRender && prevRender.supply[id];
       if (prevCount != null && count < prevCount) node.classList.add('is-bought');
       if (count === 0) node.classList.add('is-empty');
+      else if (humanControls && t.phase === 'buy' && !buyable) node.classList.add('is-unbuyable');
       // CPU の手番のあいだ、その手番に買った山に印を付ける
       const nBought = humanControls ? 0 : t.bought.filter((b) => b === id).length;
       if (nBought) tagCard(node, `購入${nBought > 1 ? `×${nBought}` : ''}`);
@@ -698,7 +699,9 @@ function renderTurn() {
     const landscapesBox = el('div', { class: 'cards supplyGroup__row' });
     for (const id of game.landscapes) {
       const buyable = humanControls && t.phase === 'buy' && canBuyEvent(game, id);
-      landscapesBox.appendChild(gcNode(id, buyable, () => run(buyEvent(game, id), (ok) => { if (ok) soundBuy(); backToTurn(); })));
+      const node = gcNode(id, buyable, () => run(buyEvent(game, id), (ok) => { if (ok) soundBuy(); backToTurn(); }));
+      if (humanControls && t.phase === 'buy' && !buyable) node.classList.add('is-unbuyable');
+      landscapesBox.appendChild(node);
     }
     if (game.boons) landscapesBox.appendChild(pileButton('恵みの山', game.boons));
     if (game.hexes) landscapesBox.appendChild(pileButton('呪詛の山', game.hexes));
