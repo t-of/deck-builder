@@ -97,7 +97,17 @@ def env_icon(c, hz=106, wall='stone', cloth='red', cloth_gain=0.8):
             tex=lambda px, py: -0.06 if int(px + 4 * math.sin(py / 5.0)) % 18 == 0 else 0)
 
 
-ENVS = {'room': env_room, 'night': env_night, 'forest': env_forest, 'battlement': env_battlement,
+def env_coast(c, hz=86, shore=None, moon=(40, 26, 11), sky_ramp='night', stars=30, clouds=((40, 80, 7),), sea_gain=1.0):
+    """海辺: 夜空、水平線までの海（月の下に光の道）、手前に砂浜（shore を渡したとき）。"""
+    P.sky(c, hz + 2, ramp=sky_ramp, stars=stars, glow=moon is not None, clouds=clouds)
+    if moon:
+        P.moon(c, *moon)
+    P.sea(c, hz, gain=sea_gain, moon_x=moon[0] if moon else None)
+    if shore is not None:
+        P.beach(c, shore)
+
+
+ENVS = {'coast': env_coast, 'room': env_room, 'night': env_night, 'forest': env_forest, 'battlement': env_battlement,
         'cave': env_cave, 'pass': env_pass, 'icon': env_icon}
 
 
@@ -118,6 +128,7 @@ PROPS = {name: getattr(F, name) for name in (
     'staff', 'sword', 'axe', 'hammer', 'bow', 'book', 'scroll', 'bag', 'bell', 'tray', 'orb', 'held_lantern',
     'spyglass', 'shield', 'banner', 'quill', 'dagger', 'chisel', 'held_map', 'held_coin', 'quiver',
     'club', 'held_keys', 'held_candelabra', 'parcel', 'letter', 'fan', 'mask_stick', 'pot', 'rod')}
+PROPS.update({name: getattr(P, name) for name in ('spade', 'cutlass', 'cane', 'casket', 'pearl', 'coil_held')})
 
 
 def _prop(spec):
@@ -621,9 +632,10 @@ SCENES = {
 
 
 import scenes_intrigue  # noqa: E402
+import scenes_seaside  # noqa: E402
 
 # 拡張ごとの場面の表。build.py と compare_sheet.py は --set でこの名前を受ける
-SETS = {'base': SCENES, 'intrigue': scenes_intrigue.SCENES}
+SETS = {'base': SCENES, 'intrigue': scenes_intrigue.SCENES, 'seaside': scenes_seaside.SCENES}
 ALL = {k: v for t in SETS.values() for k, v in t.items()}
 
 

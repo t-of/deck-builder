@@ -1,7 +1,7 @@
 # カードの絵の決まり（夜の古い城の作戦卓）
 
 deck-builder の `art/*.png` を生成で描くときの決まりと、その作り方。
-描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）。残りの拡張は旧版のまま。
+描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）。残りの拡張は旧版のまま。
 
 ```sh
 python3 tools/art/build.py                       # 描ける全部を art/ に書く（パレット外の色があれば止まる）
@@ -88,7 +88,9 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 - 女性: `gown=True`（細い胴と広がる裾）、かぶり物 `long`（長い髪）・`tiara`。
 - 持ち物（手に握らせる）: `staff`（穂先 `spear`・金の玉 `knob`・提灯 `lantern`）`sword` `dagger` `axe` `hammer` `chisel` `bow` `quiver` `book`（開いた帳簿も）`scroll` `bag` `bell` `tray`
   `orb` `held_lantern` `held_coin` `held_map` `spyglass` `shield` `banner` `quill`
-  `club` `held_keys` `held_candelabra` `parcel` `letter` `fan` `mask_stick` `pot` `rod`。持ち物を描いてから手を重ねるので、握って見える。
+  `club` `held_keys` `held_candelabra` `parcel` `letter` `fan` `mask_stick` `pot` `rod`、
+  `parts.py` 側の `spade` `cutlass` `cane` `casket` `pearl` `coil_held`。
+- 動物（`parts.py`）: `horse`（馬）、`monkey`（手長猿）。船は `ship`（交易船・私掠船・縞帆の略奪船・霧の船）と `boat`。持ち物を描いてから手を重ねるので、握って見える。
 
 ## 場面データ（`scenes.py` の `SCENES`）
 
@@ -102,7 +104,7 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 ),
 ```
 
-- 背景（`ENVS`）: `room`（石壁・板壁＋卓・石畳・床板）、`night`（夜空・月・丘・地面）、`forest`、`battlement`（城壁の上）、`cave`、`pass`（峠）、`icon`（布の台）。
+- 背景（`ENVS`）: `coast`（夜空・水平線までの海・砂浜）、`room`（石壁・板壁＋卓・石畳・床板）、`night`（夜空・月・丘・地面）、`forest`、`battlement`（城壁の上）、`cave`、`pass`（峠）、`icon`（布の台）。
 - 部品の名前は `parts.py` の関数名（と `figure`）。
 - 人物のカード（16 枚）は人物を主役に、それ以外（23 枚）は物と場所を主役にする。
 
