@@ -261,7 +261,7 @@ def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask, beard=None):
             ty = hy - 0.5 * u
             c.paint(poly([(hx - rx * 0.8, ty + 2), (hx + rx * 0.8, ty + 2), (hx + rx * 0.4, ty - 1), (hx, ty - 0.35 * u), (hx - rx * 0.4, ty - 1)]), 'gold', spec=0.7)
             c.dot(int(hx), int(ty - 1), 'R3')
-    if kind in ('hair', 'cap', 'feather', 'hat', 'helm', 'crown', 'coif', 'mitre', 'tophat', 'turban', 'witch', 'jester', 'jingasa', 'crest', 'beak', 'wolf', 'horns', 'eboshi', 'topknot', 'tricorn', 'bandana'):
+    if kind in ('hair', 'cap', 'feather', 'hat', 'helm', 'crown', 'coif', 'mitre', 'tophat', 'turban', 'witch', 'jester', 'jingasa', 'crest', 'beak', 'wolf', 'horns', 'eboshi', 'topknot', 'tricorn', 'bandana', 'kabuto'):
         if kind not in ('helm', 'turban', 'jester', 'beak', 'wolf'):
             c.paint(ellipse(hx - f * 0.12 * u, hy - 0.22 * u, rx * 1.08, ry * 0.75,
                             clip=lambda x, y: y < hy - 0.24 * u or ((x - hx) * f < -0.14 * u and y < hy + 0.3 * u)), hair)
@@ -345,6 +345,13 @@ def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask, beard=None):
     elif kind == 'bandana':  # 頭に巻いた布と、後ろに垂れる結び目
         c.paint(ellipse(hx - f * 0.05 * u, hy - 0.25 * u, rx * 1.1, ry * 0.7, clip=lambda x, y: y < hy - 0.12 * u), ramp)
         c.paint(poly([(hx - f * 0.35 * u, hy - 0.2 * u), (hx - f * 0.9 * u, hy + 0.2 * u), (hx - f * 0.75 * u, hy + 0.35 * u), (hx - f * 0.3 * u, hy)]), ramp, gain=0.85)
+    elif kind == 'kabuto':  # 武士の兜（黒漆の鉢、広がる錣、金の鍬形）
+        c.paint(poly([(hx - rx * 1.6, hy + 0.15 * u), (hx + rx * 1.6, hy + 0.15 * u), (hx + rx * 1.15, hy - 0.3 * u), (hx - rx * 1.15, hy - 0.3 * u)],
+                     lambda x, y: nrm((x - hx) / rx * 0.4, -0.3, 0.8)), ramp, gain=0.8)
+        c.paint(ellipse(hx, hy - 0.3 * u, rx * 1.15, ry * 0.85, clip=lambda x, y: y < hy - 0.2 * u), ramp, gain=0.9, spec=0.6, shine=6)
+        for sg in (-1, 1):
+            c.paint(capsule(hx + f * 0.1 * u, hy - 0.45 * u, hx + f * 0.1 * u + sg * 0.6 * u, hy - 1.3 * u, 0.09 * u, 0.05 * u), 'gold', spec=0.7)
+        c.dot(*eye, 'N0')
     elif kind == 'witch':
         c.paint(ellipse(hx, hy - 0.42 * u, rx * 2.1, ry * 0.26), ramp)
         c.paint(poly([(hx - rx * 0.9, hy - 0.45 * u), (hx + rx * 0.9, hy - 0.45 * u), (hx - f * 0.6 * u, hy - 1.9 * u)],
