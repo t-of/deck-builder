@@ -261,7 +261,7 @@ def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask, beard=None):
             ty = hy - 0.5 * u
             c.paint(poly([(hx - rx * 0.8, ty + 2), (hx + rx * 0.8, ty + 2), (hx + rx * 0.4, ty - 1), (hx, ty - 0.35 * u), (hx - rx * 0.4, ty - 1)]), 'gold', spec=0.7)
             c.dot(int(hx), int(ty - 1), 'R3')
-    if kind in ('hair', 'cap', 'feather', 'hat', 'helm', 'crown', 'coif', 'mitre', 'tophat', 'turban', 'witch', 'jester', 'jingasa'):
+    if kind in ('hair', 'cap', 'feather', 'hat', 'helm', 'crown', 'coif', 'mitre', 'tophat', 'turban', 'witch', 'jester', 'jingasa', 'crest'):
         if kind not in ('helm', 'turban', 'jester'):
             c.paint(ellipse(hx - f * 0.12 * u, hy - 0.22 * u, rx * 1.08, ry * 0.75,
                             clip=lambda x, y: y < hy - 0.24 * u or ((x - hx) * f < -0.14 * u and y < hy + 0.3 * u)), hair)
@@ -297,6 +297,12 @@ def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask, beard=None):
         c.paint(ellipse(hx, hy - 0.45 * u, rx * 1.7, ry * 0.25), ramp)
         c.paint(rect(hx - rx * 0.85, hy - 1.35 * u, hx + rx * 0.85, hy - 0.45 * u, lambda x, y: nrm((x - hx) / rx * 0.8, 0, 0.7)), ramp)
         c.paint(rect(hx - rx * 0.85, hy - 0.65 * u, hx + rx * 0.85, hy - 0.5 * u), 'red', outline=False)
+    elif kind == 'crest':  # 鶏冠の兜（重装兵）
+        c.paint(ellipse(hx, hy - 0.15 * u, rx * 1.15, ry * 0.95, clip=lambda x, y: y < hy + 0.05 * u), 'gold', spec=0.6, shine=6)
+        c.paint(rect(hx - rx * 1.1, hy - 0.02 * u, hx - rx * 0.4, hy + 0.4 * u), 'gold', gain=0.85, outline=False)
+        c.paint(ellipse(hx - f * 0.1 * u, hy - 0.75 * u, rx * 1.2, ry * 0.35, clip=lambda x, y: y < hy - 0.6 * u), 'red', gain=1.0,
+                tex=lambda x, y: -0.1 if int(x) % 2 == 0 else 0)
+        c.dot(*eye, 'N0')
     elif kind == 'jingasa':  # 陣笠（平たい円錐の笠）
         c.paint(poly([(hx - rx * 2.0, hy - 0.3 * u), (hx + rx * 2.0, hy - 0.3 * u), (hx, hy - 0.85 * u)], lambda x, y: nrm((x - hx) / rx * 0.3, -0.7, 0.6)), ramp)
         c.paint(rect(hx - rx * 2.0, hy - 0.32 * u, hx + rx * 2.0, hy - 0.26 * u), 'gold', outline=False)
