@@ -7,6 +7,7 @@ facing=-1 で全体を左右反転する（光は左上のまま）。
 import math
 
 from engine import arc_points, capsule, clamp, ellipse, nrm, poly, rect
+from parts import gem
 
 ARMS = {
     'down':     (0.25, 1.35, 0.32, 2.6),
@@ -139,7 +140,7 @@ def _body_normal(fig, keys, folds=0.0, fold_from=None, phase=0.0):
 def figure(c, x, foot, h=92, facing=1, arms=('down', 'down'), legs='stand', lean=0.0,
            tunic='red', robe=False, cloak=None, legs_ramp='cloth', boots='leather', skin='skin',
            head='hood', head_ramp=None, belt='leather', trim=None, armor=False, apron=None,
-           mantle=None, props=(), behind=(), hair='hair', mask=None, young=False, gown=False):
+           mantle=None, props=(), behind=(), hair='hair', mask=None, young=False, gown=False, beard=None):
     """props: [(腕 0/1, 持ち物の関数, 前に描くか)]。持ち物の関数は (c, fig, 手の位置) を受ける。
     behind: 体より奥に描く持ち物（槍の柄など）。"""
     fig = Fig(x, foot, h, facing, arms, legs, lean)
@@ -194,7 +195,7 @@ def figure(c, x, foot, h=92, facing=1, arms=('down', 'down'), legs='stand', lean
     # ---- 頭 ----
     hx, hy = fig.X(0.05, fig.y_head), fig.y_head
     c.paint(capsule(fig.X(0, fig.y_neck - 0.2 * u), fig.y_neck - 0.2 * u, fig.X(0, fig.y_neck + 0.2 * u), fig.y_neck + 0.2 * u, 0.28 * u), skin, gain=0.75)
-    _head(c, fig, hx, hy, head, head_ramp or tunic, skin, hair, mask)
+    _head(c, fig, hx, hy, head, head_ramp or tunic, skin, hair, mask, beard)
     # ---- 腕と持ち物 ----
     for side in (0, 1):
         sh = fig.joints(side)[0]
@@ -212,7 +213,7 @@ def figure(c, x, foot, h=92, facing=1, arms=('down', 'down'), legs='stand', lean
     return fig
 
 
-def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask):
+def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask, beard=None):
     u, f = fig.u, fig.f
     rx, ry = 0.4 * u, 0.5 * u
     if kind == 'hood':
@@ -239,8 +240,8 @@ def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask):
             ty = hy - 0.5 * u
             c.paint(poly([(hx - rx * 0.8, ty + 2), (hx + rx * 0.8, ty + 2), (hx + rx * 0.4, ty - 1), (hx, ty - 0.35 * u), (hx - rx * 0.4, ty - 1)]), 'gold', spec=0.7)
             c.dot(int(hx), int(ty - 1), 'R3')
-    if kind in ('hair', 'cap', 'feather', 'hat', 'helm', 'crown', 'coif'):
-        if kind != 'helm':
+    if kind in ('hair', 'cap', 'feather', 'hat', 'helm', 'crown', 'coif', 'mitre', 'tophat', 'turban'):
+        if kind not in ('helm', 'turban'):
             c.paint(ellipse(hx - f * 0.12 * u, hy - 0.22 * u, rx * 1.08, ry * 0.75,
                             clip=lambda x, y: y < hy - 0.24 * u or ((x - hx) * f < -0.14 * u and y < hy + 0.3 * u)), hair)
         c.dot(*eye, 'G0')
@@ -266,7 +267,22 @@ def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask):
         for k in (-1, 0, 1):
             px = hx + k * rx * 0.75
             c.paint(poly([(px - 1.5, cy), (px + 1.5, cy), (px, cy - 0.35 * u)]), 'gold', spec=0.5)
-    elif kind == 'coif':
+    elif kind == 'mitre':
+        pts = [(hx - rx * 0.95, hy - 0.4 * u), (hx + rx * 0.95, hy - 0.4 * u), (hx + rx * 0.7, hy - 1.2 * u), (hx, hy - 1.6 * u), (hx - rx * 0.7, hy - 1.2 * u)]
+        o = c.paint(poly(pts, lambda x, y: nrm((x - hx) / rx * 0.6, -0.2, 0.8)), ramp)
+        c.paint(rect(hx - rx * 0.95, hy - 0.55 * u, hx + rx * 0.95, hy - 0.4 * u), 'gold', oid=o, outline=False)
+        c.paint(rect(hx - 1, hy - 1.5 * u, hx + 1, hy - 0.55 * u), 'gold', oid=o, outline=False)
+    elif kind == 'tophat':
+        c.paint(ellipse(hx, hy - 0.45 * u, rx * 1.7, ry * 0.25), ramp)
+        c.paint(rect(hx - rx * 0.85, hy - 1.35 * u, hx + rx * 0.85, hy - 0.45 * u, lambda x, y: nrm((x - hx) / rx * 0.8, 0, 0.7)), ramp)
+        c.paint(rect(hx - rx * 0.85, hy - 0.65 * u, hx + rx * 0.85, hy - 0.5 * u), 'red', outline=False)
+    elif kind == 'turban':
+        c.paint(ellipse(hx - f * 0.05 * u, hy - 0.4 * u, rx * 1.3, ry * 0.75, clip=lambda x, y: y < hy - 0.15 * u), ramp,
+                tex=lambda x, y: -0.08 if int(x - y * 0.6) % 4 == 0 else 0)
+        gem(c, hx + f * 0.1 * u, hy - 0.45 * u, 0.18 * u, 'red')
+    if beard:
+        c.paint(ellipse(hx + f * 0.05 * u, hy + 0.35 * u, rx * 0.85, ry * 0.65, clip=lambda x, y: y > hy + 0.12 * u), beard)
+    if kind == 'coif':
         c.paint(ellipse(hx - f * 0.05 * u, hy - 0.1 * u, rx * 1.2, ry * 1.1,
                         clip=lambda x, y: not ((x - hx - f * 0.08 * u) ** 2 / (rx * 0.75) ** 2 + (y - hy - 0.12 * u) ** 2 / (ry * 0.72) ** 2 < 1)), ramp)
 

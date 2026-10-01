@@ -1,7 +1,7 @@
 # カードの絵の決まり（夜の古い城の作戦卓）
 
 deck-builder の `art/*.png` を生成で描くときの決まりと、その作り方。
-描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）。残りの拡張は旧版のまま。
+描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）、繁栄（`cards-prosperity.js` の 36 枚）。残りの拡張は旧版のまま。
 
 ```sh
 python3 tools/art/build.py                       # 描ける全部を art/ に書く（パレット外の色があれば止まる）
@@ -54,6 +54,7 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 - **光だまり**: `pool`（中心）と `radius`（半径）のぼかした楕円。中心は主役に置き、外へ向かって段を踏んで暗く落ちる。
   見えている灯り（燭台・窓・月・炉・提灯）のまわりは `halo` でさらに明るむ。最後に四隅をなだらかに落とす（`vignette`）。
 - 影の側には右下からの反射光を 1 段だけ足す（`bounce`）。金属は照り（`spec`）を持つ。
+- 夜ばかりが並ばないよう、夜明けの空（`sky_ramp='dawn'`）、室内の暖かい灯（光だまりを広く明るく）、炉、雪（`snow` `snow_ground`）を散らす。
 - 見えている灯りは、いつも画面の左上の側に置く。ただし毎回同じ物にしない（月・三日月・燭台・ランタン・街灯・篝火・炉・窓・松明・提灯を場面ごとに替え、
   外の場面でも月を出さないものがある）。
 - 発光する物（炎・窓の灯り・月・光る液）は `emit` で明るさを直接決め、光に左右されない。
@@ -84,7 +85,7 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
   名前の代わりに (肘 dx, dy, 手 dx, dy) を直接渡してもよい（頭 1 つ分を 1 とする）。
 - 脚: `stand` `stride` `kneel` `crouch`。`lean` で前かがみ。`facing=-1` で左右反転（光は左上のまま）。
 - 服: `tunic`（胴と袖の色）、`robe`（裾の長い衣）、`cloak`（背の外套）、`mantle`（肩掛け）、`apron`、`armor`（胸当て）、`trim`（裾の金の縁）、`belt`。
-- かぶり物: `hood` `hat` `cap` `feather` `helm` `coif` `hair` `crown`、覆面 `mask`。
+- かぶり物: `hood` `hat` `cap` `feather` `helm` `coif` `hair` `crown` `mitre`（僧冠）`tophat` `turban`、覆面 `mask`、ひげ `beard`。
 - 女性: `gown=True`（細い胴と広がる裾）、かぶり物 `long`（長い髪）・`tiara`。
 - 持ち物（手に握らせる）: `staff`（穂先 `spear`・金の玉 `knob`・提灯 `lantern`）`sword` `dagger` `axe` `hammer` `chisel` `bow` `quiver` `book`（開いた帳簿も）`scroll` `bag` `bell` `tray`
   `orb` `held_lantern` `held_coin` `held_map` `spyglass` `shield` `banner` `quill`
