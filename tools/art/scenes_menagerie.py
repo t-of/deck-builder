@@ -47,8 +47,8 @@ SCENES = {
         light=dict(pool=(112, 100), radius=(180, 110), **DAWN),
         env=('night', dict(hz=118, moon=None, sky_ramp='dawn', stars=0, ground_ramp=None)),
         items=[('sun', dict(x=50, y=104, r=14)), ('dunes', dict(y0=112)),
-               ('camel', dict(x=190, base=122, s=0.6, facing=-1, load='blue')), ('camel', dict(x=150, base=132, s=0.8, facing=-1, load='green')),
-               ('camel', dict(x=86, base=152, s=1.25, facing=-1, load='red'))]),
+               ('camel2', dict(x=190, base=122, s=0.6, facing=-1, load='blue')), ('camel2', dict(x=150, base=132, s=0.8, facing=-1, load='green')),
+               ('camel2', dict(x=86, base=152, s=1.25, facing=-1, load='red'))]),
     'goatkeeper': dict(  # 山羊番: 岩の斜面で、杖をついて山羊を見守る
         light=dict(pool=(112, 96), radius=(170, 110), **DAWN),
         env=_dawn(hz=126, ground='stone', hills=((96, 30, 0.5, 0.6, 7),)),
@@ -330,7 +330,7 @@ SCENES = {
     'w_camel': dict(  # 駱駝のならい: 夕日の砂丘に立つ駱駝
         light=dict(pool=(112, 100), radius=(180, 110), **DAWN),
         env=('night', dict(hz=118, moon=None, sky_ramp='dawn', stars=0, ground_ramp=None)),
-        items=[('sun', dict(x=50, y=96, r=20)), ('dunes', dict(y0=112)), ('camel', dict(x=112, base=152, s=1.25, facing=-1, load='red'))]),
+        items=[('sun', dict(x=50, y=96, r=20)), ('dunes', dict(y0=112)), ('camel2', dict(x=112, base=152, s=1.25, facing=-1, load='red'))]),
     'w_frog': dict(  # 蛙のならい: 月夜の池、睡蓮の葉にのる蛙
         light=dict(pool=(112, 110), radius=(160, 100), fall=1.1, halo=(40, 30, 40, 0.6)),
         env=('coast', dict(hz=86, moon=(40, 30, 11), clouds=())),
@@ -379,10 +379,10 @@ SCENES = {
         env=_dawn(hz=116, ground='leather'),
         items=[('fence', dict(x0=0, x1=224, base=124, h=14)), ('mud_pool', dict(x=112, y=148, rx=90, ry=12)), ('pig', dict(x=112, base=150, s=1.8, facing=-1))]),
     'w_rat': dict(  # 溝鼠のならい: 地下蔵で、金貨の山に乗る溝鼠
-        light=dict(pool=(112, 116), radius=(150, 100), **WARM, halo=(30, 44, 40, 0.6)),
+        light=dict(pool=(108, 118), radius=(160, 105), fall=1.0, amb=0.09, flat=0.5, key=0.85, halo=(30, 44, 40, 0.6)),
         env=('room', dict(wall='plank', hz=110, floor='planks')),
         items=[('lantern', dict(x=30, y=44, hang=0)), ('pile', dict(cx=112, base=154, w=90, h=24, metal='gold', r=8, count=26, seed=29)),
-               ('big_rat', dict(x=112, base=138, s=2.6, facing=-1))]),
+               ('mouse', dict(x=104, base=140, s=2.2, ramp='stone', ear=0.65))]),
     'w_seal': dict(  # 海豹のならい: 月夜の岩の上で、頭をもたげる海豹
         light=dict(pool=(112, 104), radius=(160, 105), fall=1.1, halo=(40, 26, 40, 0.6)),
         env=('coast', dict(hz=92, moon=(40, 26, 11))),

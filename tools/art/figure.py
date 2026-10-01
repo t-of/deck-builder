@@ -261,7 +261,7 @@ def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask, beard=None):
             ty = hy - 0.5 * u
             c.paint(poly([(hx - rx * 0.8, ty + 2), (hx + rx * 0.8, ty + 2), (hx + rx * 0.4, ty - 1), (hx, ty - 0.35 * u), (hx - rx * 0.4, ty - 1)]), 'gold', spec=0.7)
             c.dot(int(hx), int(ty - 1), 'R3')
-    if kind in ('hair', 'cap', 'feather', 'hat', 'helm', 'crown', 'coif', 'mitre', 'tophat', 'turban', 'witch', 'jester', 'jingasa', 'crest', 'beak', 'wolf', 'horns', 'eboshi', 'topknot'):
+    if kind in ('hair', 'cap', 'feather', 'hat', 'helm', 'crown', 'coif', 'mitre', 'tophat', 'turban', 'witch', 'jester', 'jingasa', 'crest', 'beak', 'wolf', 'horns', 'eboshi', 'topknot', 'tricorn', 'bandana'):
         if kind not in ('helm', 'turban', 'jester', 'beak', 'wolf'):
             c.paint(ellipse(hx - f * 0.12 * u, hy - 0.22 * u, rx * 1.08, ry * 0.75,
                             clip=lambda x, y: y < hy - 0.24 * u or ((x - hx) * f < -0.14 * u and y < hy + 0.3 * u)), hair)
@@ -337,6 +337,14 @@ def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask, beard=None):
     elif kind == 'topknot':  # 髷（月代と、頭の上に前へ折った髷）
         c.paint(capsule(hx - f * 0.3 * u, hy - 0.5 * u, hx + f * 0.25 * u, hy - 0.62 * u, 0.13 * u, 0.1 * u), hair)
         c.paint(ellipse(hx - f * 0.33 * u, hy - 0.48 * u, 0.16 * u, 0.14 * u), hair)
+    elif kind == 'tricorn':  # 海賊の三角帽（両側と後ろを折り上げたつば、金の縁）
+        c.paint(poly([(hx - rx * 2.0, hy - 0.42 * u), (hx + rx * 2.0, hy - 0.42 * u), (hx + rx * 1.4, hy - 0.95 * u), (hx, hy - 0.62 * u), (hx - rx * 1.4, hy - 0.95 * u)],
+                     lambda x, y: nrm((x - hx) / rx * 0.3, -0.5, 0.75)), ramp)
+        c.paint(ellipse(hx, hy - 0.66 * u, rx * 0.95, ry * 0.5, clip=lambda x, y: y < hy - 0.5 * u), ramp, gain=0.9)
+        c.paint(capsule(hx - rx * 1.9, hy - 0.44 * u, hx + rx * 1.9, hy - 0.44 * u, 0.05 * u), 'gold', gain=1.0, outline=False)
+    elif kind == 'bandana':  # 頭に巻いた布と、後ろに垂れる結び目
+        c.paint(ellipse(hx - f * 0.05 * u, hy - 0.25 * u, rx * 1.1, ry * 0.7, clip=lambda x, y: y < hy - 0.12 * u), ramp)
+        c.paint(poly([(hx - f * 0.35 * u, hy - 0.2 * u), (hx - f * 0.9 * u, hy + 0.2 * u), (hx - f * 0.75 * u, hy + 0.35 * u), (hx - f * 0.3 * u, hy)]), ramp, gain=0.85)
     elif kind == 'witch':
         c.paint(ellipse(hx, hy - 0.42 * u, rx * 2.1, ry * 0.26), ramp)
         c.paint(poly([(hx - rx * 0.9, hy - 0.45 * u), (hx + rx * 0.9, hy - 0.45 * u), (hx - f * 0.6 * u, hy - 1.9 * u)],

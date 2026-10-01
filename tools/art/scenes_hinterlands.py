@@ -97,8 +97,8 @@ SCENES = {
     'silkway': dict(  # 絹の道: 夜明けの砂丘を行く駱駝の隊商
         light=dict(pool=(112, 100), radius=(190, 120), **DAWN),
         env=('night', dict(hz=110, moon=None, sky_ramp='dawn', stars=0, ground_ramp=None)),
-        items=[('dunes', dict(y0=110)), ('camel', dict(x=180, base=126, s=0.6, load='blue')), ('camel', dict(x=40, base=140, s=0.8, load='purple')),
-               ('camel', dict(x=124, base=154, s=1.35, load='red'))]),
+        items=[('dunes', dict(y0=110)), ('camel2', dict(x=180, base=126, s=0.6, load='blue')), ('camel2', dict(x=40, base=140, s=0.8, load='purple')),
+               ('camel2', dict(x=124, base=154, s=1.35, load='red'))]),
     'hiddengold': dict(  # 隠し金: 木の根もとを掘り返すと、金の箱
         light=dict(pool=(112, 104), radius=(150, 100), fall=1.1, halo=(28, 40, 40, 0.6)),
         env=('night', dict(hz=118, moon=(28, 22, 9, 0.5), ground_gain=0.7)),

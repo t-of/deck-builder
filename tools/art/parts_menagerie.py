@@ -126,7 +126,7 @@ def mole(c, x, base, s=1.0):
         c.paint(ellipse(x - 50 * k + hsh(j, 2) * 100 * k, base - hsh(2, j) * 4, 2.5 * k, 1.8 * k), 'leather', gain=1.0)
 
 
-def mouse(c, x, base, s=1.0, facing=1):
+def mouse(c, x, base, s=1.0, facing=1, ramp='silver', ear=1.0):
     """鼠（小）: 丸い胴、大きな丸い耳、尖った鼻と髭、長く巻く尾。"""
     k = s
     f = facing
@@ -134,12 +134,12 @@ def mouse(c, x, base, s=1.0, facing=1):
     pts = [(X(-12), base - 6 * k), (X(-24), base - 2 * k), (X(-34), base - 8 * k), (X(-40), base - 18 * k), (X(-36), base - 24 * k)]
     for a, b in zip(pts, pts[1:]):
         c.paint(capsule(a[0], a[1], b[0], b[1], 1.3 * k, 1.0 * k), 'copper', gain=1.0)
-    c.paint(ellipse(X(-2), base - 11 * k, 14 * k, 11 * k), 'silver', gain=0.85, tex=_fur(2, 0.05))
-    c.paint(ellipse(X(12), base - 14 * k, 8 * k, 7 * k), 'silver', gain=0.95)
-    c.paint(poly([(X(16), base - 19 * k), (X(25), base - 12 * k), (X(16), base - 9 * k)], nrm(0.1, -0.3, 0.9)), 'silver', gain=1.0)
+    c.paint(ellipse(X(-2), base - 11 * k, 14 * k, 11 * k), ramp, gain=0.85, tex=_fur(2, 0.05))
+    c.paint(ellipse(X(12), base - 14 * k, 8 * k, 7 * k), ramp, gain=0.95)
+    c.paint(poly([(X(16), base - 19 * k), (X(25), base - 12 * k), (X(16), base - 9 * k)], nrm(0.1, -0.3, 0.9)), ramp, gain=1.0)
     c.paint(ellipse(X(25), base - 12 * k, 1.8 * k, 1.6 * k), 'copper', gain=1.3)
-    c.paint(ellipse(X(8), base - 24 * k, 6 * k, 6.5 * k), 'silver', gain=0.9)
-    c.paint(ellipse(X(8.5), base - 24 * k, 3.8 * k, 4.2 * k), 'copper', gain=1.2, outline=False)
+    c.paint(ellipse(X(8), base - 18 * k - 6 * k * ear, 6 * k * ear, 6.5 * k * ear), ramp, gain=0.9)
+    c.paint(ellipse(X(8.5), base - 18 * k - 6 * k * ear, 3.8 * k * ear, 4.2 * k * ear), 'copper', gain=1.2, outline=False)
     c.dot(int(X(16)), int(base - 16 * k), 'N0')
     c.dot(int(X(15.5)), int(base - 17 * k), 'S3')
     for dy in (-1, 1):

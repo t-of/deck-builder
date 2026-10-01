@@ -1,7 +1,7 @@
 # カードの絵の決まり（夜の古い城の作戦卓）
 
 deck-builder の `art/*.png` を生成で描くときの決まりと、その作り方。
-描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）、繁栄（`cards-prosperity.js` の 36 枚）、錬金術（`cards-alchemy.js` の 13 枚）、異郷（`cards-hinterlands.js` の 35 枚）、収穫祭＆ギルド（`cards-guilds.js` の 45 枚）、暗黒時代（`cards-darkages.js` の 47 枚。がれき 5 種を含む。騎士 10 人 `k_*` はもとから絵のファイルがない）、冒険（`cards-adventures.js` の 58 枚。イベント 20 を含む）、帝国（`cards-empires.js` の 76 枚。上下 2 種の山 5・城 8・イベント 13・ランドマーク 21 を含む）、夜想曲（`cards-nocturne.js` の 77 枚。恵み 12・呪詛 12・状態 5・家宝 7・精霊などを含む）、ルネサンス（`cards-renaissance.js` の王国 25 とプロジェクト 19。「もの」5 枚は基本セットの中）、動物園（`cards-menagerie.js` の王国 31・イベント 20・ならい 19）、同盟（`cards-allies.js` の 55 枚。単独の王国 25、4 種が重なった山 6 とその中の 24 種。同盟 23 種 `x_*` はもとから絵のファイルがない）。残りの拡張は旧版のまま。
+描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）、繁栄（`cards-prosperity.js` の 36 枚）、錬金術（`cards-alchemy.js` の 13 枚）、異郷（`cards-hinterlands.js` の 35 枚）、収穫祭＆ギルド（`cards-guilds.js` の 45 枚）、暗黒時代（`cards-darkages.js` の 47 枚。がれき 5 種を含む。騎士 10 人 `k_*` はもとから絵のファイルがない）、冒険（`cards-adventures.js` の 58 枚。イベント 20 を含む）、帝国（`cards-empires.js` の 76 枚。上下 2 種の山 5・城 8・イベント 13・ランドマーク 21 を含む）、夜想曲（`cards-nocturne.js` の 77 枚。恵み 12・呪詛 12・状態 5・家宝 7・精霊などを含む）、ルネサンス（`cards-renaissance.js` の王国 25 とプロジェクト 19。「もの」5 枚は基本セットの中）、動物園（`cards-menagerie.js` の王国 31・イベント 20・ならい 19）、同盟（`cards-allies.js` の 55 枚。単独の王国 25、4 種が重なった山 6 とその中の 24 種。同盟 23 種 `x_*` はもとから絵のファイルがない）、略奪（`cards-plunder.js` の 71 枚。戦利品の山と戦利品 15・イベント 15 を含む）。残りの拡張は旧版のまま。
 
 ```sh
 python3 tools/art/build.py                       # 描ける全部を art/ に書く（パレット外の色があれば止まる）
@@ -87,6 +87,7 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 - 脚: `stand` `stride` `kneel` `crouch`。`lean` で前かがみ。`facing=-1` で左右反転（光は左上のまま）。
 - かぶり物（ルネサンスで足した）: `eboshi`（神主の立烏帽子）、`topknot`（髷）。
 - 持ち物（同盟で足した、parts_allies）: `kanejaku`（曲尺）`courier_pole`（飛脚の担ぎ棒）`kagura_bell`（神楽鈴）。部品: `bauble` `palisade` `watchtower` `timber_frame` `gozabune` `handshake` `dress_form` `pocket_watch`。
+- かぶり物（略奪で足した）: `tricorn`（海賊の三角帽）`bandana`（頭に巻いた布）。部品（parts_plunder）: `camel2`（駱駝の作り直し）`amphora` `figurehead` `insignia` `royal_orb` `puzzle_box` `sextant` `kite_shield` `sword_cane` `big_katana` `big_hammer` `big_scroll` `jewel_heap` `birdcage` `jewel_egg` `rope_coil` `pendant_big` `stowaway_barrel` `gondola` `stilt_shack` `x_mark` `slipway`。
 - 服: `tunic`（胴と袖の色）、`robe`（裾の長い衣）、`cloak`（背の外套）、`mantle`（肩掛け）、`apron`、`armor`（胸当て）、`trim`（裾の金の縁）、`belt`。
 - かぶり物: `hood` `hat` `cap` `feather` `helm` `coif` `hair` `crown` `mitre`（僧冠）`tophat` `turban` `witch`（三角帽）`jester`（道化の鈴帽子）、覆面 `mask`、ひげ `beard`。
 - 顔が主役の絵（王・魔女・隠者など）だけ `face=True` で、目 2 つ・眉の影・鼻の照りと影・口を足す。
@@ -172,8 +173,8 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 
 ## 引き継ぎ
 
-ここまでで描いたのは、基本・陰謀・海辺・繁栄・錬金術・異郷・収穫祭＆ギルド・暗黒時代・冒険・帝国・夜想曲・ルネサンス・動物園・同盟。
-残りは plunder・risingsun・promo。
+ここまでで描いたのは、基本・陰謀・海辺・繁栄・錬金術・異郷・収穫祭＆ギルド・暗黒時代・冒険・帝国・夜想曲・ルネサンス・動物園・同盟・略奪。
+残りは risingsun・promo。
 
 ### 読む順
 
@@ -250,6 +251,7 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 
 - （直した）手長猿は `parts_menagerie.monkey2`（胸と腰のふくらみ、2 節の腕と脚、毛の面の中の顔）に作り直し、海辺の `gibbon` もそれに替えた。
   狼男の `wolf` の頭は大きくし、首の毛と耳の内を足した。
+- （直した）駱駝は `parts_plunder.camel2`（3 つのふくらみ・一つのこぶ・膝の張った 2 節の脚・持ち上がる首）に作り直し、異郷の `silkway` と動物園の `caravan2` `w_camel` もそれに替えた。溝鼠のならい `w_rat` は明るい床と `mouse(ramp='stone', ear=0.65)` にした。
 - **天の加護**（`b_sky`）: 空ばかりで地面が暗い。丘を明るく、主役（後光の日）を大きく。
 - **顔**: `face=True` は目・眉・鼻・口を 1 段足すだけ。王や女王が主役の札が多い拡張では、もう 1 段（頬の影など）を足してもよい。
 - 夜想曲の怪異の札は、まだ月が左上に出る絵が多め。
