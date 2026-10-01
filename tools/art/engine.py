@@ -132,6 +132,14 @@ class Canvas:
             if oid is not None:
                 self.oid[i] = oid
 
+    def brighten(self, cx, cy, rx, ry, s=0.3):
+        """光の暈: すでに描いた画素の明るさを、中心ほど強く足す（ランプは変えない）。"""
+        for y in range(max(0, int(cy - ry)), min(H, int(cy + ry) + 1)):
+            for x in range(max(0, int(cx - rx)), min(W, int(cx + rx) + 1)):
+                d = ((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2
+                if d < 1:
+                    self.L[y * W + x] += s * (1 - d)
+
     def get_oid(self, x, y):
         return self.oid[y * W + x] if 0 <= x < W and 0 <= y < H else -1
 

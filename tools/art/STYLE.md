@@ -1,7 +1,7 @@
 # カードの絵の決まり（夜の古い城の作戦卓）
 
 deck-builder の `art/*.png` を生成で描くときの決まりと、その作り方。
-描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）、繁栄（`cards-prosperity.js` の 36 枚）、錬金術（`cards-alchemy.js` の 13 枚）、異郷（`cards-hinterlands.js` の 35 枚）、収穫祭＆ギルド（`cards-guilds.js` の 45 枚）、暗黒時代（`cards-darkages.js` の 47 枚。がれき 5 種を含む。騎士 10 人 `k_*` はもとから絵のファイルがない）。残りの拡張は旧版のまま。
+描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）、海辺（`cards-seaside.js` の 35 枚）、繁栄（`cards-prosperity.js` の 36 枚）、錬金術（`cards-alchemy.js` の 13 枚）、異郷（`cards-hinterlands.js` の 35 枚）、収穫祭＆ギルド（`cards-guilds.js` の 45 枚）、暗黒時代（`cards-darkages.js` の 47 枚。がれき 5 種を含む。騎士 10 人 `k_*` はもとから絵のファイルがない）、冒険（`cards-adventures.js` の 58 枚。イベント 20 を含む）。残りの拡張は旧版のまま。
 
 ```sh
 python3 tools/art/build.py                       # 描ける全部を art/ に書く（パレット外の色があれば止まる）
