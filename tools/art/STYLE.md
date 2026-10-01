@@ -1,14 +1,17 @@
 # カードの絵の決まり（夜の古い城の作戦卓）
 
 deck-builder の `art/*.png` を生成で描くときの決まりと、その作り方。
-今描いているのは基本セット（`cards-base.js` の 39 枚）と、ルネサンスの「もの」5 枚（`a_*.png`）。拡張の絵は旧版のまま。
+描いたもの: 基本セット（`cards-base.js` の 39 枚）とルネサンスの「もの」5 枚（`a_*.png`）、陰謀（`cards-intrigue.js` の 32 枚）。残りの拡張は旧版のまま。
 
 ```sh
-python3 tools/art/build_base.py             # 44 枚を art/ に書く（パレット外の色があれば止まる）
-python3 tools/art/build_base.py gold crier  # 指定したものだけ
-python3 tools/art/build_base.py --check     # 2 回描いて同じ PNG になるか確かめる（書かない）
-python3 tools/art/compare_sheet.py          # 旧絵（git の HEAD）と並べた見比べを本部の .audit/deck-art-base-<n>.png に
+python3 tools/art/build.py                       # 描ける全部を art/ に書く（パレット外の色があれば止まる）
+python3 tools/art/build.py --set intrigue        # 1 つの拡張だけ（base は基本セット＋a_*.png）
+python3 tools/art/build.py gold crier            # 指定したものだけ
+python3 tools/art/build.py --check --set base    # 2 回描いて同じ PNG になるか確かめる（書かない）
+python3 tools/art/compare_sheet.py --set intrigue  # 旧絵と並べた見比べを本部の .audit/deck-art-<拡張>-<n>.png に
 ```
+
+部品を足したら、前に描いた拡張を描き直して `git status art/` で変わっていないことを確かめる（変えるなら意図して）。
 
 python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<カードの id>)` で種を固定し、
 ほとんどの揺らぎは座標から決まる `hsh()` で出すので、何度動かしても同じ PNG になる。
@@ -21,8 +24,9 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 | `engine.py` | 光（`Light`）、画素の器（`Canvas`）、形（楕円・多角形・棒・円柱）、仕上げ（段への丸め・ディザ・輪郭・PNG） |
 | `parts.py` | 部品: 背景（石壁・板壁・卓・石畳・夜空・丘・森の地面）、灯り、硬貨、建物、木と花、家具・道具、アイコンの主役 |
 | `figure.py` | 人物: 姿勢（腕・脚）、胴・腕・頭の立体、服・かぶり物の差し替え、持ち物 |
-| `scenes.py` | 場面データ（カードごとの表）と、背景の組み立て |
-| `build_base.py` / `compare_sheet.py` | 書き出しと見比べ |
+| `scenes.py` | 基本セットの場面データ、背景の組み立て、拡張の表をまとめる `SETS` |
+| `scenes_<拡張>.py` | 拡張ごとの場面データ（データだけ） |
+| `build.py` / `compare_sheet.py` | 書き出しと見比べ |
 
 ## 大きさと保存
 
@@ -81,8 +85,10 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 - 脚: `stand` `stride` `kneel` `crouch`。`lean` で前かがみ。`facing=-1` で左右反転（光は左上のまま）。
 - 服: `tunic`（胴と袖の色）、`robe`（裾の長い衣）、`cloak`（背の外套）、`mantle`（肩掛け）、`apron`、`armor`（胸当て）、`trim`（裾の金の縁）、`belt`。
 - かぶり物: `hood` `hat` `cap` `feather` `helm` `coif` `hair` `crown`、覆面 `mask`。
-- 持ち物（手に握らせる）: `staff`（槍の穂先も）`sword` `dagger` `axe` `hammer` `chisel` `bow` `quiver` `book`（開いた帳簿も）`scroll` `bag` `bell` `tray`
-  `orb` `held_lantern` `held_coin` `held_map` `spyglass` `shield` `banner` `quill`。持ち物を描いてから手を重ねるので、握って見える。
+- 女性: `gown=True`（細い胴と広がる裾）、かぶり物 `long`（長い髪）・`tiara`。
+- 持ち物（手に握らせる）: `staff`（穂先 `spear`・金の玉 `knob`・提灯 `lantern`）`sword` `dagger` `axe` `hammer` `chisel` `bow` `quiver` `book`（開いた帳簿も）`scroll` `bag` `bell` `tray`
+  `orb` `held_lantern` `held_coin` `held_map` `spyglass` `shield` `banner` `quill`
+  `club` `held_keys` `held_candelabra` `parcel` `letter` `fan` `mask_stick` `pot` `rod`。持ち物を描いてから手を重ねるので、握って見える。
 
 ## 場面データ（`scenes.py` の `SCENES`）
 
@@ -151,6 +157,6 @@ python3 の標準と Pillow だけ。乱数は使うときも `random.Random(<�
 
 ## 拡張に広げるとき
 
-1. `scenes.py` の `SCENES` に場面を足す（`build_base.py` は `SCENES` にあるものを全部描く。拡張用に分けるなら別の表と書き出しを作る）。
+1. `scenes_<拡張>.py` に `SCENES` を書き、`scenes.py` の `SETS` に足す。
 2. 足りない部品は `parts.py` に足す。色・光・段・輪郭は部品の側で決めない（`c.paint` にランプと形と向きを渡すだけ）。
 3. `compare_sheet.py` で旧絵と並べ、幅 60px でも何の絵か分かるかを見る。

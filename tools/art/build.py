@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""基本セット（cards-base.js の 39 枚）と a_*.png 5 枚を描く。
-    python3 tools/art/build_base.py            # art/ に書く
-    python3 tools/art/build_base.py --check    # 2 回描いてハッシュが同じか、パレット外の色がないかだけ確かめる
-    python3 tools/art/build_base.py gold crier # 指定したものだけ書く
+"""カードの絵を描く。
+    python3 tools/art/build.py                    # 全部の拡張（scenes.SETS）を art/ に書く
+    python3 tools/art/build.py --set intrigue     # 1 つの拡張だけ（base は基本セット＋a_*.png）
+    python3 tools/art/build.py gold crier         # 指定したものだけ
+    python3 tools/art/build.py --check [--set …]  # 2 回描いて同じ PNG になるかだけ確かめる（書かない）
 """
 import hashlib
 import io
@@ -24,8 +25,14 @@ def png_bytes(cid):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith('--')]
-    ids = args or list(scenes.SCENES)
+    argv = sys.argv[1:]
+    sets = []
+    while '--set' in argv:
+        i = argv.index('--set')
+        sets.append(argv[i + 1])
+        del argv[i:i + 2]
+    args = [a for a in argv if not a.startswith('--')]
+    ids = args or [cid for name in (sets or list(scenes.SETS)) for cid in scenes.SETS[name]]
     if '--check' in sys.argv:
         for cid in ids:
             a, b = png_bytes(cid), png_bytes(cid)

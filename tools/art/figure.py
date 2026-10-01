@@ -6,7 +6,7 @@ facing=-1 で全体を左右反転する（光は左上のまま）。
 """
 import math
 
-from engine import capsule, clamp, ellipse, nrm, poly, rect
+from engine import arc_points, capsule, clamp, ellipse, nrm, poly, rect
 
 ARMS = {
     'down':     (0.25, 1.35, 0.32, 2.6),
@@ -139,7 +139,7 @@ def _body_normal(fig, keys, folds=0.0, fold_from=None, phase=0.0):
 def figure(c, x, foot, h=92, facing=1, arms=('down', 'down'), legs='stand', lean=0.0,
            tunic='red', robe=False, cloak=None, legs_ramp='cloth', boots='leather', skin='skin',
            head='hood', head_ramp=None, belt='leather', trim=None, armor=False, apron=None,
-           mantle=None, props=(), behind=(), hair='hair', mask=None, young=False):
+           mantle=None, props=(), behind=(), hair='hair', mask=None, young=False, gown=False):
     """props: [(腕 0/1, 持ち物の関数, 前に描くか)]。持ち物の関数は (c, fig, 手の位置) を受ける。
     behind: 体より奥に描く持ち物（槍の柄など）。"""
     fig = Fig(x, foot, h, facing, arms, legs, lean)
@@ -163,6 +163,9 @@ def figure(c, x, foot, h=92, facing=1, arms=('down', 'down'), legs='stand', lean
     # ---- 胴 ----
     keys = [(fig.y_neck + 0.1 * u, 0.55), (fig.y_sh, sh_w), (fig.y_sh + 0.8 * u, 0.95), (fig.y_waist, 0.72),
             (fig.y_hip, 0.85), (hem, 1.25 if not robe else 1.5)]
+    if gown:  # 細い胴と、裾へ大きく広がるドレス
+        keys = [(fig.y_neck + 0.1 * u, 0.5), (fig.y_sh, 0.9), (fig.y_sh + 0.8 * u, 0.8), (fig.y_waist, 0.55),
+                (fig.y_hip, 1.1), (hem, 2.3)]
     if robe and legs in ('kneel', 'crouch'):
         keys[-1] = (foot - 0.1 * u, 2.0)
     body = c.paint(poly(_body_poly(fig, keys), _body_normal(fig, keys, 0.45, fig.y_waist, 0.5)), tunic)
@@ -223,8 +226,19 @@ def _head(c, fig, hx, hy, kind, ramp, skin, hair, mask):
         else:
             c.dot(int(hx + f * 0.28 * u), int(hy), 'G0')
         return
+    if kind in ('long', 'tiara'):
+        # 肩まで流れる長い髪（頭の後ろ）
+        c.paint(poly([(hx - rx * 1.15, hy - 0.2 * u), (hx + rx * 1.15, hy - 0.2 * u), (hx + rx * 1.3, hy + 1.3 * u), (hx - rx * 1.3, hy + 1.3 * u)],
+                     lambda px, py: nrm((px - hx) / rx * 0.5, 0, 0.85)), hair)
     c.paint(ellipse(hx, hy, rx, ry), skin)
     eye = (int(hx + f * 0.25 * u), int(hy - 0.02 * u))
+    if kind in ('long', 'tiara'):
+        c.paint(ellipse(hx - f * 0.05 * u, hy - 0.25 * u, rx * 1.12, ry * 0.7, clip=lambda x, y: y < hy - 0.2 * u), hair)
+        c.dot(*eye, 'G0')
+        if kind == 'tiara':
+            ty = hy - 0.5 * u
+            c.paint(poly([(hx - rx * 0.8, ty + 2), (hx + rx * 0.8, ty + 2), (hx + rx * 0.4, ty - 1), (hx, ty - 0.35 * u), (hx - rx * 0.4, ty - 1)]), 'gold', spec=0.7)
+            c.dot(int(hx), int(ty - 1), 'R3')
     if kind in ('hair', 'cap', 'feather', 'hat', 'helm', 'crown', 'coif'):
         if kind != 'helm':
             c.paint(ellipse(hx - f * 0.12 * u, hy - 0.22 * u, rx * 1.08, ry * 0.75,
@@ -275,6 +289,12 @@ def staff(deg=-90, length=5.0, ramp='wood', top=None, below=1.2):
         if top == 'spear':
             c.paint(poly([(x1 - 0.3 * u, y1 + 0.2 * u), (x1 + 0.3 * u, y1 + 0.2 * u), (x1 + dx * 1.2 * u, y1 + dy * 1.2 * u)]),
                     'silver', spec=0.6, shine=5, gain=1.1)
+        elif top == 'knob':
+            c.paint(ellipse(x1, y1, 0.42 * u, 0.42 * u), 'gold', spec=0.7, shine=5)
+        elif top == 'lantern':
+            from parts import lantern
+            c.paint(capsule(x1, y1, x1 + fig.f * 1.0 * u, y1, 0.13 * u), 'wood')
+            lantern(c, x1 + fig.f * 1.0 * u, y1 + 1.0 * u, s=u / 13 * 0.9, hang=y1)
         elif top == 'crook':
             pts = [(x1 + fig.f * 0.6 * u * (1 - math.cos(t)), y1 - 0.6 * u * math.sin(t)) for t in [i * 0.5 for i in range(7)]]
             for a, b in zip(pts, pts[1:]):
@@ -544,4 +564,97 @@ def quiver():
         c.paint(capsule(x - fig.f * 0.4 * u, fig.y_sh - 0.4 * u, x + fig.f * 0.6 * u, fig.y_waist, 0.45 * u), 'leather', gain=0.9)
         for k in range(3):
             c.paint(capsule(x - fig.f * (0.4 + k * 0.15) * u, fig.y_sh - 0.4 * u, x - fig.f * (0.7 + k * 0.2) * u, fig.y_sh - 1.2 * u, 0.12 * u), 'paper', gain=1.0)
+    return draw
+
+
+def club():
+    """棍棒: 先の太い木の棒。"""
+    def draw(c, fig, hand):
+        u = fig.u
+        dx, dy = _dir(fig, -70)
+        x1, y1 = hand[0] + dx * 2.8 * u, hand[1] + dy * 2.8 * u
+        c.paint(capsule(hand[0] - dx * 0.4 * u, hand[1] - dy * 0.4 * u, x1, y1, 0.16 * u, 0.42 * u), 'wood', gain=1.0)
+        c.dot(int(x1 - 1), int(y1 - 1), 'G4')
+    return draw
+
+
+def held_keys():
+    def draw(c, fig, hand):
+        from parts import keyring
+        keyring(c, hand[0], hand[1] + 0.3 * fig.u)
+    return draw
+
+
+def held_candelabra():
+    def draw(c, fig, hand):
+        from parts import candelabra
+        candelabra(c, hand[0], hand[1] + 0.3 * fig.u, h=1.6 * fig.u)
+    return draw
+
+
+def parcel():
+    """紐をかけた包み。"""
+    def draw(c, fig, hand):
+        u = fig.u
+        x, y = hand[0], hand[1] - 0.3 * u
+        o = c.paint(rect(x - 0.9 * u, y - 0.8 * u, x + 0.9 * u, y + 0.5 * u, nrm(-0.3, -0.2, 0.9)), 'paper', gain=0.9)
+        c.paint(rect(x - 0.9 * u, y - 0.2 * u, x + 0.9 * u, y - 0.2 * u + 1.5), 'red', oid=o, outline=False)
+        c.paint(rect(x - 0.75, y - 0.8 * u, x + 0.75, y + 0.5 * u), 'red', oid=o, outline=False)
+    return draw
+
+
+def letter():
+    """封をした書状（赤い封蝋）。"""
+    def draw(c, fig, hand):
+        u = fig.u
+        x, y = hand[0] + fig.f * 0.3 * u, hand[1] - 0.4 * u
+        c.paint(rect(x - 0.9 * u, y - 0.55 * u, x + 0.9 * u, y + 0.55 * u, nrm(-0.3, -0.2, 0.9)), 'paper', gain=1.1)
+        c.paint(capsule(x - 0.9 * u, y - 0.55 * u, x, y + 0.1 * u, 0.5), 'paper', gain=0.7, outline=False)
+        c.paint(capsule(x + 0.9 * u, y - 0.55 * u, x, y + 0.1 * u, 0.5), 'paper', gain=0.7, outline=False)
+        c.paint(ellipse(x, y + 0.1 * u, 0.3 * u, 0.3 * u), 'red', gain=1.1, spec=0.4)
+    return draw
+
+
+def fan(ramp='red'):
+    """扇（開いた扇の骨が放射に）。"""
+    def draw(c, fig, hand):
+        u = fig.u
+        x, y = hand
+        pts = [(x, y)] + arc_points(x, y, 1.5 * u, -math.pi * 0.95, -math.pi * 0.45, 10)
+        o = c.paint(poly(pts, nrm(-0.3, -0.3, 0.9)), ramp, gain=1.05)
+        for a in [-math.pi * (0.92 - k * 0.09) for k in range(6)]:
+            c.paint(capsule(x, y, x + math.cos(a) * 1.4 * u, y + math.sin(a) * 1.4 * u, 0.4), 'gold', oid=o, gain=0.8, outline=False)
+    return draw
+
+
+def mask_stick(ramp='gold'):
+    """棒のついた仮面。"""
+    def draw(c, fig, hand):
+        from parts import mask
+        u = fig.u
+        c.paint(capsule(hand[0], hand[1] + 0.5 * u, hand[0], hand[1] - 1.2 * u, 0.12 * u), 'wood')
+        mask(c, hand[0], hand[1] - 1.8 * u, ramp)
+    return draw
+
+
+def pot(ramp='copper'):
+    """手に持つ鍋（修理中）。"""
+    def draw(c, fig, hand):
+        u = fig.u
+        x, y = hand[0] + fig.f * 0.9 * u, hand[1]
+        c.paint(ellipse(x, y, 1.0 * u, 0.85 * u, clip=lambda px, py: py >= y - 0.3 * u), ramp, spec=0.6, shine=5)
+        c.paint(ellipse(x, y - 0.3 * u, 1.0 * u, 0.3 * u), ramp, gain=0.55)
+        c.paint(capsule(x - fig.f * 1.0 * u, y - 0.3 * u, hand[0], hand[1], 0.12 * u), 'silver')
+    return draw
+
+
+def rod():
+    """測量の目盛り竿（紅白の縞）。"""
+    def draw(c, fig, hand):
+        u = fig.u
+        x, y = hand
+        for k in range(8):
+            y0 = y - 4.5 * u + k * 0.75 * u
+            c.paint(capsule(x, y0, x, y0 + 0.75 * u, 0.17 * u, flat=0.2), 'red' if k % 2 == 0 else 'paper', gain=1.0)
+        c.paint(capsule(x, y + 1.5 * u, x, y + 3.6 * u, 0.15 * u), 'wood')
     return draw

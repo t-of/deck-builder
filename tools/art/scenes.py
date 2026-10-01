@@ -116,7 +116,8 @@ PARTS.update({
 
 PROPS = {name: getattr(F, name) for name in (
     'staff', 'sword', 'axe', 'hammer', 'bow', 'book', 'scroll', 'bag', 'bell', 'tray', 'orb', 'held_lantern',
-    'spyglass', 'shield', 'banner', 'quill', 'dagger', 'chisel', 'held_map', 'held_coin', 'quiver')}
+    'spyglass', 'shield', 'banner', 'quill', 'dagger', 'chisel', 'held_map', 'held_coin', 'quiver',
+    'club', 'held_keys', 'held_candelabra', 'parcel', 'letter', 'fan', 'mask_stick', 'pot', 'rod')}
 
 
 def _prop(spec):
@@ -619,8 +620,15 @@ SCENES = {
 }
 
 
+import scenes_intrigue  # noqa: E402
+
+# 拡張ごとの場面の表。build.py と compare_sheet.py は --set でこの名前を受ける
+SETS = {'base': SCENES, 'intrigue': scenes_intrigue.SCENES}
+ALL = {k: v for t in SETS.values() for k, v in t.items()}
+
+
 def render(cid, Canvas):
-    s = SCENES[cid]
+    s = ALL[cid]
     c = Canvas(Light(**s['light']), cid)
     name, kw = s['env']
     ENVS[name](c, **kw)

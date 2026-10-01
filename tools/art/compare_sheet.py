@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""旧絵（git の HEAD）と新絵を左右に並べた見比べ画像を、本部の .audit/deck-art-base-<n>.png に書く。
-    python3 tools/art/compare_sheet.py            # build_base.py が描く全部
-    python3 tools/art/compare_sheet.py gold crier # 指定したものだけ
+"""旧絵と新絵を左右に並べた見比べ画像を、本部の .audit/deck-art-<拡張>-<n>.png に書く。
+    python3 tools/art/compare_sheet.py --set intrigue        # 1 つの拡張
+    python3 tools/art/compare_sheet.py --set base gold crier # 指定したものだけ
+旧絵は、tools/art で最初に描き直す前の版（OLD_REV）から取る。
 1 行: カード名 | 旧（半分の大きさ）| 旧（幅 60px）| 新（半分）| 新（幅 60px）
 """
 import io
@@ -26,11 +27,14 @@ PAD = 8
 ROW_H = BIG[1] + PAD
 PER_SHEET = 11
 BG = (24, 23, 28)
+OLD_REV = '55ad6bc'  # 生成で描き直す前の最後の版
 
 
 def names():
     out = {}
-    for f in ('cards-base.js', 'cards-renaissance.js'):
+    for f in sorted(os.listdir(ROOT)):
+        if not (f.startswith('cards-') and f.endswith('.js')):
+            continue
         src = open(os.path.join(ROOT, f), encoding='utf-8').read()
         for m in re.finditer(r"id: '([a-z_]+)',\s*name: '([^']+)'", src):
             out[m.group(1)] = m.group(2)
@@ -38,7 +42,7 @@ def names():
 
 
 def old_image(cid):
-    data = subprocess.run(['git', '-C', ROOT, 'show', f'HEAD:art/{cid}.png'], capture_output=True).stdout
+    data = subprocess.run(['git', '-C', ROOT, 'show', f'{OLD_REV}:art/{cid}.png'], capture_output=True).stdout
     return Image.open(io.BytesIO(data)).convert('RGB') if data else Image.new('RGB', (448, 320))
 
 
@@ -57,7 +61,13 @@ def row(cid, label):
 
 
 def main():
-    ids = sys.argv[1:] or list(scenes.SCENES)
+    argv = sys.argv[1:]
+    name = 'base'
+    if '--set' in argv:
+        i = argv.index('--set')
+        name = argv[i + 1]
+        del argv[i:i + 2]
+    ids = argv or list(scenes.SETS[name])
     nm = names()
     os.makedirs(OUT_DIR, exist_ok=True)
     rows = [row(cid, nm.get(cid, cid)) for cid in ids]
@@ -70,7 +80,7 @@ def main():
         d.text((LABEL_W + BIG[0] + SMALL[0] + PAD * 2, 4), '新', fill=(200, 195, 185), font=FONT)
         for j, r in enumerate(chunk):
             sheet.paste(r, (0, head_h + j * ROW_H))
-        path = os.path.join(OUT_DIR, f'deck-art-base-{n}.png')
+        path = os.path.join(OUT_DIR, f'deck-art-{name}-{n}.png')
         sheet.save(path)
         print(path)
 
