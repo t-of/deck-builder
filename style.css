@@ -11,10 +11,10 @@
   --line-gold: rgba(201, 162, 39, 0.32);
   --radius: 3px;          /* ボタン・チップなど、ほとんど丸めない */
 
-  /* 四隅の小さな菱形の飾り（金）。背景として 4 隅に敷く */
-  --corner: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='8' height='8'><rect x='2' y='2' width='4' height='4' fill='%23c9a227' transform='rotate(45 4 4)'/></svg>");
-  /* ごく薄いノイズ（feTurbulence）。石・紙の質感を軽く足す */
-  --noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  /* 四隅の飾り（金の菱形の輪郭＋中心の点）。背景として 4 隅に敷く。版画の額の角のように、どの大きさでも分かる太さにする */
+  --corner: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12'><rect x='1' y='1' width='10' height='10' fill='none' stroke='%23c9a227' stroke-width='1.6' transform='rotate(45 6 6)'/><circle cx='6' cy='6' r='1.1' fill='%23c9a227'/></svg>");
+  /* 石・紙の質感のノイズ（feTurbulence）。はっきり見える程度に濃いめにする */
+  --noise: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.12 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
 }
 
 * { box-sizing: border-box; }
@@ -324,16 +324,17 @@ button { font: inherit; color: inherit; }
   --frame: #4a4536; /* デフォルト（アクション）の枠色。種類ごとに data-type で上書き */
   --frame-soft: #6a6450;
 }
-/* 卓の背景: 中心がわずかに明るく、端は暗く落ちるビネット。石目のノイズと、ごく薄い星図の線を重ねて奥行きを出す */
+/* 卓の背景: 中心がわずかに明るく、端は暗く落ちるビネット。石目（横の目地）・ノイズ・星図の菱形格子を重ねて奥行きを出す */
 [data-theme="card"] html, [data-theme="card"] body {
-  background-color: #07070a;
+  background-color: #08080b;
   background-image:
     var(--noise),
-    repeating-linear-gradient(45deg, rgba(201, 162, 39, 0.028) 0 1px, transparent 1px 80px),
-    repeating-linear-gradient(-45deg, rgba(201, 162, 39, 0.028) 0 1px, transparent 1px 80px),
-    radial-gradient(ellipse 70% 45% at 50% 0%, rgba(120, 95, 45, 0.13), transparent 62%),
-    radial-gradient(ellipse 130% 100% at 50% 40%, rgba(26, 24, 22, 0) 0%, rgba(0, 0, 0, 0.6) 100%);
-  background-size: 140px 140px, auto, auto, auto, auto;
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.3) 0 2px, transparent 2px 58px),
+    repeating-linear-gradient(45deg, rgba(201, 162, 39, 0.07) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(-45deg, rgba(201, 162, 39, 0.07) 0 1px, transparent 1px 64px),
+    radial-gradient(ellipse 65% 40% at 50% 0%, rgba(140, 108, 50, 0.24), transparent 60%),
+    radial-gradient(ellipse 120% 95% at 50% 42%, rgba(40, 36, 30, 0) 0%, rgba(0, 0, 0, 0.78) 100%);
+  background-size: 160px 160px, auto, auto, auto, auto, auto;
 }
 [data-theme="card"] .app { background: none; }
 [data-theme="card"] body, [data-theme="card"] h1, [data-theme="card"] h2, [data-theme="card"] h3 {
@@ -357,8 +358,8 @@ button { font: inherit; color: inherit; }
   background-image: var(--corner), var(--corner), var(--corner), var(--corner);
   background-repeat: no-repeat;
   background-position: top left, top right, bottom left, bottom right;
-  background-size: 7px 7px;
-  opacity: 0.8;
+  background-size: 11px 11px;
+  opacity: 0.9;
 }
 [data-theme="card"] .pill, [data-theme="card"] .playercount button, [data-theme="card"] .chip, [data-theme="card"] .tabs button {
   border: 1px solid var(--line-gold);
@@ -395,14 +396,14 @@ button { font: inherit; color: inherit; }
   }
 }
 @keyframes cardGlow {
-  0% { box-shadow: inset 0 0 0 0.09em var(--frame), 0 0 0 0.03em rgba(201, 162, 39, 0.9), 0 0 10px 1px rgba(201, 162, 39, 0.0), 0 2px 6px rgba(0, 0, 0, 0.55); }
-  50% { box-shadow: inset 0 0 0 0.09em var(--frame), 0 0 0 0.03em rgba(232, 199, 103, 0.95), 0 0 12px 3px rgba(201, 162, 39, 0.55), 0 2px 6px rgba(0, 0, 0, 0.55); }
-  100% { box-shadow: inset 0 0 0 0.09em var(--frame), 0 0 0 0.03em rgba(201, 162, 39, 0.9), 0 0 10px 1px rgba(201, 162, 39, 0.0), 0 2px 6px rgba(0, 0, 0, 0.55); }
+  0% { box-shadow: var(--ring-hair), var(--ring-band), 0 0 0 0.03em rgba(201, 162, 39, 0.9), 0 0 10px 1px rgba(201, 162, 39, 0.0), 0 2px 6px rgba(0, 0, 0, 0.55); }
+  50% { box-shadow: var(--ring-hair), var(--ring-band), 0 0 0 0.03em rgba(232, 199, 103, 0.95), 0 0 12px 3px rgba(201, 162, 39, 0.55), 0 2px 6px rgba(0, 0, 0, 0.55); }
+  100% { box-shadow: var(--ring-hair), var(--ring-band), 0 0 0 0.03em rgba(201, 162, 39, 0.9), 0 0 10px 1px rgba(201, 162, 39, 0.0), 0 2px 6px rgba(0, 0, 0, 0.55); }
 }
 [data-theme="card"] .podium__step { background: linear-gradient(180deg, rgba(26, 25, 22, 0.78), rgba(6, 6, 7, 0.5)); border: 1px solid var(--line-gold); }
 [data-theme="card"] .podium__score { color: var(--accent); }
 
-[data-theme="card"] .tcgcard[data-type="treasure"] { --frame: #a8822c; --frame-soft: #d4ae4c; }
+[data-theme="card"] .tcgcard[data-type="treasure"] { --frame: #7a5f22; --frame-soft: #9c7c34; }
 [data-theme="card"] .tcgcard[data-type="victory"] { --frame: #2f5438; --frame-soft: #4f7a5a; }
 [data-theme="card"] .tcgcard[data-type="action"] { --frame: #4a4536; --frame-soft: #6a6450; }
 [data-theme="card"] .tcgcard[data-type="action-attack"] { --frame: #7a2630; --frame-soft: #a5404c; }
@@ -415,6 +416,10 @@ button { font: inherit; color: inherit; }
 [data-theme="card"] .tcgcard[data-type="night"] { --frame: #23242c; --frame-soft: #8a8f9c; }
 
 [data-theme="card"] .tcgcard {
+  /* 二重の縁: 内側は細い金の線（--ring-hair）、その外に種類の色の帯（--ring-band）。
+     box-shadow は先に書いた方が上に乗るので、細い金の線を先に・太い色帯を後に書く */
+  --ring-hair: inset 0 0 0 0.03em var(--accent-bright, #e8c767);
+  --ring-band: inset 0 0 0 0.12em var(--frame);
   position: relative;
   width: 76px;
   aspect-ratio: 63 / 88;
@@ -424,34 +429,36 @@ button { font: inherit; color: inherit; }
   flex-direction: column;
   align-items: stretch;  /* .card の flex-start を打ち消し、名前・絵・説明を横いっぱいに広げる */
   gap: 0.3em;
-  padding: 0.35em;
+  padding: 0.4em;
   border: 0.1em solid #050506;
   border-radius: 2px;
-  background: linear-gradient(165deg, #211f1b 0%, #171512 55%, #0e0d0b 100%);
-  background-blend-mode: normal;
-  box-shadow: inset 0 0 0 0.09em var(--frame), inset 0 0 0 0.03em rgba(201, 162, 39, 0.55), 0 2px 6px rgba(0, 0, 0, 0.55);
+  background:
+    var(--noise),
+    linear-gradient(165deg, #2a251e 0%, #19150f 55%, #0c0a08 100%);
+  background-size: 2.4em 2.4em, auto;
+  box-shadow: var(--ring-hair), var(--ring-band), 0 2px 6px rgba(0, 0, 0, 0.55);
   color: #ded6bf;
   text-align: left;
   font-size: 8px;
   font-family: 'Noto Serif JP', serif;
 }
-/* 四隅の金の菱形。額に入った版画のように見せる */
+/* 四隅の金の飾り。額に入った版画のように見せる。小さいサプライでも分かるよう、札の em に対して大きめに取る */
 [data-theme="card"] .tcgcard::before {
   content: '';
   position: absolute;
-  inset: 0.2em;
+  inset: 0.16em;
   pointer-events: none;
   background-image: var(--corner), var(--corner), var(--corner), var(--corner);
   background-repeat: no-repeat;
   background-position: top left, top right, bottom left, bottom right;
-  background-size: 0.5em 0.5em;
-  opacity: 0.85;
+  background-size: 0.95em 0.95em;
+  opacity: 0.95;
 }
 /* 詳しい表示も小さい札と同じトレカの比率（63:88）のまま。説明が長ければ説明の枠の中を送る */
 [data-theme="card"] .cardDetail .tcgcard.card--peek {
   width: min(86vw, 360px, calc((100vh - 32px) * 63 / 88));
   font-size: min(4.4vw, 16px, calc((100vh - 32px) * 63 / 88 / 22.5));
-  box-shadow: inset 0 0 0 0.09em var(--frame), inset 0 0 0 0.03em rgba(201, 162, 39, 0.55), 0 16px 40px rgba(0, 0, 0, 0.8);
+  box-shadow: var(--ring-hair), var(--ring-band), 0 16px 40px rgba(0, 0, 0, 0.8);
 }
 [data-theme="card"] .tcgcard.card--peek .tcgcard__body { overflow-y: auto; padding: 0.6em; gap: 0.5em; }
 [data-theme="card"] .tcgcard.card--peek .tcgcard__name { font-size: 1.3em; }
@@ -459,15 +466,18 @@ button { font: inherit; color: inherit; }
 [data-theme="card"] .tcgcard.card--peek .tcgcard__main--small { font-size: 1.05em; }
 [data-theme="card"] .tcgcard.card--peek .tcgcard__type { font-size: 0.8em; }
 [data-theme="card"] .tcgcard__name {
+  /* 金の細い線で区切った、浮き彫りのプレート。上は光が当たって明るく、下は影で暗く */
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 0.3em 0.4em;
   border-radius: 1px;
-  background: linear-gradient(180deg, #221f1a 0%, #141210 100%);
-  border-top: 0.07em solid var(--accent-bright, #e8c767);
-  border-bottom: 0.07em solid var(--accent-deep, #8a6a1d);
+  background: linear-gradient(180deg, #332c1f 0%, #211c14 45%, #15120d 100%);
+  border: 0.03em solid rgba(201, 162, 39, 0.55);
+  border-top: 0.08em solid var(--accent-bright, #e8c767);
+  border-bottom: 0.08em solid var(--accent-deep, #8a6a1d);
+  box-shadow: inset 0 0.07em 0 rgba(255, 255, 255, 0.12), inset 0 -0.08em 0.1em rgba(0, 0, 0, 0.55);
   font-weight: 900;
   font-family: 'Zen Old Mincho', serif;
   font-size: min(1.2em, calc(7em / var(--len, 1)));  /* --len は字数（main.js）。長い名前は字を小さくして枠に収める */
@@ -512,16 +522,22 @@ button { font: inherit; color: inherit; }
 [data-theme="card"] .tcgcard.card--peek .tcgcard__sub { display: block; }
 [data-theme="card"] .tcgcard__bottom { flex: none; display: flex; align-items: center; gap: 0.4em; }
 /* コストは金貨のメダル。縁の刻み・浮き彫りの影・刻印の数字 */
+/* コストは金貨のメダル。縁の刻み目（conic-gradient）・内側の輪（二重の縁）・浮き彫りの影・刻印の数字 */
 [data-theme="card"] .tcgcard__cost {
   flex: none;
-  width: 1.8em;
-  height: 1.8em;
+  width: 1.85em;
+  height: 1.85em;
   border-radius: 50%;
   background:
-    repeating-conic-gradient(rgba(0, 0, 0, 0.18) 0deg 6deg, transparent 6deg 12deg),
-    radial-gradient(circle at 35% 28%, #f3dd94 0%, #c9a227 42%, #7a5c16 78%, #5c4410 100%);
-  border: 0.09em solid #3a2c0a;
-  box-shadow: inset 0 0.12em 0.1em rgba(255, 255, 255, 0.35), inset 0 -0.14em 0.16em rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.6);
+    repeating-conic-gradient(rgba(0, 0, 0, 0.32) 0deg 4deg, rgba(255, 255, 255, 0.08) 4deg 6deg, transparent 6deg 10deg),
+    radial-gradient(circle at 32% 26%, #fbeab0 0%, #e2bb52 28%, #a8822c 56%, #7a5c16 80%, #4a3610 100%);
+  border: 0.11em solid #2a1f08;
+  box-shadow:
+    inset 0 0 0 0.09em rgba(0, 0, 0, 0.4),
+    inset 0 0 0 0.14em rgba(255, 232, 170, 0.35),
+    inset 0 0.14em 0.12em rgba(255, 255, 255, 0.4),
+    inset 0 -0.16em 0.18em rgba(0, 0, 0, 0.6),
+    0 1px 2px rgba(0, 0, 0, 0.65);
   color: #2a1c06;
   font-weight: 700;
   font-family: 'Cinzel', serif;
@@ -529,7 +545,7 @@ button { font: inherit; color: inherit; }
   display: flex;
   align-items: center;
   justify-content: center;
-  text-shadow: 0 0.09em 0 rgba(255, 244, 214, 0.5), 0 -0.05em 0.04em rgba(0, 0, 0, 0.55);
+  text-shadow: 0 0.09em 0 rgba(255, 244, 214, 0.55), 0 -0.06em 0.05em rgba(0, 0, 0, 0.6);
 }
 [data-theme="card"] .tcgcard__type {
   flex: 1 1 auto;
@@ -541,8 +557,10 @@ button { font: inherit; color: inherit; }
   align-content: center;
   justify-content: center;
   border-radius: 1px;
-  background: linear-gradient(180deg, var(--frame-soft, var(--frame)) 0%, var(--frame) 100%);
-  border: 0.035em solid rgba(201, 162, 39, 0.55);
+  /* 光の当たり方が見えるよう、斜めに明暗を 2 度くぐらせる（金属の反射のような帯） */
+  background: linear-gradient(125deg, var(--frame) 0%, var(--frame-soft, var(--frame)) 35%, var(--frame) 55%, var(--frame-soft, var(--frame)) 80%, var(--frame) 100%);
+  border: 0.045em solid rgba(201, 162, 39, 0.6);
+  box-shadow: inset 0 0.05em 0 rgba(255, 255, 255, 0.12), inset 0 -0.06em 0.08em rgba(0, 0, 0, 0.4);
   color: #f6eed3;
   font-weight: 700;
   font-size: 0.7em;
@@ -563,7 +581,7 @@ button { font: inherit; color: inherit; }
   background: rgba(5, 5, 6, 0.85);
   border: 0.035em solid var(--line-gold);
   color: #f0e6c8;
-  border-radius: 1em;
+  border-radius: 0.15em;
   padding: 0.1em 0.4em;
   font-size: 0.85em;
   font-family: 'Cinzel', serif;
@@ -574,13 +592,13 @@ button { font: inherit; color: inherit; }
   left: 0.3em;
   background: rgba(78, 46, 104, 0.9);
   color: #f4ecd6;
-  border-radius: 1em;
+  border-radius: 0.15em;
   padding: 0.1em 0.4em;
   font-size: 0.8em;
 }
 /* 残り 0 の山は暗くする。買った札・ほかの人が買った山には真ん中に札を出し、枠を光らせる */
 .is-empty { filter: grayscale(0.8) brightness(0.4); }
-[data-theme="card"] .tcgcard.is-tagged { box-shadow: inset 0 0 0 0.09em var(--frame), 0 0 0 0.05em var(--accent), 0 2px 6px rgba(0, 0, 0, 0.55); }
+[data-theme="card"] .tcgcard.is-tagged { box-shadow: var(--ring-hair), var(--ring-band), 0 0 0 0.05em var(--accent), 0 2px 6px rgba(0, 0, 0, 0.55); }
 [data-theme="card"] .tcgcard__tag {
   position: absolute;
   top: 38%;
@@ -590,14 +608,14 @@ button { font: inherit; color: inherit; }
   background: var(--accent);
   color: #1c1204;
   font-weight: 700;
-  border-radius: 1em;
+  border-radius: 0.2em;
   padding: 0.15em 0.5em;
   font-size: 0.85em;
   text-align: center;
   line-height: 1.2;
 }
 [data-theme="card"] .tcgcard__cost--down { outline: 0.1em solid #4ecb6b; outline-offset: 0.05em; }
-[data-theme="card"] .tcgcard.card--active { box-shadow: inset 0 0 0 0.09em var(--frame), 0 0 0 0.03em var(--accent), 0 2px 6px rgba(0, 0, 0, 0.55); }
+[data-theme="card"] .tcgcard.card--active { box-shadow: var(--ring-hair), var(--ring-band), 0 0 0 0.03em var(--accent), 0 2px 6px rgba(0, 0, 0, 0.55); }
 [data-theme="card"] .tcgcard.card--active:hover, [data-theme="card"] .tcgcard.card--active:focus-visible { outline: none; }
 /* 手札は少し重ねて並べ、360px 幅でも5枚が横一列に収まるようにする */
 /* 横にスクロールさせず、入りきらない札は下の段へ折り返す */
@@ -638,9 +656,11 @@ button { font: inherit; color: inherit; }
   border-radius: 2px;
   border: 0.1em solid #050506;
   background:
-    repeating-linear-gradient(45deg, rgba(201, 162, 39, 0.12) 0 6px, transparent 6px 12px),
-    linear-gradient(165deg, #211f1b 0%, #171512 55%, #0e0d0b 100%);
-  box-shadow: inset 0 0 0 0.07em rgba(201, 162, 39, 0.5), 0 4px 8px rgba(0, 0, 0, 0.5);
+    var(--noise),
+    repeating-linear-gradient(45deg, rgba(201, 162, 39, 0.14) 0 6px, transparent 6px 12px),
+    linear-gradient(165deg, #2a251e 0%, #171512 55%, #0e0d0b 100%);
+  background-size: 24px 24px, auto, auto;
+  box-shadow: inset 0 0 0 0.03em var(--accent-bright, #e8c767), inset 0 0 0 0.1em rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.5);
 }
 .pile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #ead9a0; }
 .pile__n { font-size: 16px; font-weight: 800; font-family: 'Cinzel', serif; line-height: 1; text-shadow: 0 1px 2px #000; }
@@ -719,7 +739,7 @@ button { font: inherit; color: inherit; }
 [data-theme="card"] #choiceGrid.choiceGrid--pick > .tcgcard { animation: none; }
 [data-theme="card"] #choiceGrid.choiceGrid--pick > .tcgcard.card--picked {
   outline: none;
-  box-shadow: inset 0 0 0 0.09em var(--frame), 0 0 0 0.05em var(--accent), 0 0 16px 3px rgba(201, 162, 39, 0.5), 0 4px 10px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--ring-hair), var(--ring-band), 0 0 0 0.05em var(--accent), 0 0 16px 3px rgba(201, 162, 39, 0.5), 0 4px 10px rgba(0, 0, 0, 0.6);
 }
 @media (prefers-reduced-motion: no-preference) {
   #choiceGrid.choiceGrid--pick > .card { transition: filter 0.15s ease, transform 0.15s ease; }
