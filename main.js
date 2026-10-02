@@ -316,7 +316,9 @@ const humanCount = () => seats.filter((s) => s.type === 'human').length;
 const isHumanSeat = (pi) => seats[pi] && seats[pi].type === 'human';
 const allCpu = () => humanCount() === 0;
 const cpuDelay = () => (allCpu() && spectatorSpeed === 'fast' ? 70 : 350);
-const seatName = (s, i) => (s.type === 'human' ? `${i + 1}人目` : `CPU（${CPU_LEVELS.find((l) => l.id === s.level).name}）`);
+// 人の席の名前（設定画面で入力。空なら「n人目」）
+let names = (Array.isArray(load('names', null)) ? load('names', null) : []).map((n) => (typeof n === 'string' ? n : ''));
+const seatName = (s, i) => (s.type === 'human' ? ((names[i] || '').trim() || `${i + 1}人目`) : `CPU（${CPU_LEVELS.find((l) => l.id === s.level).name}）`);
 
 let mode = ['preset', 'random', 'custom'].includes(load('mode', 'preset')) ? load('mode', 'preset') : 'preset';
 let presetId = PRESETS.some((p) => p.id === load('presetId', null)) ? load('presetId', null) : (PRESETS[0] && PRESETS[0].id);
@@ -333,6 +335,7 @@ let customLandscapes = validLandscapes(load('customLandscapes', null));
 function persistSetup() {
   save('players', players);
   save('seats', seats);
+  save('names', names);
   save('spectatorSpeed', spectatorSpeed);
   save('mode', mode);
   save('presetId', presetId);
@@ -409,6 +412,12 @@ function renderSeatsBox() {
       }));
     }
     row.appendChild(chips);
+    if (seats[i].type === 'human') {
+      const input = el('input', { class: 'seatRow__name', type: 'text', maxlength: 10, placeholder: `${i + 1}人目`, 'aria-label': `${i + 1}人目の名前` });
+      input.value = names[i] || '';
+      input.addEventListener('input', () => { names[i] = input.value; save('names', names); });
+      row.appendChild(input);
+    }
     box.appendChild(row);
   }
 }
