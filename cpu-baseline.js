@@ -115,12 +115,7 @@ function junkScore(game, pi, id) {
   if (c.types.includes('shelter') && !c.types.includes('action')) return 6;
   const pureVictory = c.types.includes('victory') && !c.types.includes('action') && !c.types.includes('treasure');
   if (pureVictory) return late > 0.6 ? 2 : 7 - (c.points || 0);
-  if (id === 'copper') {
-    const info = deckInfo(game, pi);
-    const count = info.all.filter((x) => x === 'copper').length;
-    if (count > 2 && late <= 0.5) return 7; // 序盤〜中盤は、山を薄くするため銅を積極的に廃棄する
-    return info.money > 12 ? 5 : 2; // 残りが少ない・終盤はもう捨てない
-  }
+  if (id === 'copper') return deckInfo(game, pi).money > 12 ? 5 : 2;
   return Math.max(0, 5 - cardValue(game, pi, id));
 }
 
@@ -506,12 +501,10 @@ export function planFor(game, pi, level) {
     };
     const villages = bestByPile((r) => feats(topOf(game, r.plan[0].pile)).actions >= 2).slice(0, 2);
     const draws = bestByPile((r) => feats(topOf(game, r.plan[0].pile)).cards >= 2).slice(0, 2);
-    // お金・購入も生む村・市場類（+アクション付きで +金か +購入がある札）。エンジンに混ぜると領地を 1 手番に 2 枚狙える
-    const payers = bestByPile((r) => { const f = feats(topOf(game, r.plan[0].pile)); return f.actions >= 1 && (f.coins >= 1 || f.buys >= 1); }).slice(0, 2);
     const village = villages[0];
     const draw = draws[0];
     let shortlist = results.slice(0, 6);
-    for (const r of [...villages, ...draws, ...payers]) if (r && !shortlist.includes(r)) shortlist = [...shortlist, r];
+    for (const r of [...villages, ...draws]) if (r && !shortlist.includes(r)) shortlist = [...shortlist, r];
     const top = shortlist.map((r) => ({ plan: r.plan, s: r.plan === rival ? 0.5 : score(r.plan, 24, rival) }));
     const tops = [...top].sort((a, b) => b.s - a.s).slice(0, 3);
     for (let a = 0; a < tops.length; a++) for (let b = a + 1; b < tops.length; b++) {
@@ -527,25 +520,17 @@ export function planFor(game, pi, level) {
       if (top.some((r) => r.plan.length === 2 && r.plan.every((x) => plan.some((y) => y.pile === x.pile)))) continue;
       top.push({ plan, s: score(plan, 24, rival) });
     }
-    // 一番良い村＋引く札に、お金・購入を生む村も 1 枚混ぜた組も試す（お金を生まないエンジンの弱さを補う）
-    if (village && draw) for (const pay of payers) {
-      const piles = new Set([village.plan[0].pile, draw.plan[0].pile, pay.plan[0].pile]);
-      if (piles.size < 3) continue;
-      const plan = [village.plan[0], draw.plan[0], pay.plan[0]];
-      top.push({ plan, s: score(plan, 24, rival) });
-    }
     results = top.sort((a, b) => b.s - a.s);
     // 村＋引く札の組（エンジン）は、単独で決めた枚数では足りないことが多いので、枚数も試し直す
-    if (results[0] && results[0].plan.length >= 2) {
-      const parts = results[0].plan;
-      const villagePart = parts.find((x) => !x.event && feats(topOf(game, x.pile)).actions >= 2);
-      const drawPart = parts.find((x) => !x.event && feats(topOf(game, x.pile)).cards >= 2 && x !== villagePart);
+    if (results[0] && results[0].plan.length === 2) {
+      const [a, b] = results[0].plan;
+      const villagePart = !a.event && feats(topOf(game, a.pile)).actions >= 2 ? a : !b.event && feats(topOf(game, b.pile)).actions >= 2 ? b : null;
+      const drawPart = !a.event && feats(topOf(game, a.pile)).cards >= 2 ? a : !b.event && feats(topOf(game, b.pile)).cards >= 2 ? b : null;
       if (villagePart && drawPart && villagePart !== drawPart) {
         const base0 = results[0];
-        const rest = parts.filter((x) => x !== villagePart && x !== drawPart);
         for (const vl of [2, 3, 4]) for (const dl of [2, 3, 4]) {
           if (vl === villagePart.limit && dl === drawPart.limit) continue;
-          const plan = [{ pile: villagePart.pile, limit: vl }, { pile: drawPart.pile, limit: dl }, ...rest];
+          const plan = [{ pile: villagePart.pile, limit: vl }, { pile: drawPart.pile, limit: dl }];
           const sc = score(plan, 24, rival);
           if (sc > base0.s) results.push({ plan, s: sc });
         }
