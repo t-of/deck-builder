@@ -597,10 +597,10 @@ function renderTurn() {
   const prevNums = prevRender && prevRender.pi === game.current ? prevRender.nums : {};
   medals.appendChild(medal('アクション', t.actions, prevNums.actions));
   medals.appendChild(medal('購入', t.buys, prevNums.buys));
-  medals.appendChild(medal('金', t.money, prevNums.money));
+  medals.appendChild(medal('金貨', t.money, prevNums.money));
   if (p.tokens.vp > 0) medals.appendChild(medal('勝利点', p.tokens.vp));
   if (p.tokens.coffers > 0) medals.appendChild(medal('財源', p.tokens.coffers));
-  if (t.potions > 0) medals.appendChild(medal('霊薬', t.potions));
+  if (t.potions > 0) medals.appendChild(medal('ポーション', t.potions));
   if (p.tokens.villagers > 0) medals.appendChild(medal('村人', p.tokens.villagers));
   stats.appendChild(medals);
   stats.appendChild(el('span', { class: 'muted', text: tokenBits(p).join('・') }));

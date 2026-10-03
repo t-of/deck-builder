@@ -82,7 +82,7 @@ export function randomKingdom(pool, n = 10) {
 }
 
 // kingdom: 王国カード 10 種の id。names: 席の名前（省略すると「1人目」…）
-// opts.colony: 新天地・白金を使うか。省略すると、王国カードのうち「繁栄」の割合の確率で使う
+// opts.colony: 植民地・白金貨を使うか。省略すると、王国カードのうち「繁栄」の割合の確率で使う
 // opts.shelters: 初めの小屋 3 枚を避難所にするか。省略すると「暗黒時代」の割合の確率
 // opts.landscapes: イベントなど、サプライの横に置く札の id
 export function newGame(numPlayers, kingdom, names, opts = {}) {
@@ -122,7 +122,7 @@ export function newGame(numPlayers, kingdom, names, opts = {}) {
     landmarkVP: {},   // ランドマークなどに置かれた勝利点トークン（{ id: 数 }）
     pileDebt: {},     // 山に置かれた借金トークン（買った人が受け取る）
     stacks: {},       // ちがう札が重なった山（がれき・騎士など）。{ 山の id: [id...]（末尾が一番上）}。supply[山の id] は残り枚数
-    embargo: {},      // サプライの山に置かれた印の数（買うと 1 つにつき災い）
+    embargo: {},      // サプライの山に置かれた印の数（買うと 1 つにつき呪い）
     extraTurn: false, // 今の手番が追加の手番か
     over: false,
     log: [`${players[0].name}の番です。`],
@@ -555,7 +555,7 @@ export function* playAction(game, cardId) {
   game.turn.actions -= 1;
   log(game, `${player.name}が「${CARDS[cardId].name}」を使用。`);
   if (cardId === 'estate' && player.tokens.inherit) {
-    log(game, `小屋が「${CARDS[player.tokens.inherit].name}」として働く。`);
+    log(game, `屋敷が「${CARDS[player.tokens.inherit].name}」として働く。`);
     game.turn.actionsPlayed += 1;
     yield* resolve(game, player.tokens.inherit);
     return;
@@ -618,12 +618,12 @@ export function* playTreasureGen(game, cardId) {
 
 // 場に出した財宝の効果（手札以外から出すとき・2 回使うときもこれ）
 export function* treasureEffect(game, cardId) {
-  // 妬み心の手番は、銀と金が 1 金しか出さない
+  // 妬み心の手番は、銀貨と金貨が 1 金しか出さない
   const reck = game.traits && game.traits.t_reckless && pileOf(cardId) === game.traits.t_reckless ? 2 : 1;
   game.turn.money += reck * (game.turn.envious && (cardId === 'silver' || cardId === 'gold') ? 1 : CARDS[cardId].value || 0);
   game.turn.potions += CARDS[cardId].potionValue || 0;
   if (cardId === 'silver' && game.turn.silverBonus) {
-    game.turn.money += game.turn.silverBonus; // 両替商 1 枚につき、最初の銀で +1
+    game.turn.money += game.turn.silverBonus; // 商人 1 枚につき、最初の銀貨で +1
     game.turn.silverBonus = 0;
   }
   if (cardId === 'copper') game.turn.money += game.turn.copperBonus;

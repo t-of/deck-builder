@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "deck-builder — カードでデッキを作って点を競う",
-  "short_name": "deck-builder",
+  "name": "ドミニオン — カードでデッキを作って点を競う",
+  "short_name": "ドミニオン",
   "description": "財宝・王国カードを買い集めて点を競う、1台を回して遊ぶデッキ構築の試作",
   "start_url": "./",
   "scope": "./",

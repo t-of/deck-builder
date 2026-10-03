@@ -156,7 +156,7 @@ g = setup3(['command', 'wagon'], Array(20).fill('copper'));
 run(playAction(g, 'command'), [[0]]);
 run(endTurn(g));
 assert.deepEqual(g.players[0].inPlay.sort(), ['command', 'wagon']);
-// 私掠船: 相手は最初に出した銀を廃棄
+// コルセア: 相手は最初に出した銀を廃棄
 g = setup3(['privateer'], Array(10).fill('copper'));
 run(playAction(g, 'privateer'));
 run(endTurn(g));
@@ -228,7 +228,7 @@ g = setup5([]);
 startBuyPhase(g); g.turn.money = 6;
 run(buyCard(g, 'gatevillage'), ['drifter']);
 assert.deepEqual(g.players[0].discard.sort(), ['drifter', 'gatevillage']);
-assert.equal(g.turn.money, 2); // 流れ者を獲得して +2
+assert.equal(g.turn.money, 2); // 遊牧民を獲得して +2
 // 地下道: 倉庫で捨てたら金
 g = setup5(['warehouse', 'underpass'], ['copper']);
 run(playAction(g, 'warehouse'), [[0], true]);

@@ -32,7 +32,7 @@ function feats(id) {
   const f = {
     cards: num(/\+(\d+) カード/), actions: num(/\+(\d+) アクション/), buys: num(/\+(\d+) 購入/), coins: num(/\+(\d+) 金/),
     drawTo: num(/(\d+) 枚まで引く/) || num(/(\d+) 枚になるまで引く/),
-    trash: /廃棄/.test(text), attack: c.types.includes('attack'), curser: /災い/.test(text) && c.types.includes('attack'),
+    trash: /廃棄/.test(text), attack: c.types.includes('attack'), curser: /災い|呪い/.test(text) && c.types.includes('attack'),
     gainer: /獲得/.test(text),
   };
   if (f.drawTo) f.cards = Math.max(f.cards, f.drawTo - 4);
@@ -118,7 +118,7 @@ function junkScore(game, pi, id) {
   if (id === 'copper') {
     const info = deckInfo(game, pi);
     const count = info.all.filter((x) => x === 'copper').length;
-    if (count > 2 && late <= 0.5) return 7; // 序盤〜中盤は、山を薄くするため銅を積極的に廃棄する
+    if (count > 2 && late <= 0.5) return 7; // 序盤〜中盤は、山を薄くするため銅貨を積極的に廃棄する
     return info.money > 12 ? 5 : 2; // 残りが少ない・終盤はもう捨てない
   }
   return Math.max(0, 5 - cardValue(game, pi, id));
@@ -129,7 +129,7 @@ const BAD_DIR = /捨て(?!札から)|廃棄|渡す|追放|手放|戻す（しな
 const GOOD_TO_OTHER = /獲得させる|させる 1 枚|捨てさせる/;
 function wantedDirection(q, game) {
   const s = q.purpose || '';
-  // 他の人の手番に、自分の札を山札の上に置かされる（徴税官など）→ 要らない札を置く
+  // 他の人の手番に、自分の札を山札の上に置かされる（役人など）→ 要らない札を置く
   if (/山札の上に置く/.test(s) && game && q.player !== game.current) return 'junk';
   if (/獲得させる/.test(s)) return 'worstForThem'; // 相手に渡る札は安いものを
   if (/捨てさせる|廃棄する 1 枚（.*財宝|財宝から廃棄/.test(s) && q.player !== q.owner) return 'bestOfTheirs';
@@ -180,9 +180,9 @@ function labelScore(game, pi, label, q) {
   const num = (re) => { const m = s.match(re); return m ? Number(m[1]) : 0; };
   v += num(/\+(\d+) カード/) * 1.2 + num(/\+(\d+) 金/) * 1.1 + num(/\+(\d+) 購入/) * 0.5;
   v += num(/\+(\d+) アクション/) * (currentPlayer(game).hand.some((id) => is(id, 'action')) ? 0.9 : 0.2);
-  if (/金を獲得|金 を獲得/.test(s)) v += 3;
-  if (/銀を獲得|銀 4 枚/.test(s)) v += 1.6;
-  if (/災い/.test(s)) v -= 4;
+  if (/金貨を獲得/.test(s)) v += 3;
+  if (/銀貨を獲得|銀貨 4 枚/.test(s)) v += 1.6;
+  if (/災い|呪い/.test(s)) v -= 4;
   if (/^(しない|使わない|見せない|そのまま|戻さない|捨てない|パス|受けない|取り替えない|やめる|払わない)$/.test(s)) v += 0.3;
   else if (/^(使う|見せる|獲得する|呼び出す|取り替える|受ける|載せる|引く|する|戻す|山札の上へ|はい)/.test(s)) v += 1;
   if (/廃棄して|廃棄する/.test(s) && !/金/.test(s)) v += 0.4;
@@ -202,7 +202,7 @@ function answerChoose(game, q, level) {
     if (/財源をいくつ/.test(q.purpose)) return Math.max(...ch.map((c) => c.value));
     return Math.max(...ch.map((c) => c.value));
   }
-  // 番兵などの「廃棄・捨てる・戻す」: 札の要らなさで決める
+  // 衛兵などの「廃棄・捨てる・戻す」: 札の要らなさで決める
   if (q.cards && q.cards.length === 1 && ch.some((c) => c.value === 'trash')) {
     const j = junkScore(game, q.player, q.cards[0]);
     const want = j >= 6 ? 'trash' : j >= 4 ? 'discard' : 'keep';
@@ -213,7 +213,7 @@ function answerChoose(game, q, level) {
   const yes = ch.find((c) => c.value === true);
   if (yes && ch.length === 2) {
     const s = q.purpose || '';
-    if (/脇に置きますか/.test(s) && q.cards && q.cards[0]) return currentPlayer(game).hand.length >= 5 || game.turn.actions === 0; // 文書館
+    if (/脇に置きますか/.test(s) && q.cards && q.cards[0]) return currentPlayer(game).hand.length >= 5 || game.turn.actions === 0; // 書庫
     if (/捨てますか|捨てさせますか/.test(s) && q.cards && q.cards[0]) {
       const j = junkScore(game, q.owner ?? q.player, q.cards[0]);
       return q.player === q.owner ? j >= 4 : j < 4; // 自分の札は要らなければ捨てる。相手の札は良い札なら捨てさせる
@@ -254,7 +254,7 @@ function plainFx(id) {
   // 1 回きり・手番を飛ばす札は狙わない
   if (/これを廃棄する|手番を飛ばす|サプライに戻す|山に戻す。/.test(desc)) return null;
   const f = feats(id);
-  const curse = c.types.includes('attack') && /災い/.test(desc);
+  const curse = c.types.includes('attack') && /災い|呪い/.test(desc);
   const discard = c.types.includes('attack') && /手札が [2-4] 枚になるまで捨てる/.test(desc);
   const m = desc.match(/^手札を (\d+) 枚捨てる/);
   const cost = m ? Number(m[1]) : 0; // 引いたあと必ず捨てる分
@@ -269,7 +269,7 @@ function targetCard(game) {
     const id = topOf(game, pile);
     const fx = plainFx(id);
     if (!fx || CARDS[id].potion || CARDS[id].debt || CARDS[id].cost > 5) continue;
-    // +カードの多い終点（鍛冶場など）か、+アクションのある札が強い。+金だけの終点はそこそこ
+    // +カードの多い終点（鍛冶屋など）か、+アクションのある札が強い。+金だけの終点はそこそこ
     const score = fx.power + (fx.terminal && fx.power < 3 ? -0.8 : 0);
     if (!best || score > best.score) best = { ...fx, pile, score };
   }
@@ -305,17 +305,17 @@ function buyChoice(game, level) {
   const provLeft = game.supply.province;
   const has = (id) => buyable.includes(id);
   const info = deckInfo(game, pi);
-  // 勝利点。つよい以上は、最後・最後から 2 枚目の領地で負けないように考える
+  // 勝利点。つよい以上は、最後・最後から 2 枚目の属州で負けないように考える
   if (SMART(level) && has('province') && money >= 8 && !colony) {
     const me = scoreOf(game, pi);
     const best = Math.max(...game.players.map((q, i) => (i === pi ? -99 : scoreOf(game, i))));
     if (provLeft === 1 && me + 6 <= best) return has('duchy') && money >= 5 && me + 3 > best - 6 ? 'duchy' : null; // 最後を取っても負けるなら取らない
-    // 最後から 2 枚目: 取ったあと相手が最後の 1 枚を取ると負ける（相手のほうが点が上）なら、荘園にしておく
+    // 最後から 2 枚目: 取ったあと相手が最後の 1 枚を取ると負ける（相手のほうが点が上）なら、公領にしておく
     if (provLeft === 2 && best > me && has('duchy')) return 'duchy';
   }
   if (colony && has('colony') && money >= 11) return 'colony';
   if (has('province') && money >= 8) return 'province';
-  // 荘園を買い始める時期（領地の残り）。さいきょうは自己対局で決めた値を使う
+  // 公領を買い始める時期（属州の残り）。さいきょうは自己対局で決めた値を使う
   const plan0 = SMART(level) && game.cpuPlans ? game.cpuPlans[pi] : null;
   const duchyAt = plan0 && plan0.duchyAt != null ? plan0.duchyAt : (full === 8 ? 4 : 5);
   if (has('duchy') && money >= 5 && provLeft <= duchyAt) return 'duchy';
@@ -378,7 +378,7 @@ export function nextMove(game, level = 'strong') {
     if (t.buys > 0) {
       const id = buyChoice(game, level);
       if (!id && SMART(level) && (p.tokens.coffers || 0) > 0) {
-        // 財源を足すと領地・金に届くなら使う
+        // 財源を足すと属州・金に届くなら使う
         const need = [8, 6].find((c) => t.money < c && t.money + p.tokens.coffers >= c);
         if (need) return { type: 'coffers', n: need - t.money };
       }
@@ -434,7 +434,7 @@ export function simulate(kingdom, landscapes, levels, plans = [], inner = false)
   return g;
 }
 
-// 狙いの札の候補（サプライの、勝利点・基本の財宝以外。借金・霊薬の札は除く）
+// 狙いの札の候補（サプライの、勝利点・基本の財宝以外。借金・ポーションの札は除く）
 function candidates(game) {
   const out = [];
   for (const pile of Object.keys(game.supply)) {
@@ -506,7 +506,7 @@ export function planFor(game, pi, level) {
     };
     const villages = bestByPile((r) => feats(topOf(game, r.plan[0].pile)).actions >= 2).slice(0, 2);
     const draws = bestByPile((r) => feats(topOf(game, r.plan[0].pile)).cards >= 2).slice(0, 2);
-    // お金・購入も生む村・市場類（+アクション付きで +金か +購入がある札）。エンジンに混ぜると領地を 1 手番に 2 枚狙える
+    // お金・購入も生む村・市場類（+アクション付きで +金か +購入がある札）。エンジンに混ぜると属州を 1 手番に 2 枚狙える
     const payers = bestByPile((r) => { const f = feats(topOf(game, r.plan[0].pile)); return f.actions >= 1 && (f.coins >= 1 || f.buys >= 1); }).slice(0, 2);
     const village = villages[0];
     const draw = draws[0];
@@ -552,7 +552,7 @@ export function planFor(game, pi, level) {
         results.sort((a2, b2) => b2.s - a2.s);
       }
     }
-    // 荘園を買い始める時期も試す（ふつうは領地の残り 4 枚から）
+    // 公領を買い始める時期も試す（ふつうは属州の残り 4 枚から）
     const base = results[0];
     if (base && base.plan.length) {
       for (const d of [2, 3, 5, 6]) {

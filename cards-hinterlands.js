@@ -1,5 +1,5 @@
 'use strict';
-// 拡張「異郷」のカード（第二版の 26 種と、初版だけにある 9 種）。名前は本家と別の言い回し。
+// 拡張「異郷」のカード（第二版の 26 種と、初版だけにある 9 種）。名前は公式日本語カード名（一部未確認）。
 import {
   CARDS, HOOKS, defineCards, is, drawCards, putOnDeck, takeFromHand, trashCards, discardCards,
   gain, costOf, askHand, askSupply, askCards, askChoose, askYesNo, attackOthers, eachOther, resolve, reveal,
@@ -10,7 +10,7 @@ const log = (g, text) => g.log.push(text);
 const nm = (id) => `「${CARDS[id].name}」`;
 const T = ['treasure'];
 
-// 獲得・廃棄・捨てたときに「使ってよい」カード（けもの道・機織り）: 今ある場所から取り出して使う
+// 獲得・廃棄・捨てたときに「使ってよい」カード（進路・織工）: 今ある場所から取り出して使う
 function* mayPlayFrom(g, pi, id, from) {
   if (!(yield* askYesNo(g, pi, `${nm(id)}を使いますか？`, '使う', '使わない', [id]))) return;
   const i = from.lastIndexOf(id);
@@ -27,7 +27,7 @@ function* discardToThree(g, ti) {
 const kingdom = [
   // ---- コスト 2 ----
   {
-    id: 'crossing', name: '辻', cost: 2, main: '勝利点の数だけ引く', desc: '手札を見せ、勝利点カード 1 枚につき +1 カード。この手番で最初の「辻」なら +3 アクション',
+    id: 'crossing', name: '岐路', cost: 2, main: '勝利点の数だけ引く', desc: '手札を見せ、勝利点カード 1 枚につき +1 カード。この手番で最初の「岐路」なら +3 アクション',
     *play(g, p) {
       drawCards(p, p.hand.filter((id) => is(id, 'victory')).length);
       g.turn.crossings = (g.turn.crossings || 0) + 1;
@@ -35,12 +35,12 @@ const kingdom = [
     },
   },
   {
-    id: 'pyrite', name: 'にせ金', types: ['treasure', 'reaction'], cost: 2, autoPlay: true, main: '1 枚目 +1 金\n2 枚目から +4 金', desc: 'この手番で最初の「にせ金」なら +1 金、そうでなければ +4 金。他の人が領地を獲得したとき、手札から廃棄して金を山札の上に獲得してよい',
+    id: 'pyrite', name: '愚者の黄金', types: ['treasure', 'reaction'], cost: 2, autoPlay: true, main: '1 枚目 +1 金\n2 枚目から +4 金', desc: 'この手番で最初の「愚者の黄金」なら +1 金、そうでなければ +4 金。他の人が属州を獲得したとき、手札から廃棄して金貨を山札の上に獲得してよい',
     *play(g) { g.turn.pyrites = (g.turn.pyrites || 0) + 1; g.turn.money += g.turn.pyrites === 1 ? 1 : 4; },
   },
   // ---- コスト 3 ----
   {
-    id: 'grading', name: '造成', cost: 3, main: '1 枚を 2 枚に', desc: '手札を 1 枚廃棄し、ちょうどコスト +1 と、ちょうどコスト -1 のカードを 1 枚ずつ獲得して、好きな順で山札の上に置く',
+    id: 'grading', name: '開発', cost: 3, main: '1 枚を 2 枚に', desc: '手札を 1 枚廃棄し、ちょうどコスト +1 と、ちょうどコスト -1 のカードを 1 枚ずつ獲得して、好きな順で山札の上に置く',
     *play(g, p, pi) {
       const [i] = yield* askHand(g, pi, '廃棄する 1 枚を選ぶ', 1, 1);
       if (i == null) return;
@@ -59,31 +59,31 @@ const kingdom = [
     },
   },
   {
-    id: 'spring', name: '泉のほとり', cost: 3, main: '+1 カード　+1 アクション\n+1 金', desc: '手札を 1 枚捨てる',
+    id: 'spring', name: 'オアシス', cost: 3, main: '+1 カード　+1 アクション\n+1 金', desc: '手札を 1 枚捨てる',
     *play(g, p, pi) {
       drawCards(p, 1); g.turn.actions += 1; g.turn.money += 1;
       yield* discardCards(g, p, takeFromHand(p, yield* askHand(g, pi, '捨てる 1 枚を選ぶ', 1, 1)));
     },
   },
   {
-    id: 'groundwork', name: '根回し', cost: 3, main: '+1 カード\n+1 アクション', desc: 'この手番の片付けで、場のアクションカードを 1 枚山札の上に置いてよい',
+    id: 'groundwork', name: '画策', cost: 3, main: '+1 カード\n+1 アクション', desc: 'この手番の片付けで、場のアクションカードを 1 枚山札の上に置いてよい',
     *play(g, p) { drawCards(p, 1); g.turn.actions += 1; },
     *onCleanup(g, p, pi) {
       const acts = g.playArea.filter((id) => is(id, 'action'));
-      const [i] = yield* askCards(g, pi, '「根回し」: 山札の上に戻すアクション（なしでもよい）', acts, 0, 1);
+      const [i] = yield* askCards(g, pi, '「画策」: 山札の上に戻すアクション（なしでもよい）', acts, 0, 1);
       if (i == null) return;
       g.playArea.splice(g.playArea.indexOf(acts[i]), 1);
       putOnDeck(p, acts[i]);
     },
   },
   {
-    id: 'underpass', name: '地下道', types: ['victory', 'reaction'], cost: 3, points: 2, main: '2 点', desc: '片付け以外で捨て札にしたとき、見せて金を獲得してよい',
+    id: 'underpass', name: '坑道', types: ['victory', 'reaction'], cost: 3, points: 2, main: '2 点', desc: '片付け以外で捨て札にしたとき、見せて金貨を獲得してよい',
     *onDiscard(g, p, pi) {
-      if (yield* askYesNo(g, pi, '「地下道」を見せて金を獲得しますか？', '見せる', '見せない', ['underpass'])) yield* gain(g, pi, 'gold');
+      if (yield* askYesNo(g, pi, '「坑道」を見せて金貨を獲得しますか？', '見せる', '見せない', ['underpass'])) yield* gain(g, pi, 'gold');
     },
   },
   {
-    id: 'watchdog', name: '見張り犬', types: ['action', 'reaction'], cost: 3, main: '+2 カード', desc: '手札が 5 枚以下なら、さらに +2 カード。他の人がアタックを使うとき、先に手札から使ってよい',
+    id: 'watchdog', name: '番犬', types: ['action', 'reaction'], cost: 3, main: '+2 カード', desc: '手札が 5 枚以下なら、さらに +2 カード。他の人がアタックを使うとき、先に手札から使ってよい',
     *play(g, p) { drawCards(p, 2); if (p.hand.length <= 5) drawCards(p, 2); },
     *onAttack(g, t, ti) {
       t.hand.splice(t.hand.indexOf('watchdog'), 1);
@@ -92,7 +92,7 @@ const kingdom = [
   },
   // ---- コスト 4 ----
   {
-    id: 'handyman', name: '何でも屋', cost: 4, main: '銀を獲得\n5 枚まで引く', desc: '銀を獲得する。山札の一番上を見て捨ててよい。手札が 5 枚になるまで引く。財宝以外の手札を 1 枚廃棄してよい',
+    id: 'handyman', name: 'よろずや', cost: 4, main: '銀貨を獲得\n5 枚まで引く', desc: '銀貨を獲得する。山札の一番上を見て捨ててよい。手札が 5 枚になるまで引く。財宝以外の手札を 1 枚廃棄してよい',
     *play(g, p, pi) {
       yield* gain(g, pi, 'silver');
       const [top] = reveal(p, 1);
@@ -106,7 +106,7 @@ const kingdom = [
     },
   },
   {
-    id: 'spicer', name: '香料売り', cost: 4, main: '財宝を廃棄して\n得をする', desc: '手札の財宝を 1 枚廃棄してよい。そうしたら「+2 カード +1 アクション」か「+1 購入 +2 金」を選ぶ',
+    id: 'spicer', name: '香辛料商人', cost: 4, main: '財宝を廃棄して\n得をする', desc: '手札の財宝を 1 枚廃棄してよい。そうしたら「+2 カード +1 アクション」か「+1 購入 +2 金」を選ぶ',
     *play(g, p, pi) {
       const [i] = yield* askHand(g, pi, '廃棄する財宝（しなくてもよい）', 0, 1, (id) => is(id, 'treasure'));
       if (i == null) return;
@@ -116,7 +116,7 @@ const kingdom = [
     },
   },
   {
-    id: 'silverdealer', name: '銀の商人', types: ['action', 'reaction'], cost: 4, main: '廃棄して銀', desc: '手札を 1 枚廃棄し、そのコスト 1 につき銀を 1 枚獲得する。カードを獲得するとき、手札から見せて、代わりに銀を獲得してよい',
+    id: 'silverdealer', name: '交易人', types: ['action', 'reaction'], cost: 4, main: '廃棄して銀貨', desc: '手札を 1 枚廃棄し、そのコスト 1 につき銀貨を 1 枚獲得する。カードを獲得するとき、手札から見せて、代わりに銀貨を獲得してよい',
     *play(g, p, pi) {
       const [i] = yield* askHand(g, pi, '廃棄する 1 枚を選ぶ', 1, 1);
       if (i == null) return;
@@ -126,40 +126,40 @@ const kingdom = [
     },
     *reactGain(g, got) {
       if (got.id === 'silver' || g.supply[got.id] == null) return;
-      if (!(yield* askYesNo(g, got.pi, `${nm(got.id)}の代わりに銀を獲得しますか？（銀の商人）`, '銀にする', 'そのまま', [got.id]))) return;
+      if (!(yield* askYesNo(g, got.pi, `${nm(got.id)}の代わりに銀貨を獲得しますか？（交易人）`, '銀貨にする', 'そのまま', [got.id]))) return;
       if (!(yield* relocate(g, got, 'gone'))) return;
       if (!returnCard(g, got.id)) { g.players[got.pi].discard.push(got.id); return; }
       yield* gain(g, got.pi, 'silver');
     },
   },
   {
-    id: 'drifter', name: '流れ者', cost: 4, main: '+1 購入\n+2 金', desc: 'これを獲得したとき・廃棄したとき、+2 金',
+    id: 'drifter', name: '遊牧民', cost: 4, main: '+1 購入\n+2 金', desc: 'これを獲得したとき・廃棄したとき、+2 金',
     *play(g) { g.turn.buys += 1; g.turn.money += 2; },
     *onGain(g, got) { if (got.pi === g.current) g.turn.money += 2; },
     *onTrash(g, p, pi) { if (pi === g.current) g.turn.money += 2; },
   },
   {
-    id: 'pathway', name: 'けもの道', types: ['action', 'reaction'], cost: 4, main: '+1 カード\n+1 アクション', desc: '片付け以外で、これを獲得・廃棄・捨て札にしたとき、使ってよい',
+    id: 'pathway', name: '進路', types: ['action', 'reaction'], cost: 4, main: '+1 カード\n+1 アクション', desc: '片付け以外で、これを獲得・廃棄・捨て札にしたとき、使ってよい',
     *play(g, p) { drawCards(p, 1); g.turn.actions += 1; },
     *onGain(g, got) {
       if (got.to === 'gone') return;
-      if (!(yield* askYesNo(g, got.pi, '獲得した「けもの道」を使いますか？', '使う', '使わない', ['pathway']))) return;
+      if (!(yield* askYesNo(g, got.pi, '獲得した「進路」を使いますか？', '使う', '使わない', ['pathway']))) return;
       if (yield* relocate(g, got, 'gone')) yield* playOutOfTurn(g, got.pi, 'pathway');
     },
     *onTrash(g, p, pi) { yield* mayPlayFrom(g, pi, 'pathway', g.trash); },
     *onDiscard(g, p, pi) { yield* mayPlayFrom(g, pi, 'pathway', p.discard); },
   },
   {
-    id: 'loom', name: '機織り', types: ['action', 'reaction'], cost: 4, main: '銀 2 枚 か\nコスト 4 以下', desc: '銀を 2 枚か、コスト 4 以下を 1 枚獲得する。片付け以外で捨て札にしたとき、使ってよい',
+    id: 'loom', name: '織工', types: ['action', 'reaction'], cost: 4, main: '銀貨 2 枚 か\nコスト 4 以下', desc: '銀貨を 2 枚か、コスト 4 以下を 1 枚獲得する。片付け以外で捨て札にしたとき、使ってよい',
     *play(g, p, pi) {
-      const v = yield* askChoose(g, pi, 'どちらにしますか？', [{ value: 'silver', label: '銀を 2 枚' }, { value: 'one', label: 'コスト 4 以下を 1 枚' }]);
+      const v = yield* askChoose(g, pi, 'どちらにしますか？', [{ value: 'silver', label: '銀貨を 2 枚' }, { value: 'one', label: 'コスト 4 以下を 1 枚' }]);
       if (v === 'silver') { yield* gain(g, pi, 'silver'); yield* gain(g, pi, 'silver'); } else yield* gain(g, pi, yield* askSupply(g, pi, 'コスト 4 以下を 1 枚獲得', 4));
     },
     *onDiscard(g, p, pi) { yield* mayPlayFrom(g, pi, 'loom', p.discard); },
   },
   // ---- コスト 5 ----
   {
-    id: 'mapmaker', name: '測地師', cost: 5, main: '+1 カード\n+1 アクション', desc: '山札の上 4 枚を見て、好きな枚数捨て、残りを好きな順に戻す',
+    id: 'mapmaker', name: '地図職人', cost: 5, main: '+1 カード\n+1 アクション', desc: '山札の上 4 枚を見て、好きな枚数捨て、残りを好きな順に戻す',
     *play(g, p, pi) {
       drawCards(p, 1);
       g.turn.actions += 1;
@@ -170,7 +170,7 @@ const kingdom = [
     },
   },
   {
-    id: 'bargainer', name: '値切り上手', cost: 5, main: '+2 金', desc: 'この手番、カードを買うたびに、それより安い勝利点以外のカードを 1 枚獲得する',
+    id: 'bargainer', name: '値切り屋', cost: 5, main: '+2 金', desc: 'この手番、カードを買うたびに、それより安い勝利点以外のカードを 1 枚獲得する',
     *play(g) { g.turn.money += 2; },
     *whenBuy(g, id, pi) {
       const c = costOf(g, id);
@@ -179,11 +179,11 @@ const kingdom = [
     },
   },
   {
-    id: 'causeway', name: '石畳', cost: 5, main: '+1 カード\n+1 アクション', desc: 'この手番のあいだ、すべてのカードのコストが 1 下がる',
+    id: 'causeway', name: '街道', cost: 5, main: '+1 カード\n+1 アクション', desc: 'この手番のあいだ、すべてのカードのコストが 1 下がる',
     *play(g, p) { drawCards(p, 1); g.turn.actions += 1; g.turn.costDown += 1; },
   },
   {
-    id: 'hatago', name: '宿場', cost: 5, main: '+2 カード\n+2 アクション', desc: '手札を 2 枚捨てる。これを獲得したとき、捨て札のアクションを好きな枚数、山札に混ぜてよい',
+    id: 'hatago', name: '宿屋', cost: 5, main: '+2 カード\n+2 アクション', desc: '手札を 2 枚捨てる。これを獲得したとき、捨て札のアクションを好きな枚数、山札に混ぜてよい',
     *play(g, p, pi) {
       drawCards(p, 2); g.turn.actions += 2;
       yield* discardCards(g, p, takeFromHand(p, yield* askHand(g, pi, '捨てる 2 枚を選ぶ', 2, 2)));
@@ -199,14 +199,14 @@ const kingdom = [
     },
   },
   {
-    id: 'warden', name: '国守', types: ['action', 'attack'], cost: 5, main: '+3 カード\n+1 購入', desc: '他の人は 1 枚引いてから、手札が 3 枚になるまで捨てる',
+    id: 'warden', name: '辺境伯', types: ['action', 'attack'], cost: 5, main: '+3 カード\n+1 購入', desc: '他の人は 1 枚引いてから、手札が 3 枚になるまで捨てる',
     *play(g, p) {
       drawCards(p, 3); g.turn.buys += 1;
       yield* attackOthers(g, function* (ti) { drawCards(g.players[ti], 1); yield* discardToThree(g, ti); });
     },
   },
   {
-    id: 'stable', name: '馬小屋', cost: 5, main: '財宝を捨てて\n+3 カード', desc: '手札の財宝を 1 枚捨ててよい。そうしたら +3 カード +1 アクション',
+    id: 'stable', name: '厩舎', cost: 5, main: '財宝を捨てて\n+3 カード', desc: '手札の財宝を 1 枚捨ててよい。そうしたら +3 カード +1 アクション',
     *play(g, p, pi) {
       const [i] = yield* askHand(g, pi, '捨てる財宝（しなくてもよい）', 0, 1, (id) => is(id, 'treasure'));
       if (i == null) return;
@@ -215,7 +215,7 @@ const kingdom = [
     },
   },
   {
-    id: 'brute', name: '暴れ者', types: ['action', 'attack'], cost: 5, main: '安いカードを獲得', desc: 'これより安いカードを 1 枚獲得する。他の人は手札が 3 枚になるまで捨てる。これを獲得したとき、場にアクションがあれば使う',
+    id: 'brute', name: '狂戦士', types: ['action', 'attack'], cost: 5, main: '安いカードを獲得', desc: 'これより安いカードを 1 枚獲得する。他の人は手札が 3 枚になるまで捨てる。これを獲得したとき、場にアクションがあれば使う',
     *play(g, p, pi) {
       const c = costOf(g, 'brute');
       if (c > 0) yield* gain(g, pi, yield* askSupply(g, pi, `コスト ${c - 1} 以下を 1 枚獲得`, c - 1));
@@ -227,11 +227,11 @@ const kingdom = [
     },
   },
   {
-    id: 'stewpot', name: '煮え鍋', types: ['treasure', 'attack'], cost: 5, value: 2, autoPlay: true, main: '+2 金　+1 購入', desc: 'この手番にアクションを 3 回獲得したら、他の人は災いを獲得する',
+    id: 'stewpot', name: '大釜', types: ['treasure', 'attack'], cost: 5, value: 2, autoPlay: true, main: '+2 金　+1 購入', desc: 'この手番にアクションを 3 回獲得したら、他の人は呪いを獲得する',
     *play(g) { g.turn.buys += 1; },
   },
   {
-    id: 'fleamarket', name: 'のみの市', cost: 5, main: '+1 購入\n+7 金 - 手札', desc: '+7 金。ただし手札 1 枚につき -1 金（0 より下にはならない）。これを獲得したとき、手札を 2 枚まで廃棄する',
+    id: 'fleamarket', name: 'スーク', cost: 5, main: '+1 購入\n+7 金 - 手札', desc: '+7 金。ただし手札 1 枚につき -1 金（0 より下にはならない）。これを獲得したとき、手札を 2 枚まで廃棄する',
     *play(g, p) { g.turn.buys += 1; g.turn.money += Math.max(0, 7 - p.hand.length); },
     *onGain(g, got) {
       const p = g.players[got.pi];
@@ -239,7 +239,7 @@ const kingdom = [
     },
   },
   {
-    id: 'wheeler', name: '車輪職人', cost: 5, main: '+1 カード\n+1 アクション', desc: '手札を 1 枚捨ててよい。そうしたら、そのコスト以下のアクションカードを 1 枚獲得する',
+    id: 'wheeler', name: '車大工', cost: 5, main: '+1 カード\n+1 アクション', desc: '手札を 1 枚捨ててよい。そうしたら、そのコスト以下のアクションカードを 1 枚獲得する',
     *play(g, p, pi) {
       drawCards(p, 1); g.turn.actions += 1;
       const [i] = yield* askHand(g, pi, '捨てる 1 枚（しなくてもよい）', 0, 1);
@@ -250,7 +250,7 @@ const kingdom = [
     },
   },
   {
-    id: 'charmhut', name: 'まじない小屋', types: ['action', 'attack'], cost: 5, main: '+4 カード', desc: '手札を 2 枚見せて捨てる。2 枚ともアクションなら、他の人は災いを獲得する',
+    id: 'charmhut', name: '魔女の小屋', types: ['action', 'attack'], cost: 5, main: '+4 カード', desc: '手札を 2 枚見せて捨てる。2 枚ともアクションなら、他の人は呪いを獲得する',
     *play(g, p, pi) {
       drawCards(p, 4);
       const ids = takeFromHand(p, yield* askHand(g, pi, '見せて捨てる 2 枚を選ぶ', 2, 2));
@@ -261,7 +261,7 @@ const kingdom = [
   },
   // ---- コスト 6 ----
   {
-    id: 'gatevillage', name: '関所の村', cost: 6, main: '+1 カード\n+2 アクション', desc: 'これを獲得したとき、これより安いカードを 1 枚獲得する',
+    id: 'gatevillage', name: '国境の村', cost: 6, main: '+1 カード\n+2 アクション', desc: 'これを獲得したとき、これより安いカードを 1 枚獲得する',
     *play(g, p) { drawCards(p, 1); g.turn.actions += 2; },
     *onGain(g, got) {
       const c = costOf(g, 'gatevillage');
@@ -269,10 +269,10 @@ const kingdom = [
     },
   },
   {
-    id: 'fields', name: '田畑', types: ['victory'], cost: 6, points: 2, main: '2 点', desc: 'これを獲得したとき、手札を 1 枚廃棄し、ちょうどコスト +2 の（田畑以外の）カードを 1 枚獲得する',
+    id: 'fields', name: '農地', types: ['victory'], cost: 6, points: 2, main: '2 点', desc: 'これを獲得したとき、手札を 1 枚廃棄し、ちょうどコスト +2 の（農地以外の）カードを 1 枚獲得する',
     *onGain(g, got) {
       const p = g.players[got.pi];
-      const [i] = yield* askHand(g, got.pi, '「田畑」: 廃棄する 1 枚を選ぶ', 1, 1);
+      const [i] = yield* askHand(g, got.pi, '「農地」: 廃棄する 1 枚を選ぶ', 1, 1);
       if (i == null) return;
       const [id] = takeFromHand(p, [i]);
       yield* trashCards(g, p, [id]);
@@ -307,7 +307,7 @@ function* brigandRaid(g, pi) {
 
 const firstEdition = [
   {
-    id: 'lady', name: '奥方', cost: 2, main: '+2 金', desc: '全員が山札の一番上を見て、捨てるか戻すかを決める。荘園を獲得したとき、奥方を 1 枚獲得してよい',
+    id: 'lady', name: '公爵夫人', cost: 2, main: '+2 金', desc: '全員が山札の一番上を見て、捨てるか戻すかを決める。公領を獲得したとき、公爵夫人を 1 枚獲得してよい',
     *play(g) {
       g.turn.money += 2;
       const n = g.players.length;
@@ -322,7 +322,7 @@ const firstEdition = [
     },
   },
   {
-    id: 'omen', name: 'お告げ', types: ['action', 'attack'], cost: 3, main: '+2 カード', desc: '全員の山札の上 2 枚をめくり、それぞれ捨てるか、その人の好きな順で戻すかをあなたが決める。そのあと +2 カード',
+    id: 'omen', name: '神託', types: ['action', 'attack'], cost: 3, main: '+2 カード', desc: '全員の山札の上 2 枚をめくり、それぞれ捨てるか、その人の好きな順で戻すかをあなたが決める。そのあと +2 カード',
     *play(g, p, pi) {
       const look = function* (ti) {
         const t = g.players[ti];
@@ -337,7 +337,7 @@ const firstEdition = [
     },
   },
   {
-    id: 'outlaw', name: '無法者', types: ['action', 'attack'], cost: 4, main: '+1 金', desc: '使ったとき・買ったとき: 他の人は山札の上 2 枚をめくり、銀か金があればあなたが 1 枚奪う。財宝がなかった人は銅を獲得する',
+    id: 'outlaw', name: '義賊', types: ['action', 'attack'], cost: 4, main: '+1 金', desc: '使ったとき・買ったとき: 他の人は山札の上 2 枚をめくり、銀貨か金貨があればあなたが 1 枚奪う。財宝がなかった人は銅貨を獲得する',
     *play(g, p, pi) {
       g.turn.money += 1;
       yield* attackOthers(g, function* () {}); // 水濠などを見せる機会（奪うのは下でまとめて）
@@ -346,20 +346,20 @@ const firstEdition = [
     *onBuy(g, pi) { yield* brigandRaid(g, pi); },
   },
   {
-    id: 'tent', name: '幕営', cost: 4, main: '+1 購入\n+2 金', desc: 'これを獲得したとき、山札の上に置く',
+    id: 'tent', name: '遊牧民の野営地', cost: 4, main: '+1 購入\n+2 金', desc: 'これを獲得したとき、山札の上に置く',
     *play(g) { g.turn.buys += 1; g.turn.money += 2; },
     *onGain(g, got) { if (got.to !== 'deck') yield* relocate(g, got, 'deck'); },
   },
   {
-    id: 'silkway', name: '絹の道', types: ['victory'], cost: 4, main: '勝利点 4 枚\nごとに 1 点', desc: '持っている勝利点カード 4 枚ごとに 1 点',
+    id: 'silkway', name: 'シルクロード', types: ['victory'], cost: 4, main: '勝利点 4 枚\nごとに 1 点', desc: '持っている勝利点カード 4 枚ごとに 1 点',
     pointsFn: (all) => Math.floor(all.filter((id) => is(id, 'victory')).length / 4),
   },
   {
-    id: 'hiddengold', name: '隠し金', types: T, cost: 5, value: 3, main: '+3 金', desc: 'これを獲得したとき、銅を 2 枚獲得する',
+    id: 'hiddengold', name: '埋蔵金', types: T, cost: 5, value: 3, main: '+3 金', desc: 'これを獲得したとき、銅貨を 2 枚獲得する',
     *onGain(g, got) { yield* gain(g, got.pi, 'copper'); yield* gain(g, got.pi, 'copper'); },
   },
   {
-    id: 'legation', name: '公館', cost: 5, main: '+5 カード', desc: '手札を 3 枚捨てる。これを獲得したとき、他の人は銀を 1 枚ずつ獲得する',
+    id: 'legation', name: '大使館', cost: 5, main: '+5 カード', desc: '手札を 3 枚捨てる。これを獲得したとき、他の人は銀貨を 1 枚ずつ獲得する',
     *play(g, p, pi) {
       drawCards(p, 5);
       yield* discardCards(g, p, takeFromHand(p, yield* askHand(g, pi, '捨てる 3 枚を選ぶ', 3, 3)));
@@ -370,15 +370,15 @@ const firstEdition = [
     },
   },
   {
-    id: 'dirtymoney', name: '悪銭', types: T, cost: 5, value: 1, main: '+1 金', desc: '銅を 1 枚手札に獲得してよい。これを獲得したとき、他の人は災いを獲得する',
-    *play(g, p, pi) { if (yield* askYesNo(g, pi, '銅を手札に獲得しますか？', '獲得する', 'しない')) yield* gain(g, pi, 'copper', 'hand'); },
+    id: 'dirtymoney', name: '不正利得', types: T, cost: 5, value: 1, main: '+1 金', desc: '銅貨を 1 枚手札に獲得してよい。これを獲得したとき、他の人は呪いを獲得する',
+    *play(g, p, pi) { if (yield* askYesNo(g, pi, '銅貨を手札に獲得しますか？', '獲得する', 'しない')) yield* gain(g, pi, 'copper', 'hand'); },
     *onGain(g, got) {
       const n = g.players.length;
       for (let k = 1; k < n; k++) yield* gain(g, (got.pi + k) % n, 'curse');
     },
   },
   {
-    id: 'magistrate', name: '代官', cost: 5, main: '+3 金', desc: '手札を 1 枚山札の上に置く。これを獲得したとき、場の財宝をすべて好きな順に山札の上に置く',
+    id: 'magistrate', name: '官吏', cost: 5, main: '+3 金', desc: '手札を 1 枚山札の上に置く。これを獲得したとき、場の財宝をすべて好きな順に山札の上に置く',
     *play(g, p, pi) {
       g.turn.money += 3;
       const [i] = yield* askHand(g, pi, '山札の上に置く 1 枚を選ぶ', 1, 1);
@@ -393,22 +393,22 @@ const firstEdition = [
   },
 ].map((c) => ({ ...c, set: 'hinterlands1' }));
 
-// にせ金: 他の人が領地を獲得したら、手札のにせ金を廃棄して金を山札の上に（1 枚ずつ問う）
-// 奥方: 荘園を獲得したとき、奥方を獲得してよい
-// 煮え鍋: この手番に 3 回目のアクションを獲得したら、場の煮え鍋 1 枚につき他の人は災い
+// 愚者の黄金: 他の人が属州を獲得したら、手札の愚者の黄金を廃棄して金貨を山札の上に（1 枚ずつ問う）
+// 公爵夫人: 公領を獲得したとき、公爵夫人を獲得してよい
+// 大釜: この手番に 3 回目のアクションを獲得したら、場の大釜 1 枚につき他の人は呪い
 HOOKS.gain.push(function* (g, got) {
   const n = g.players.length;
   if (got.id === 'province') {
     for (let k = 1; k < n; k++) {
       const pi = (got.pi + k) % n;
       const p = g.players[pi];
-      while (p.hand.includes('pyrite') && (yield* askYesNo(g, pi, `${g.players[got.pi].name}が領地を獲得。「にせ金」を廃棄して金を山札の上に獲得しますか？`, '廃棄する', 'しない', ['pyrite']))) {
+      while (p.hand.includes('pyrite') && (yield* askYesNo(g, pi, `${g.players[got.pi].name}が属州を獲得。「愚者の黄金」を廃棄して金貨を山札の上に獲得しますか？`, '廃棄する', 'しない', ['pyrite']))) {
         yield* trashCards(g, p, takeFromHand(p, [p.hand.indexOf('pyrite')]));
         yield* gain(g, pi, 'gold', 'deck');
       }
     }
   }
-  if (got.id === 'duchy' && g.supply.lady > 0 && (yield* askYesNo(g, got.pi, '「奥方」も獲得しますか？', '獲得する', 'しない', ['lady']))) yield* gain(g, got.pi, 'lady');
+  if (got.id === 'duchy' && g.supply.lady > 0 && (yield* askYesNo(g, got.pi, '「公爵夫人」も獲得しますか？', '獲得する', 'しない', ['lady']))) yield* gain(g, got.pi, 'lady');
   if (got.pi === g.current && is(got.id, 'action')) {
     g.turn.actionGains = (g.turn.actionGains || 0) + 1;
     if (g.turn.actionGains === 3) {

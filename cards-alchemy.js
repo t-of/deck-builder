@@ -1,6 +1,6 @@
 'use strict';
-// 拡張「錬金術」のカード（12 種と霊薬）。名前は本家と別の言い回し。
-// potion: コストのうちポーション（霊薬）の数。potionValue: 出すと得られるポーションの数。
+// 拡張「錬金術」のカード（12 種とポーション）。名前は公式日本語カード名。
+// potion: コストのうちポーションの数。potionValue: 出すと得られるポーションの数。
 import {
   CARDS, defineCards, is, drawCards, takeTop, putOnDeck, takeFromHand, trashCards, discardCards,
   gain, costOf, askHand, askSupply, askCards, askYesNo, attackOthers, resolve, reveal, putBackInOrder,
@@ -10,12 +10,12 @@ const log = (g, text) => g.log.push(text);
 const nm = (id) => `「${CARDS[id].name}」`;
 
 const basics = [
-  { id: 'potion', name: '霊薬', types: ['treasure'], cost: 4, potionValue: 1, notSupply: true, main: '+1 霊薬', desc: 'コストに霊薬があるカードを買うのに使う' },
+  { id: 'potion', name: 'ポーション', types: ['treasure'], cost: 4, potionValue: 1, notSupply: true, main: '+1 ポーション', desc: 'コストにポーションがあるカードを買うのに使う' },
 ];
 
 const kingdom = [
   {
-    id: 'transform', name: '転化', cost: 0, potion: 1, main: '廃棄して化ける', desc: '手札を 1 枚廃棄する。アクションなら荘園、財宝なら転化、勝利点なら金を獲得する（種類が複数ならそれぞれ）',
+    id: 'transform', name: '変成', cost: 0, potion: 1, main: '廃棄して化ける', desc: '手札を 1 枚廃棄する。アクションなら公領、財宝なら変成、勝利点なら金貨を獲得する（種類が複数ならそれぞれ）',
     *play(g, p, pi) {
       const [i] = yield* askHand(g, pi, '廃棄する 1 枚を選ぶ', 1, 1);
       if (i == null) return;
@@ -27,22 +27,22 @@ const kingdom = [
     },
   },
   {
-    id: 'vinerack', name: 'ぶどう棚', types: ['victory'], cost: 0, potion: 1, main: 'アクション 3 枚\nごとに 1 点', desc: '持っているアクションカード 3 枚ごとに 1 点',
+    id: 'vinerack', name: 'ブドウ園', types: ['victory'], cost: 0, potion: 1, main: 'アクション 3 枚\nごとに 1 点', desc: '持っているアクションカード 3 枚ごとに 1 点',
     pointsFn: (all) => Math.floor(all.filter((id) => is(id, 'action')).length / 3),
   },
   {
-    id: 'herbpicker', name: '草摘み', cost: 2, main: '+1 購入\n+1 金', desc: '片付けのとき、場の財宝を 1 枚山札の上に置いてよい',
+    id: 'herbpicker', name: '薬草商', cost: 2, main: '+1 購入\n+1 金', desc: '片付けのとき、場の財宝を 1 枚山札の上に置いてよい',
     *play(g) { g.turn.buys += 1; g.turn.money += 1; },
     *onCleanup(g, p, pi) {
       const tr = g.playArea.filter((id) => is(id, 'treasure'));
-      const [i] = yield* askCards(g, pi, '「草摘み」: 山札の上に戻す財宝（なしでもよい）', tr, 0, 1);
+      const [i] = yield* askCards(g, pi, '「薬草商」: 山札の上に戻す財宝（なしでもよい）', tr, 0, 1);
       if (i == null) return;
       g.playArea.splice(g.playArea.indexOf(tr[i]), 1);
       putOnDeck(p, tr[i]);
     },
   },
   {
-    id: 'druggist', name: '調薬師', cost: 2, potion: 1, main: '+1 カード\n+1 アクション', desc: '山札の上 4 枚をめくり、銅と霊薬を手札に入れる。残りは好きな順に戻す',
+    id: 'druggist', name: '薬師', cost: 2, potion: 1, main: '+1 カード\n+1 アクション', desc: '山札の上 4 枚をめくり、銅貨とポーションを手札に入れる。残りは好きな順に戻す',
     *play(g, p, pi) {
       drawCards(p, 1); g.turn.actions += 1;
       const shown = reveal(p, 4);
@@ -52,7 +52,7 @@ const kingdom = [
     },
   },
   {
-    id: 'mirrorpool', name: 'のぞき水鏡', types: ['action', 'attack'], cost: 2, potion: 1, main: '+1 アクション', desc: '全員の山札の一番上を見て、捨てるか戻すかをあなたが決める。そのあとアクション以外が出るまで山札をめくり、めくった札をすべて手札に入れる',
+    id: 'mirrorpool', name: '念視の泉', types: ['action', 'attack'], cost: 2, potion: 1, main: '+1 アクション', desc: '全員の山札の一番上を見て、捨てるか戻すかをあなたが決める。そのあとアクション以外が出るまで山札をめくり、めくった札をすべて手札に入れる',
     *play(g, p, pi) {
       g.turn.actions += 1;
       const look = function* (ti) {
@@ -71,34 +71,34 @@ const kingdom = [
     },
   },
   {
-    id: 'academy', name: '学び舎', cost: 2, potion: 1, main: '+2 アクション', desc: 'コスト 5 以下のアクションカードを 1 枚獲得してよい',
+    id: 'academy', name: '大学', cost: 2, potion: 1, main: '+2 アクション', desc: 'コスト 5 以下のアクションカードを 1 枚獲得してよい',
     *play(g, p, pi) {
       g.turn.actions += 2;
       yield* gain(g, pi, yield* askSupply(g, pi, 'コスト 5 以下のアクションを獲得してよい', 5, (id) => is(id, 'action'), true));
     },
   },
   {
-    id: 'adept', name: '術士', cost: 3, potion: 1, main: '+2 カード\n+1 アクション', desc: '片付けのとき、霊薬を場に出していれば、これを山札の上に置いてよい',
+    id: 'adept', name: '錬金術師', cost: 3, potion: 1, main: '+2 カード\n+1 アクション', desc: '片付けのとき、ポーションを場に出していれば、これを山札の上に置いてよい',
     *play(g, p) { drawCards(p, 2); g.turn.actions += 1; },
     *onCleanup(g, p, pi) {
       if (!g.playArea.includes('potion') || !g.playArea.includes('adept')) return;
-      if (!(yield* askYesNo(g, pi, '「術士」を山札の上に戻しますか？', '戻す', '戻さない', ['adept']))) return;
+      if (!(yield* askYesNo(g, pi, '「錬金術師」を山札の上に戻しますか？', '戻す', '戻さない', ['adept']))) return;
       putOnDeck(p, g.playArea.splice(g.playArea.indexOf('adept'), 1)[0]);
     },
   },
   {
-    id: 'blackcat', name: '使い猫', types: ['action', 'attack'], cost: 3, potion: 1, main: '+1 カード\n+1 アクション', desc: '他の人は災いを獲得する',
+    id: 'blackcat', name: '使い魔', types: ['action', 'attack'], cost: 3, potion: 1, main: '+1 カード\n+1 アクション', desc: '他の人は呪いを獲得する',
     *play(g, p) {
       drawCards(p, 1); g.turn.actions += 1;
       yield* attackOthers(g, function* (ti) { yield* gain(g, ti, 'curse'); });
     },
   },
   {
-    id: 'arcanestone', name: '秘石', types: ['treasure'], cost: 3, potion: 1, autoPlay: true, main: '山札と捨て札\n5 枚ごとに +1 金', desc: '山札と捨て札の合計 5 枚ごとに +1 金',
+    id: 'arcanestone', name: '賢者の石', types: ['treasure'], cost: 3, potion: 1, autoPlay: true, main: '山札と捨て札\n5 枚ごとに +1 金', desc: '山札と捨て札の合計 5 枚ごとに +1 金',
     *play(g, p) { g.turn.money += Math.floor((p.deck.length + p.discard.length) / 5); },
   },
   {
-    id: 'clayman', name: '土人形', cost: 4, potion: 1, main: 'アクションを\n2 枚めくって使う', desc: '土人形以外のアクションが 2 枚出るまで山札をめくり、ほかは捨てる。その 2 枚を好きな順に使う',
+    id: 'clayman', name: 'ゴーレム', cost: 4, potion: 1, main: 'アクションを\n2 枚めくって使う', desc: 'ゴーレム以外のアクションが 2 枚出るまで山札をめくり、ほかは捨てる。その 2 枚を好きな順に使う',
     *play(g, p, pi) {
       const found = [];
       const other = [];
@@ -116,7 +116,7 @@ const kingdom = [
     },
   },
   {
-    id: 'pupil', name: '内弟子', cost: 5, main: '+1 アクション', desc: '手札を 1 枚廃棄し、そのコスト 1 につき +1 カード。コストに霊薬があれば、さらに +2 カード',
+    id: 'pupil', name: '弟子', cost: 5, main: '+1 アクション', desc: '手札を 1 枚廃棄し、そのコスト 1 につき +1 カード。コストにポーションがあれば、さらに +2 カード',
     *play(g, p, pi) {
       g.turn.actions += 1;
       const [i] = yield* askHand(g, pi, '廃棄する 1 枚を選ぶ', 1, 1);
@@ -127,7 +127,7 @@ const kingdom = [
     },
   },
   {
-    id: 'takeover', name: '乗っ取り', cost: 6, potion: 1, main: '左の人の手番を\n操作する', desc: 'この手番のあと、左の人が追加の手番を行う。その手番はあなたが操作し、その人が獲得する札はあなたが獲得し、廃棄する札は脇に置いて手番の終わりにその人の捨て札に戻す',
+    id: 'takeover', name: '支配', cost: 6, potion: 1, main: '左の人の手番を\n操作する', desc: 'この手番のあと、左の人が追加の手番を行う。その手番はあなたが操作し、その人が獲得する札はあなたが獲得し、廃棄する札は脇に置いて手番の終わりにその人の捨て札に戻す',
     *play(g) { g.turn.possess = true; },
   },
 ];
