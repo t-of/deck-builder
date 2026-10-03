@@ -867,15 +867,18 @@ function scheduleCpuMove(pi) {
   if (game.over) { showResult(); return; }
   const seat = seats[pi];
   const needsPlan = (seat.level === 'strong' || seat.level === 'expert') && !(game.cpuPlans && game.cpuPlans[pi]);
+  // 待っているあいだに「もう一度遊ぶ」で対局が変わったら、前の対局の手は打たない
+  const g = game;
   if (needsPlan) {
     document.getElementById('cpuThinking').hidden = false;
     planInWorker(pi, seat.level, () => {
+      if (game !== g) return;
       document.getElementById('cpuThinking').hidden = true;
       doCpuMove(pi);
     });
     return;
   }
-  setTimeout(() => doCpuMove(pi), cpuDelay());
+  setTimeout(() => { if (game === g) doCpuMove(pi); }, cpuDelay());
 }
 // 狙いの札を決める自己対局は、画面が止まらないよう Web Worker（planner.js）で回す。使えなければこのスレッドで
 let planner = null;
