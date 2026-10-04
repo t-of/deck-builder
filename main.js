@@ -1184,9 +1184,10 @@ function animateMedalGains(gains, originNodes) {
   });
 }
 
-// 属州・植民地などの高得点札、コスト 6 以上の札を買ったとき、札が大きく横切るカットインを出す。
+// 植民地などの高得点札、コスト 6 以上の札を買ったとき、札が大きく横切るカットインを出す（属州・金貨はよく買うので出さない）。
 // 入力はふさがない（pointer-events: none）。reduced-motion では出さない。CPU 観戦の「速い」設定では短くする
 function maybeShowBuyCutIn(id) {
+  if (id === 'province' || id === 'gold') return;
   const card = CARDS[id];
   const isBig = card.cost >= 6 || (card.types.includes('victory') && card.points >= 6);
   if (!isBig) return;
