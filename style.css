@@ -253,6 +253,38 @@ button { font: inherit; color: inherit; }
 }
 .medal__n { font-size: 16px; font-weight: 800; line-height: 1.1; font-family: 'Cinzel', serif; }
 .medal__label { font-size: 9px; color: var(--muted); letter-spacing: 0.04em; }
+/* 金貨が属州（8）・植民地（11）を買える額になったら金色に光る */
+.medal--richer { border-color: #d8b23f; }
+.medal--richer .medal__n { color: #d8b23f; }
+.medal--richest { box-shadow: 0 0 8px rgba(216, 178, 63, 0.7); }
+@media (prefers-reduced-motion: no-preference) {
+  .medal--richest { animation: richGlow 1.6s ease-in-out infinite; }
+}
+@keyframes richGlow { 0%, 100% { box-shadow: 0 0 6px rgba(216, 178, 63, 0.5); } 50% { box-shadow: 0 0 14px rgba(216, 178, 63, 1); } }
+/* メダルへ飛ぶ加算チップ（main.js の animateMedalGains が出す） */
+.coinChip {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  font-family: 'Cinzel', serif;
+  color: #d8b23f;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(216, 178, 63, 0.6);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .coinChip { animation: coinFly 0.45s ease-in backwards; }
+}
+@keyframes coinFly {
+  0% { opacity: 0; translate: var(--dx, 0) var(--dy, 0); scale: 0.7; }
+  15% { opacity: 1; scale: 1; }
+  75% { opacity: 1; translate: 0 0; }
+  100% { opacity: 0; translate: 0 0; }
+}
 
 /* ---- 結果画面の表彰台（1位を中央・一番高く） ---- */
 .podium { display: flex; align-items: flex-end; justify-content: center; gap: 8px; width: 100%; max-width: 420px; margin-top: 4px; }

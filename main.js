@@ -613,19 +613,31 @@ function renderTurn() {
   clear(stats);
   stats.appendChild(el('span', { class: 'hud__name', text: p.name }));
   const medals = el('div', { class: 'medals' });
-  // 前回より増えていたら medal--bump を付けて跳ねさせる（reduced-motion では CSS 側で動かさない）
-  const medal = (label, n, prevN) => el('span', { class: `medal${prevN != null && n > prevN ? ' medal--bump' : ''}` }, [
-    el('span', { class: 'medal__n', text: String(n) }),
-    el('span', { class: 'medal__label', text: label }),
-  ]);
+  // 前回より増えた分は animateMedalGains でチップを飛ばしてから跳ねさせる（それまでは medal--bump を付けない）
   const prevNums = prevRender && prevRender.pi === game.current ? prevRender.nums : {};
-  medals.appendChild(medal('アクション', t.actions, prevNums.actions));
-  medals.appendChild(medal('購入', t.buys, prevNums.buys));
-  medals.appendChild(medal('金貨', t.money, prevNums.money));
-  if (p.tokens.vp > 0) medals.appendChild(medal('勝利点', p.tokens.vp));
-  if (p.tokens.coffers > 0) medals.appendChild(medal('財源', p.tokens.coffers));
-  if (t.potions > 0) medals.appendChild(medal('ポーション', t.potions));
-  if (p.tokens.villagers > 0) medals.appendChild(medal('村人', p.tokens.villagers));
+  const nums = {}; // 今回の値。次回との比較用に prevRender へ残す
+  const medalGains = []; // 今回増えたメダル（要素と増えた量）
+  const medal = (key, label, n) => {
+    nums[key] = n;
+    const elem = el('span', { class: 'medal' }, [
+      el('span', { class: 'medal__n', text: String(n) }),
+      el('span', { class: 'medal__label', text: label }),
+    ]);
+    const prevN = prevNums[key];
+    if (prevN != null && n > prevN) medalGains.push({ elem, delta: n - prevN });
+    return elem;
+  };
+  medals.appendChild(medal('actions', 'アクション', t.actions));
+  medals.appendChild(medal('buys', '購入', t.buys));
+  const moneyMedal = medal('money', '金貨', t.money);
+  // 属州が買える 8 金から金色に、植民地も買える 11 金からさらに強く光る
+  moneyMedal.classList.toggle('medal--richer', t.money >= 8);
+  moneyMedal.classList.toggle('medal--richest', t.money >= 11);
+  medals.appendChild(moneyMedal);
+  if (p.tokens.vp > 0) medals.appendChild(medal('vp', '勝利点', p.tokens.vp));
+  if (p.tokens.coffers > 0) medals.appendChild(medal('coffers', '財源', p.tokens.coffers));
+  if (t.potions > 0) medals.appendChild(medal('potions', 'ポーション', t.potions));
+  if (p.tokens.villagers > 0) medals.appendChild(medal('villagers', '村人', p.tokens.villagers));
   stats.appendChild(medals);
   stats.appendChild(el('span', { class: 'muted', text: tokenBits(p).join('・') }));
   if (ownerBits(game, game.current).length) stats.appendChild(el('span', { class: 'muted', text: ownerBits(game, game.current).join('・') }));
@@ -699,10 +711,11 @@ function renderTurn() {
   clear(playArea);
   const playIds = [...p.inPlay, ...game.playArea];
   const prevPlayCounts = countsOf(prevRender ? prevRender.play : []);
+  const newPlayNodes = []; // この回に新しく出た札（メダルの加算チップを飛ばす起点）
   for (const g of groupById(playIds)) {
     const node = gcNode(g.id, false);
     if (g.n > 1) node.appendChild(el('span', { class: 'tcgcard__count', text: `×${g.n}` }));
-    if (g.n > (prevPlayCounts.get(g.id) || 0)) node.classList.add('is-new-play');
+    if (g.n > (prevPlayCounts.get(g.id) || 0)) { node.classList.add('is-new-play'); newPlayNodes.push(node); }
     playArea.appendChild(node);
   }
   // この手番に買った札も場に並べ、「購入」の札で見分ける（本当の行き先は捨て札）
@@ -825,6 +838,7 @@ function renderTurn() {
     hand.appendChild(node);
   });
   animateDraw(p, newGroupNodes);
+  animateMedalGains(medalGains, newPlayNodes);
 
   // 次にすることの案内（HUD の近くに短く出す）
   document.getElementById('turnHint').textContent = !humanControls ? '' : turnHint(game, p, t);
@@ -839,8 +853,48 @@ function renderTurn() {
     hand: [...p.hand],
     play: playIds,
     supply: { ...game.supply },
-    nums: { actions: t.actions, buys: t.buys, money: t.money },
+    nums,
   };
+}
+
+// メダルが増えたとき、増やした札（新しく場に出た札があればそこ、無ければ場の中央）から
+// 「+2」のようなチップを該当のメダルへ飛ばし、着いたら跳ねさせる（Balatro 風）
+function animateMedalGains(gains, originNodes) {
+  if (!gains.length) return;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const fast = allCpu() && spectatorSpeed === 'fast'; // CPU観戦の「速い」設定では省く
+  if (reduced || fast) {
+    for (const { elem } of gains) elem.classList.add('medal--bump');
+    return;
+  }
+  let originRect = null;
+  if (originNodes.length) {
+    const rects = originNodes.map((n) => n.getBoundingClientRect());
+    const left = Math.min(...rects.map((r) => r.left));
+    const top = Math.min(...rects.map((r) => r.top));
+    originRect = { x: (left + Math.max(...rects.map((r) => r.right))) / 2, y: (top + Math.max(...rects.map((r) => r.bottom))) / 2 };
+  } else {
+    const playArea = document.getElementById('playArea');
+    const r = playArea.getBoundingClientRect();
+    originRect = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }
+  gains.forEach(({ elem, delta }, i) => {
+    const dest = elem.getBoundingClientRect();
+    const dx = dest.left + dest.width / 2;
+    const dy = dest.top + dest.height / 2;
+    const chip = el('div', { class: 'coinChip', text: `+${delta}` });
+    chip.style.left = `${dx}px`;
+    chip.style.top = `${dy}px`;
+    chip.style.setProperty('--dx', `${originRect.x - dx}px`);
+    chip.style.setProperty('--dy', `${originRect.y - dy}px`);
+    chip.style.animationDelay = `${i * 90}ms`;
+    chip.addEventListener('animationend', () => {
+      chip.remove();
+      elem.classList.add('medal--bump');
+      setTimeout(() => elem.classList.remove('medal--bump'), 400);
+    });
+    document.body.appendChild(chip);
+  });
 }
 
 // 山札・捨て札の枚数を出し、新しく引いた札を山札の位置から 1 枚ずつ飛ばす。
