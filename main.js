@@ -23,7 +23,7 @@ import {
   newGame, currentPlayer, turnController, playAction, playTreasureGen, playAllTreasures, playTreasure,
   enterBuyPhase, canBuy, buyCard, beginTurn, endTurn, spendCoffers, payDebt, finalResults, allCards,
   landscapePool, canBuyEvent, buyEvent, enterNightPhase, canPlayNight, playNight, spendVillager,
-  canPlayAction, shadowsInDeck, playShadow, isTreasureNow,
+  canPlayAction, shadowsInDeck, playShadow, isTreasureNow, emptyPiles, EMPTY_PILES_LIMIT,
 } from './engine.js';
 // CPU（1台の端末で人の代わりに席に着く）。画面からはこの3つだけ使う
 import { LEVELS as CPU_LEVELS, nextMove as cpuNextMove, answer as cpuAnswer, planFor as cpuPlanFor } from './cpu.js';
@@ -775,6 +775,16 @@ function renderTurn() {
   trashBox.querySelector('.trashBox__count').textContent = `廃棄 ${game.trash.length} 枚`;
   trashBox.querySelector('.trashBox__list').textContent = counts(game.trash);
   trashBox.title = counts(game.trash);
+
+  // 終わりの近さ: 属州（・植民地）の残りと空いた山の数。engine の終了判定（EMPTY_PILES_LIMIT）とそろえる
+  const endGauge = document.getElementById('endGauge');
+  const provinceLeft = game.supply.province;
+  const colonyLeft = game.supply.colony;
+  const empty = emptyPiles(game);
+  const near = provinceLeft <= game.players.length || (colonyLeft != null && colonyLeft <= game.players.length) || empty >= EMPTY_PILES_LIMIT - 1;
+  endGauge.classList.toggle('is-near', near);
+  const vpBit = colonyLeft != null ? `属州${provinceLeft}・植民地${colonyLeft}` : `属州${provinceLeft}`;
+  endGauge.textContent = `${vpBit}　空${empty}/${EMPTY_PILES_LIMIT}`;
 
   // 影の札（山札にある影）: アクションフェイズに手札の横に並べる
   const shadowLabel = document.getElementById('shadowLabel');

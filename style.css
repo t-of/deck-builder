@@ -135,6 +135,24 @@ button { font: inherit; color: inherit; }
 .trashBox p { margin: 0; }
 .trashBox__count { flex: none; font-size: 13px; font-weight: 800; }
 .trashBox__list { min-width: 0; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 終わりの近さ: 属州（・植民地）の残りと空いた山の数。対局中だけ、残り少なければ赤く */
+.endGauge {
+  flex: none;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.app:has(#game[hidden]) .endGauge, .endGauge:empty { display: none; }
+.endGauge.is-near { color: #ff6b6b; border-color: rgba(255, 107, 107, 0.6); }
+@media (prefers-reduced-motion: no-preference) {
+  .endGauge.is-near { animation: endGaugePulse 1.2s ease-in-out infinite; }
+}
+@keyframes endGaugePulse { 0%, 100% { background: transparent; } 50% { background: rgba(255, 107, 107, 0.25); } }
 .othersRow { display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--muted); }
 .otherCard { border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--radius); padding: 4px 8px; }
 .hud { display: flex; flex-direction: column; gap: 6px; background: rgba(255, 255, 255, 0.04); border-radius: var(--radius); padding: 8px 10px; }

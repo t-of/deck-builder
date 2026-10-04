@@ -775,9 +775,10 @@ export function* buyEvent(game, id) {
   return true;
 }
 
+export const EMPTY_PILES_LIMIT = 3;
 export function gameShouldEnd(game) {
   if (game.supply.province <= 0 || game.supply.colony <= 0) return true;
-  return emptyPiles(game) >= 3;
+  return emptyPiles(game) >= EMPTY_PILES_LIMIT;
 }
 
 // 片付け → 5 枚引く → 終了の判定 → 次の人（追加の手番なら同じ人）
