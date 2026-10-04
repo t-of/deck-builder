@@ -618,15 +618,20 @@ function renderRandomPane() {
     text: 'イベントなどを入れる',
     onclick: () => { landscapesOn = !landscapesOn; reroll(); },
   }));
-  box.appendChild(el('button', { class: 'pill pill--accent', text: '引き直し', onclick: openPackReveal }));
+  box.appendChild(el('div', { class: 'chipRow' }, [
+    el('button', { class: 'pill pill--accent', text: '引き直し', onclick: () => openPackReveal() }),
+    // 拡張の選択もイベントなどの設定も無視して、全カードからひく
+    el('button', { class: 'pill', text: '完全ランダム', onclick: () => openPackReveal(true) }),
+  ]));
   return box;
 }
 // 組の中身だけ決める（状態は書き換えない）。reroll（即反映）と openPackReveal（演出つき）の両方から使う
-function decideRandom() {
-  const pool = kingdomPool([...selectedSets]);
+// full: 完全ランダム（全拡張から、イベントなども 0〜2 枚まぜる）
+function decideRandom(full = false) {
+  const pool = full ? ALL_KINGDOM : kingdomPool([...selectedSets]);
   const k = randomKingdom(pool.length >= 10 ? pool : ALL_KINGDOM);
-  const lpool = landscapePool([...selectedSets]);
-  const l = landscapesOn ? randomKingdom(lpool, Math.floor(Math.random() * 3)) : [];
+  const lpool = full ? ALL_LANDSCAPES : landscapePool([...selectedSets]);
+  const l = full || landscapesOn ? randomKingdom(lpool, Math.floor(Math.random() * 3)) : [];
   return { kingdom: k, landscapes: l };
 }
 // 対象の拡張を変えたときなど、演出なしですぐ反映する
@@ -641,8 +646,8 @@ function reroll() {
 // ---- おまかせ：パックを開ける演出 ----
 // 組を決め、裏向きの札を1枚ずつめくって見せる。タップで全部すぐ出せる。終わったら「この組で始める／もう一度ひく」。
 // reduced-motion では演出をせず最初から表向きで並べる
-function openPackReveal() {
-  const { kingdom: k, landscapes: l } = decideRandom();
+function openPackReveal(full = false) {
+  const { kingdom: k, landscapes: l } = decideRandom(full);
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ids = [...k, ...l];
   const slots = ids.map((id) => {
@@ -653,7 +658,7 @@ function openPackReveal() {
   const grid = el('div', { class: 'cards cards--fan packStage__grid' }, slots);
   const hint = el('p', { class: 'packStage__hint', text: 'タップでめくる' });
   const foot = el('div', { class: 'packStage__foot', hidden: true }, [
-    el('button', { class: 'pill', text: 'もう一度ひく', onclick: () => { overlay.remove(); openPackReveal(); } }),
+    el('button', { class: 'pill', text: 'もう一度ひく', onclick: () => { overlay.remove(); openPackReveal(full); } }),
     el('button', {
       class: 'pill pill--accent', text: 'この組で始める',
       onclick: () => { kingdom = k; landscapes = l; persistSetup(); overlay.remove(); startGame(); },
