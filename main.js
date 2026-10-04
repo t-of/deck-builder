@@ -53,17 +53,17 @@ function setAudioSession(soundOn) {
 
 // ---- 音（短いビープだけ） ----
 let audioCtx = null;
-function beep(freq, dur) {
+function beep(freq, dur, gain = 0.1) {
   try {
     if (!audioCtx) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); setAudioSession(true); }
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
+    const g = audioCtx.createGain();
     osc.frequency.value = freq;
     osc.type = 'sine';
-    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
-    osc.connect(gain).connect(audioCtx.destination);
+    g.gain.setValueAtTime(gain, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    osc.connect(g).connect(audioCtx.destination);
     osc.start();
     osc.stop(audioCtx.currentTime + dur);
   } catch { /* 音が出せなくても遊べる */ }
@@ -71,6 +71,17 @@ function beep(freq, dur) {
 const soundPlay = () => beep(360, 0.1);
 const soundBuy = () => beep(560, 0.14);
 const soundEnd = () => beep(220, 0.2);
+// 夜の古い城の作戦卓、という雰囲気に合わせて柔らかく小さく
+const soundDraw = () => beep(620, 0.05, 0.035); // 札を引く（連続しないよう呼び出し側で間引く）
+const soundShuffle = () => { beep(220, 0.12, 0.045); setTimeout(() => beep(190, 0.14, 0.035), 90); }; // 山札を混ぜる
+const soundTrash = () => beep(130, 0.2, 0.08); // 廃棄（低く短く）
+const soundAttack = () => beep(170, 0.16, 0.09); // 攻撃を受けた
+const soundTurnStart = () => { beep(500, 0.1, 0.05); setTimeout(() => beep(660, 0.12, 0.05), 90); }; // 自分の番が来た
+const soundCutIn = () => { beep(520, 0.1, 0.08); setTimeout(() => beep(760, 0.2, 0.08), 100); }; // 高コストの購入カットイン
+const soundFlip = () => beep(480, 0.07, 0.07); // パック開封でめくる
+const soundFanfare = () => { // 結果画面、1位のファンファーレ
+  [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.22, 0.09), i * 110));
+};
 
 // ---- DOM 組み立ての小道具 ----
 function el(tag, props = {}, children = []) {
@@ -668,7 +679,7 @@ function openPackReveal() {
       setTimeout(() => {
         if (done) return;
         s.classList.add('is-revealed');
-        soundPlay();
+        soundFlip();
         if (i === slots.length - 1) finish();
       }, 220 * (i + 1));
     });
@@ -739,6 +750,8 @@ function startGame() {
   prevRender = null;
   summaryOpen = false;
   humanBought = {};
+  seenShuffle.clear();
+  seenTrash = 0;
   game = newGame(players, kingdom, seats.map(seatName), { landscapes: activeLandscapes() });
   startTurnPass();
 }
@@ -765,7 +778,7 @@ function maybeGoToPass(pi, onReady) {
 }
 function startTurnPass() {
   const pi = turnController(game);
-  maybeGoToPass(pi, () => run(beginTurn(game)));
+  maybeGoToPass(pi, () => { if (isHumanSeat(pi)) soundTurnStart(); run(beginTurn(game)); });
 }
 
 // ==================================================================
@@ -990,6 +1003,8 @@ function renderTurn() {
     supply.appendChild(el('div', { class: 'supplyGroup' }, [el('h3', { class: 'supplyGroup__label', text: 'サプライ外' }), nonSupplyBox]));
   }
   // 廃棄置き場: 上のバーの真ん中に、横長の枠で枚数と中身を出す
+  if (game.trash.length > seenTrash) soundTrash();
+  seenTrash = game.trash.length;
   const trashBox = document.getElementById('trashBox');
   trashBox.querySelector('.trashBox__count').textContent = `廃棄 ${game.trash.length} 枚`;
   trashBox.querySelector('.trashBox__list').textContent = counts(game.trash);
@@ -1027,7 +1042,7 @@ function renderTurn() {
     const playableAction = humanControls && t.phase === 'action' && canPlayAction(game, id);
     const playableTreasure = humanControls && t.phase === 'buy' && isTreasureNow(game, id);
     const playableNight = humanControls && t.phase === 'night' && canPlayNight(game, id);
-    const onClick = playableAction ? () => run(playAction(game, id))
+    const onClick = playableAction ? () => runPlayAction(id)
       : playableTreasure ? () => run(playTreasureGen(game, id))
       : playableNight ? () => run(playNight(game, id))
       : null;
@@ -1100,9 +1115,11 @@ function animateMedalGains(gains, originNodes) {
 function maybeShowBuyCutIn(id) {
   const card = CARDS[id];
   const isBig = card.cost >= 6 || (card.types.includes('victory') && card.points >= 6);
-  if (!isBig || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  document.querySelectorAll('.buyCutIn').forEach((n) => n.remove()); // 連続して買われたら前のものは消す
+  if (!isBig) return;
   const fast = allCpu() && spectatorSpeed === 'fast';
+  if (!fast) soundCutIn(); // 観戦の「速い」では省く（カットインの見た目を出さない場合も鳴らす）
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  document.querySelectorAll('.buyCutIn').forEach((n) => n.remove()); // 連続して買われたら前のものは消す
   // 拡大表示（showCardDetail）と同じ見た目にするため card--peek を使い回す
   const big = gcNode(id, false);
   big.classList.remove('card--active');
@@ -1120,6 +1137,7 @@ function maybeShowBuyCutIn(id) {
 // 山札・捨て札の枚数を出し、新しく引いた札を山札の位置から 1 枚ずつ飛ばす。
 // この描画までに山札を混ぜていれば、先に捨て札から山札へ札が移る演出を入れ、混ぜた後に引いた札はその後に飛ばす
 const seenShuffle = new Map(); // 席ごとに、演出済みの混ぜの回数
+let seenTrash = 0; // 鳴らした廃棄の枚数（renderTurn のたびに増えていれば鳴らす）
 function animateDraw(p, newNodes) {
   const deckPile = document.getElementById('deckPile');
   const discardPile = document.getElementById('discardPile');
@@ -1132,6 +1150,10 @@ function animateDraw(p, newNodes) {
   const sh = p.shuffled;
   const shuffledNow = sh && sh.n > (seenShuffle.get(pi) || 0);
   if (sh) seenShuffle.set(pi, sh.n);
+  // 音は reduced-motion に関わらず鳴らす。観戦の「速い」では省き、連続して引いてもうるさくしない
+  const fast = allCpu() && spectatorSpeed === 'fast';
+  if (shuffledNow) soundShuffle();
+  if (!fast && newNodes.length) soundDraw();
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const deckRect = deckPile.getBoundingClientRect();
   const STEP = 120; // 1 枚ごとの間（ms）
@@ -1198,6 +1220,12 @@ function autoPlayPlainTreasures() {
   for (const id of [...p.hand]) if (is(id, 'treasure') && !CARDS[id].play) playTreasure(game, id);
 }
 
+// アクション札を使う。アタック札は、生成器の中で相手が被る前に鳴らす（細かい技ごとではなく、技を出した瞬間に 1 回）
+function runPlayAction(id) {
+  if (is(id, 'attack')) soundAttack();
+  run(playAction(game, id));
+}
+
 function onEndTurn() {
   soundEnd();
   run(endTurn(game), () => {
@@ -1256,7 +1284,7 @@ function doCpuMove(pi) {
   if (game.over) { showResult(); return; }
   const level = seats[pi].level;
   const m = cpuNextMove(game, level);
-  if (m.type === 'action') { run(playAction(game, m.id)); return; }
+  if (m.type === 'action') { runPlayAction(m.id); return; }
   if (m.type === 'shadow') { run(playShadow(game, m.id)); return; }
   if (m.type === 'villager') { spendVillager(game); backToTurn(); return; }
   if (m.type === 'buyPhase') { run(enterBuyPhase(game)); return; }
@@ -1416,6 +1444,7 @@ function recordGameEnd(results) {
 
 function showResult() {
   showScreen('result');
+  soundFanfare();
   const results = finalResults(game);
   recordGameEnd(results);
   const scoreText = (r) => {
