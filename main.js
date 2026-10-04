@@ -1458,7 +1458,7 @@ function renderQuestion(q) {
 
   if (q.type === 'supply') {
     countEl.textContent = q.optional ? '1枚選ぶか、獲得しないを選んでください' : '1枚選んでください';
-    for (const id of q.options) grid.appendChild(gcNode(id, true, () => answer(id)));
+    for (const id of q.options) grid.appendChild(gcNode(id, true, () => answer(id), game.supply[id]));
     if (q.optional) buttonsBox.appendChild(el('button', { class: 'pill', text: '獲得しない', onclick: () => answer(null) }));
     return;
   }
