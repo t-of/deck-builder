@@ -23,7 +23,7 @@ import {
   newGame, currentPlayer, turnController, playAction, playTreasureGen, playAllTreasures, playTreasure,
   enterBuyPhase, canBuy, buyCard, beginTurn, endTurn, spendCoffers, payDebt, finalResults, allCards,
   landscapePool, canBuyEvent, buyEvent, enterNightPhase, canPlayNight, playNight, spendVillager,
-  canPlayAction, shadowsInDeck, playShadow, isTreasureNow, emptyPiles, EMPTY_PILES_LIMIT,
+  canPlayAction, shadowsInDeck, playShadow, isTreasureNow, emptyPiles, EMPTY_PILES_LIMIT, canUndoToAction,
 } from './engine.js';
 // CPU（1台の端末で人の代わりに席に着く）。画面からはこの3つだけ使う
 import { LEVELS as CPU_LEVELS, nextMove as cpuNextMove, answer as cpuAnswer, planFor as cpuPlanFor } from './cpu.js';
@@ -177,6 +177,9 @@ let prevRender = null; // 直前の renderTurn の手札・場・サプライ・
 let endConfirmTurn = null; // 「何も買わずに終える？」を一度押した手番（t オブジェクトそのもの。新しい手番で自然に外れる）
 let summaryOpen = false; // 「相手の手番」帯を開いているか。手番を渡すたびにたたみ直す
 let humanBought = {}; // 今の対局で人が買った札の数（記録「よく買った札」用。対局ごとにリセット）
+let questionsAsked = 0; // 問いが出た回数（間違えて購入フェイズに入ったときの「戻れるか」判定に使う）
+let buyUndoSnapshot = null; // アクションフェイズへ戻すための複製。戻れなくなったら null にする
+let buyUndoBaseline = null; // 複製を取った直後（購入フェイズに入って財宝を自動で出した直後）の状態。これと変わったら戻せない
 
 // ---- カードの見た目 ----
 // cost を渡さなければ CARDS[id].cost（対局前の画面用）。対局中は costOf(game, id) を渡す。
@@ -789,6 +792,8 @@ function startGame() {
   humanBought = {};
   seenShuffle.clear();
   seenTrash = 0;
+  questionsAsked = 0;
+  buyUndoSnapshot = null; buyUndoBaseline = null;
   game = newGame(players, kingdom, seats.map(seatName), { landscapes: activeLandscapes() });
   startTurnPass();
 }
@@ -946,13 +951,32 @@ function renderTurn() {
     if (t.phase === 'buy' && p.tokens.debt > 0) {
       secondary.push(el('button', { class: 'pill pill--sm', text: `借金を返す（残り${p.tokens.debt}）`, onclick: () => { payDebt(game); renderTurn(); } }));
     }
+    // 間違えて購入フェイズに入ったときだけ出す「戻る」。何か他の操作をしたら（買う・財源・借金など）消える
+    if (buyUndoSnapshot && JSON.stringify(game) !== JSON.stringify(buyUndoBaseline)) { buyUndoSnapshot = null; buyUndoBaseline = null; }
+    if (t.phase === 'buy' && buyUndoSnapshot) {
+      secondary.push(el('button', { class: 'pill pill--sm', text: 'アクションフェイズに戻る', onclick: () => restoreToActionPhase() }));
+    }
 
     // 主ボタン（1つだけ大きく。状況で文言と動きが変わる＝MTGアリーナ風の「次へ」）
     let primary;
     if (t.phase === 'action') {
       primary = {
         text: '購入へ',
-        onclick: () => run(enterBuyPhase(game), () => { if (autoPlayTreasures) autoPlayPlainTreasures(); backToTurn(); }),
+        onclick: () => {
+          const preBuySnapshot = structuredClone(game);
+          const askedBefore = questionsAsked;
+          run(enterBuyPhase(game), () => {
+            if (autoPlayTreasures) autoPlayPlainTreasures();
+            // 購入フェイズの始めの効果で何も起きておらず、問いも出ていなければ、ここへ戻れるようにしておく
+            if (questionsAsked === askedBefore && canUndoToAction(game, preBuySnapshot)) {
+              buyUndoSnapshot = preBuySnapshot;
+              buyUndoBaseline = structuredClone(game);
+            } else {
+              buyUndoSnapshot = null; buyUndoBaseline = null;
+            }
+            backToTurn();
+          });
+        },
       };
     } else {
       const autoPlayable = t.phase === 'buy' ? p.hand.filter((id) => isTreasureNow(game, id) && (!CARDS[id].play || CARDS[id].autoPlay)) : [];
@@ -1386,9 +1410,20 @@ function backToTurn() {
   renderTurn();
   scheduleCpuMove(pi);
 }
+// 間違えて購入へ進んだのを戻す。複製を今の対局にかぶせる（同じ game のまま中身だけ差し替え、ほかの参照を壊さない）
+function restoreToActionPhase() {
+  const snap = buyUndoSnapshot;
+  buyUndoSnapshot = null; buyUndoBaseline = null;
+  for (const k of Object.keys(game)) delete game[k];
+  Object.assign(game, snap);
+  for (const pl of game.players) Object.defineProperty(pl, 'game', { value: game, enumerable: false }); // newGame と同じ、非列挙の複製（structuredClone で消える）を作り直す
+  game.log.push('アクションフェイズに戻した。');
+  renderTurn();
+}
 
 // 問いに答える（4 種類すべてここでまとめる）。答える人が CPU なら、画面を出さずに CPU に答えさせる
 function showQuestion(q) {
+  questionsAsked += 1; // 問いが出た＝何かが見えた／選んだ。購入フェイズの始めの効果でこれが起きたら、あとで戻れなくする
   if (!isHumanSeat(q.player)) { step(pendingGen.next(cpuAnswer(game, q, seats[q.player].level))); return; }
   maybeGoToPass(q.player, () => renderQuestion(q));
 }

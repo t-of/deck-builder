@@ -662,6 +662,15 @@ export function* playNight(game, cardId) {
   yield* resolve(game, cardId);
 }
 
+// 間違えて購入フェイズに入ったとき、アクションフェイズに戻れるか（複製 snapshot は enterBuyPhase の直前に取ったもの）。
+// 購入フェイズの始めの効果（HOOKS.buyPhase）が何も買わず・引かず・ログも増やしていなければ戻せる。保守的に、迷う変化は戻せない扱いにする
+export function canUndoToAction(game, snapshot) {
+  return game.turn.phase === 'buy'
+    && game.turn.bought.length === 0 && game.turn.events.length === 0
+    && game.turn.gained.length === snapshot.turn.gained.length
+    && game.log.length === snapshot.log.length;
+}
+
 // 購入フェイズに入る（購入フェイズの始めの効果を行う）。画面はこちらを使う
 export function* enterBuyPhase(game) {
   if (game.turn.phase === 'buy') return;
