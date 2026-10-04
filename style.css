@@ -858,6 +858,60 @@ button { font: inherit; color: inherit; }
   [data-theme="card"] .cards--hand .tcgcard { width: 68px; font-size: 7.2px; margin-right: -18px; }
   [data-theme="card"] .cards--hand .tcgcard:last-child { margin-right: 0; }
   [data-theme="card"] .cards--play .tcgcard { width: 56px; font-size: 5.9px; }
+
+  /* 対局中はスマホの縦スクロールをなくす。タイトル・共有・アプリにする・廃棄置き場・CPUの説明・
+     相手の手札枚数の行を消し、残った分を画面の高さに収まるよう --ch（札の高さの単位）で詰める */
+  .app:has(#game:not([hidden])) {
+    height: 100dvh;
+  }
+  .app:has(#game:not([hidden])) .bar__title,
+  .app:has(#game:not([hidden])) .bar__actions,
+  .app:has(#game:not([hidden])) .trashBox,
+  .app:has(#game:not([hidden])) .credit,
+  .app:has(#game:not([hidden])) #othersRow,
+  .app:has(#game:not([hidden])) .cpuThinking {
+    display: none;
+  }
+  .app:has(#game:not([hidden])) .bar { padding-bottom: 2px; }
+  .app:has(#game:not([hidden])) .game,
+  .app:has(#game:not([hidden])) .game__table,
+  .app:has(#game:not([hidden])) .game__play,
+  .app:has(#game:not([hidden])) .game__hand {
+    gap: 4px;
+  }
+  .app:has(#game:not([hidden])) .sectionLabel { margin-top: 2px; font-size: 10px; }
+  .app:has(#game:not([hidden])) .hud { padding: 5px 8px; gap: 3px; }
+  .app:has(#game:not([hidden])) .hud__buttons { gap: 4px; }
+  .app:has(#game:not([hidden])) .pill--primary { min-height: 38px; padding: 7px 16px; font-size: 14px; }
+  .app:has(#game:not([hidden])) .hud__stats { font-size: 12px; }
+  .app:has(#game:not([hidden])) .turnHint { font-size: 10px; }
+  .app:has(#game:not([hidden])) .game {
+    --ch: clamp(30px, calc((100dvh - 412px) / 3), 95px);
+  }
+  /* 相手の手番のまとめの帯が出た分だけ、ほかの札をさらに詰める。帯は自分の中でスクロールさせ、高さは固定で抑える */
+  .app:has(#game:not([hidden])) .game:has(#turnSummaryBar:not([hidden])) {
+    --ch: clamp(28px, calc((100dvh - 442px) / 3), 95px);
+  }
+  .app:has(#game:not([hidden])) .game:has(#turnSummaryPanel:not([hidden])) {
+    --ch: clamp(26px, calc((100dvh - 552px) / 3), 95px);
+  }
+  /* data-theme="card" は html に付くので、.app の子孫ではなく html 自体に :has() と一緒に付ける */
+  html:has(#game:not([hidden]))[data-theme="card"] .supplyGroup__row {
+    --colw: calc(var(--ch) * 63 / 88);
+    gap: 4px;
+  }
+  html:has(#game:not([hidden]))[data-theme="card"] .supplyGroup__row .tcgcard { font-size: calc(var(--ch) / 12.5); }
+  html:has(#game:not([hidden]))[data-theme="card"] .cards--hand .tcgcard {
+    width: calc(var(--ch) * 63 / 88);
+    font-size: calc(var(--ch) / 12.5);
+    margin-right: calc(var(--ch) * -0.3);
+  }
+  .app:has(#game:not([hidden])) .pile, .app:has(#game:not([hidden])) .pileGhost { --pw: calc(var(--ch) * 63 / 88); }
+  html:has(#game:not([hidden]))[data-theme="card"] .cards--play .tcgcard {
+    width: calc(var(--ch) * 0.8 * 63 / 88);
+    font-size: calc(var(--ch) * 0.8 / 12.5);
+  }
+  .app:has(#game:not([hidden])) .turnSummaryBar__panel { max-height: 100px; }
 }
 
 /* 広い画面: フェイズの欄・手札・記録を 1 行に並べ、空いた高さの分だけ札を大きくして 1 画面に収める。
