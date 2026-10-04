@@ -133,6 +133,7 @@ let selected = new Set();
 let prevRender = null; // 直前の renderTurn の手札・場・サプライ・数字（動きを付けるための比較用。新しい対局では null に戻す）
 let endConfirmTurn = null; // 「何も買わずに終える？」を一度押した手番（t オブジェクトそのもの。新しい手番で自然に外れる）
 let summaryOpen = false; // 「相手の手番」帯を開いているか。手番を渡すたびにたたみ直す
+let humanBought = {}; // 今の対局で人が買った札の数（記録「よく買った札」用。対局ごとにリセット）
 
 // ---- カードの見た目 ----
 // cost を渡さなければ CARDS[id].cost（対局前の画面用）。対局中は costOf(game, id) を渡す。
@@ -213,6 +214,22 @@ function groupByCost(ids) {
   for (const id of ids) m.set(id, (m.get(id) || 0) + 1);
   return [...m.entries()].sort((a, b) => costOf(game, a[0]) - costOf(game, b[0]) || CARDS[a[0]].name.localeCompare(CARDS[b[0]].name, 'ja'));
 }
+// オーバーレイの土台（deckList と同じ見た目）。Esc・外側タップ・閉じるボタンで閉じる。
+// extraClass: back に足すクラス（セレクタの二重起動よけ・専用の見た目に使う）
+function openModal(extraClass, ariaLabel, title, bodyNode) {
+  const closeBtn = el('button', { class: 'deckList__close', text: '×', 'aria-label': '閉じる' });
+  const box = el('div', { class: 'deckList__box' }, [
+    el('div', { class: 'deckList__head' }, [el('h2', { text: title }), closeBtn]),
+    bodyNode,
+  ]);
+  const back = el('div', { class: `deckList ${extraClass}`, role: 'dialog', 'aria-label': ariaLabel }, [box]);
+  const close = () => { back.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  closeBtn.addEventListener('click', close);
+  back.addEventListener('click', (e) => { if (e.target === back) close(); });
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(back);
+}
 // 山札・捨て札・デッキ全体を一覧するパネル。タブで切り替え、Esc・外側タップ・閉じるボタンで閉じる
 function showDeckList(p) {
   if (document.querySelector('.deckList')) return;
@@ -239,20 +256,79 @@ function showDeckList(p) {
     const i = e.target.dataset.i;
     if (i != null) showTab(Number(i));
   });
-  const closeBtn = el('button', { class: 'deckList__close', text: '×', 'aria-label': '閉じる' });
-  const box = el('div', { class: 'deckList__box' }, [
-    el('div', { class: 'deckList__head' }, [el('h2', { text: `${p.name}の札` }), closeBtn]),
-    tabBtns,
-    body,
-  ]);
-  const back = el('div', { class: 'deckList', role: 'dialog', 'aria-label': '山札・捨て札・デッキ全体' }, [box]);
-  const close = () => { back.remove(); document.removeEventListener('keydown', onKey); };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
-  closeBtn.addEventListener('click', close);
-  back.addEventListener('click', (e) => { if (e.target === back) close(); });
-  document.addEventListener('keydown', onKey);
-  document.body.appendChild(back);
+  openModal('', '山札・捨て札・デッキ全体', `${p.name}の札`, el('div', {}, [tabBtns, body]));
   showTab(0);
+}
+// 図鑑: 全カードを拡張ごとに並べ、対局で使った・得た札だけ表向きにする。
+// 約500枚あるので、開いているタブだけカードを描く（タブ切り替えのたびに作り直す）
+function cardsBySet() {
+  const m = new Map();
+  for (const c of Object.values(CARDS)) {
+    if (!m.has(c.set)) m.set(c.set, []);
+    m.get(c.set).push(c.id);
+  }
+  return m;
+}
+function showCodex() {
+  if (document.querySelector('.codex')) return;
+  const discovered = new Set(load('discovered', []));
+  const bySet = cardsBySet();
+  const sets = SETS.filter((s) => bySet.has(s.id));
+  const total = [...bySet.values()].reduce((n, ids) => n + ids.length, 0);
+  const totalGot = [...bySet.values()].flat().filter((id) => discovered.has(id)).length;
+  const body = el('div', { class: 'deckList__body' });
+  const tabBtns = el('div', { class: 'tabs tabs--wrap' }, sets.map((s, i) => {
+    const ids = bySet.get(s.id);
+    const n = ids.filter((id) => discovered.has(id)).length;
+    return el('button', { class: `pill${i === 0 ? ' pill--accent' : ''}`, text: `${s.name}（${n}/${ids.length}）`, 'data-i': i });
+  }));
+  const showTab = (i) => {
+    for (const btn of tabBtns.children) btn.classList.toggle('pill--accent', Number(btn.dataset.i) === i);
+    clear(body);
+    const grid = el('div', { class: 'cards' });
+    const ids = [...bySet.get(sets[i].id)].sort((a, b) => CARDS[a].name.localeCompare(CARDS[b].name, 'ja'));
+    for (const id of ids) {
+      const got = discovered.has(id);
+      const node = cardNode(id, false);
+      if (!got) { node.classList.add('is-undiscovered'); tagCard(node, '未発見'); }
+      grid.appendChild(node);
+    }
+    body.appendChild(grid);
+  };
+  tabBtns.addEventListener('click', (e) => {
+    const i = e.target.dataset.i;
+    if (i != null) showTab(Number(i));
+  });
+  openModal('codex', '図鑑', `図鑑（${totalGot}/${total}）`, el('div', {}, [tabBtns, body]));
+  showTab(0);
+}
+// 記録: 対局数・人の勝敗・最高点・よく買った札。対局の終わりに recordGameEnd() が更新する
+function showRecords() {
+  if (document.querySelector('.records')) return;
+  const stats = load('stats', null);
+  const body = el('div', { class: 'deckList__body' });
+  if (!stats || stats.games === 0) {
+    body.appendChild(el('p', { class: 'screenCard__note', text: 'まだ対局の記録がありません' }));
+  } else {
+    const lines = [
+      `対局数：${stats.games}`,
+      `人の勝ち数：${stats.humanWins}`,
+      `最高点：${stats.bestScore}`,
+    ];
+    for (const lv of CPU_LEVELS) {
+      const w = stats.winsByLevel[lv.id];
+      if (w) lines.push(`CPU（${lv.name}）に ${w.win}勝${w.lose}敗`);
+    }
+    for (const t of lines) body.appendChild(el('p', { class: 'records__line', text: t }));
+    const bought = Object.entries(stats.bought || {}).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    if (bought.length) {
+      body.appendChild(el('p', { class: 'sectionLabel', text: 'よく買った札' }));
+      const grid = el('div', { class: 'cards' });
+      for (const [id, n] of bought) if (CARDS[id]) grid.appendChild(tagCard(cardNode(id, false), `${n}回`));
+      body.appendChild(grid);
+    }
+  }
+  openModal('records', '記録', '記録', body);
 }
 // 山に置かれた印（tokens.pile）の文言
 const PILE_LABEL = { card: '+1カード', action: '+1アクション', buy: '+1購入', coin: '+1金', cost: '-2コスト', trash: '廃棄' };
@@ -662,10 +738,13 @@ function startGame() {
   shownPlayer = null;
   prevRender = null;
   summaryOpen = false;
+  humanBought = {};
   game = newGame(players, kingdom, seats.map(seatName), { landscapes: activeLandscapes() });
   startTurnPass();
 }
 document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('codexBtn').addEventListener('click', showCodex);
+document.getElementById('recordsBtn').addEventListener('click', showRecords);
 
 // ==================================================================
 // 手番を渡す画面（今この端末を見ている人と、答える人が違うときにはさむ。人どうしのときだけ出す）
@@ -874,7 +953,7 @@ function renderTurn() {
     for (const id of ids) {
       const count = game.supply[id];
       const buyable = humanControls && canBuy(game, id);
-      const node = gcNode(id, buyable, () => run(buyCard(game, id), (ok) => { if (ok) { soundBuy(); maybeShowBuyCutIn(id); } backToTurn(); }), count);
+      const node = gcNode(id, buyable, () => run(buyCard(game, id), (ok) => { if (ok) { soundBuy(); maybeShowBuyCutIn(id); if (isHumanSeat(game.current)) humanBought[id] = (humanBought[id] || 0) + 1; } backToTurn(); }), count);
       // 前回よりこの山の残りが減っていれば、誰かが買った合図にほのかに光らせる
       const prevCount = prevRender && prevRender.supply[id];
       if (prevCount != null && count < prevCount) node.classList.add('is-bought');
@@ -1301,9 +1380,43 @@ function scoreBreakdown(pl, g) {
   return lines;
 }
 
+// 対局の終わりに「図鑑」「記録」を更新する（CPU だけの観戦は数えない）
+function recordGameEnd(results) {
+  if (humanCount() < 1) return;
+  // 図鑑: この対局で場に出た・獲得された・買われた札をまとめて「発見」に加える
+  // ponytail: ランドマーク等イベント系は「対局で使われた」まで厳密に追わず、組に入っていれば発見扱いにする
+  const used = new Set(load('discovered', []));
+  for (const id of game.trash) used.add(id);
+  for (const id of game.landscapes) used.add(id);
+  for (const pl of game.players) {
+    for (const id of allCards(pl)) used.add(id);
+    for (const id of pl.projects || []) used.add(id);
+  }
+  save('discovered', [...used]);
+
+  // 記録: 対局数・人の勝敗・最高点・よく買った札
+  const stats = load('stats', null) || { games: 0, humanWins: 0, bestScore: 0, winsByLevel: {}, bought: {} };
+  stats.games += 1;
+  const humanIdx = seats.map((s, i) => (s.type === 'human' ? i : -1)).filter((i) => i >= 0);
+  const scoreOf = (i) => results.find((r) => r.index === i);
+  const humanWin = humanIdx.some((i) => scoreOf(i).rank === 1);
+  if (humanWin) stats.humanWins += 1;
+  stats.bestScore = Math.max(stats.bestScore || 0, ...humanIdx.map((i) => scoreOf(i).score));
+  const cpuLevels = new Set(seats.filter((s) => s.type === 'cpu').map((s) => s.level));
+  for (const level of cpuLevels) {
+    const w = stats.winsByLevel[level] || { win: 0, lose: 0 };
+    if (humanWin) w.win += 1; else w.lose += 1;
+    stats.winsByLevel[level] = w;
+  }
+  stats.bought = stats.bought || {};
+  for (const [id, n] of Object.entries(humanBought)) stats.bought[id] = (stats.bought[id] || 0) + n;
+  save('stats', stats);
+}
+
 function showResult() {
   showScreen('result');
   const results = finalResults(game);
+  recordGameEnd(results);
   const scoreText = (r) => {
     const vp = game.players[r.index].tokens.vp;
     const vpText = vp > 0 ? `・うち勝利点トークン ${vp}` : '';
