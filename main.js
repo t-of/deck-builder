@@ -98,22 +98,6 @@ function newnessMarks(prevIds, curIds) {
     return n > (prevCount.get(id) || 0);
   });
 }
-// 同じ id の札を 1 つにまとめる（手札・場を大きく見せるため）。現れた順を保つ
-function groupById(ids) {
-  const groups = [];
-  const at = new Map();
-  for (const id of ids) {
-    if (at.has(id)) { groups[at.get(id)].n++; continue; }
-    at.set(id, groups.length);
-    groups.push({ id, n: 1 });
-  }
-  return groups;
-}
-function countsOf(ids) {
-  const m = new Map();
-  for (const id of ids) m.set(id, (m.get(id) || 0) + 1);
-  return m;
-}
 
 // 種類の帯の文言（CARDS[id].types から組み立てる）
 const TYPE_WORD = {
@@ -710,14 +694,13 @@ function renderTurn() {
   const playArea = document.getElementById('playArea');
   clear(playArea);
   const playIds = [...p.inPlay, ...game.playArea];
-  const prevPlayCounts = countsOf(prevRender ? prevRender.play : []);
+  const playNew = newnessMarks(prevRender ? prevRender.play : [], playIds);
   const newPlayNodes = []; // この回に新しく出た札（メダルの加算チップを飛ばす起点）
-  for (const g of groupById(playIds)) {
-    const node = gcNode(g.id, false);
-    if (g.n > 1) node.appendChild(el('span', { class: 'tcgcard__count', text: `×${g.n}` }));
-    if (g.n > (prevPlayCounts.get(g.id) || 0)) { node.classList.add('is-new-play'); newPlayNodes.push(node); }
+  playIds.forEach((id, i) => {
+    const node = gcNode(id, false);
+    if (playNew[i]) { node.classList.add('is-new-play'); newPlayNodes.push(node); }
     playArea.appendChild(node);
-  }
+  });
   // この手番に買った札も場に並べ、「購入」の札で見分ける（本当の行き先は捨て札）
   for (const id of t.bought) playArea.appendChild(tagCard(gcNode(id, false), '購入'));
 
@@ -812,32 +795,24 @@ function renderTurn() {
 
   const hand = document.getElementById('hand');
   clear(hand);
-  // 同じ id は1枚の札に「×N」でまとめ、スマホ幅でも大きく見せる。押すとその id の札を1枚使う／選ぶのは今までどおり
-  const handGroups = groupById(p.hand);
-  const prevHandCounts = countsOf(prevRender && prevRender.pi === game.current ? prevRender.hand : []);
-  hand.style.setProperty('--n', String(handGroups.length));
-  // ponytail: 8 種以上は折り返す前提で扇をやめる。本当に折り返したかは見ていない
-  hand.style.setProperty('--fan', handGroups.length > 7 ? '0' : '1');
-  const newGroupNodes = []; // 前回まで無かった種類（山札から飛ぶ演出の対象）
-  handGroups.forEach((g, i) => {
-    const playableAction = humanControls && t.phase === 'action' && canPlayAction(game, g.id);
-    const playableTreasure = humanControls && t.phase === 'buy' && isTreasureNow(game, g.id);
-    const playableNight = humanControls && t.phase === 'night' && canPlayNight(game, g.id);
-    const onClick = playableAction ? () => run(playAction(game, g.id))
-      : playableTreasure ? () => run(playTreasureGen(game, g.id))
-      : playableNight ? () => run(playNight(game, g.id))
+  // 手札を扇のように並べるための位置（--i/--n）と、新しく引いた札の見分け（山札から来た合図でスライドイン）
+  const handNew = newnessMarks(prevRender && prevRender.pi === game.current ? prevRender.hand : [], p.hand);
+  hand.style.setProperty('--n', String(p.hand.length));
+  // ponytail: 8 枚以上は折り返す前提で扇をやめる。本当に折り返したかは見ていない
+  hand.style.setProperty('--fan', p.hand.length > 7 ? '0' : '1');
+  p.hand.forEach((id, i) => {
+    const playableAction = humanControls && t.phase === 'action' && canPlayAction(game, id);
+    const playableTreasure = humanControls && t.phase === 'buy' && isTreasureNow(game, id);
+    const playableNight = humanControls && t.phase === 'night' && canPlayNight(game, id);
+    const onClick = playableAction ? () => run(playAction(game, id))
+      : playableTreasure ? () => run(playTreasureGen(game, id))
+      : playableNight ? () => run(playNight(game, id))
       : null;
-    const node = gcNode(g.id, !!onClick, onClick);
+    const node = gcNode(id, !!onClick, onClick);
     node.style.setProperty('--i', String(i));
-    const prevN = prevHandCounts.get(g.id) || 0;
-    if (g.n > 1) {
-      // 既にある種類が増えただけなら、バッジを跳ねさせるだけでよい（1枚ずつ飛ばす演出はしない）
-      node.appendChild(el('span', { class: `tcgcard__count${g.n > prevN && prevN > 0 ? ' medal--bump' : ''}`, text: `×${g.n}` }));
-    }
-    if (prevN === 0) newGroupNodes.push(node);
     hand.appendChild(node);
   });
-  animateDraw(p, newGroupNodes);
+  animateDraw(p, [...hand.children].filter((_, i) => handNew[i]));
   animateMedalGains(medalGains, newPlayNodes);
 
   // 次にすることの案内（HUD の近くに短く出す）

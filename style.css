@@ -753,9 +753,7 @@ button { font: inherit; color: inherit; }
   [data-theme="card"] .cards--hand, [data-theme="card"] .cards--play {
     flex-wrap: nowrap; overflow-x: auto; justify-content: safe center; padding: 8px 2px 4px;
   }
-  /* 同じ札をまとめた分だけ種類（--n）が減るので、その分だけ札を大きく見せる */
-  [data-theme="card"] .cards--hand { --hw: clamp(68px, calc(360px / max(var(--n, 5), 3)), 112px); }
-  [data-theme="card"] .cards--hand .tcgcard { width: var(--hw); font-size: calc(var(--hw) / 9.5); margin-right: calc(var(--hw) * -0.26); }
+  [data-theme="card"] .cards--hand .tcgcard { width: 68px; font-size: 7.2px; margin-right: -18px; }
   [data-theme="card"] .cards--hand .tcgcard:last-child { margin-right: 0; }
   [data-theme="card"] .cards--play .tcgcard { width: 56px; font-size: 5.9px; }
 }
