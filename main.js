@@ -529,16 +529,75 @@ function renderRandomPane() {
     text: 'イベントなどを入れる',
     onclick: () => { landscapesOn = !landscapesOn; reroll(); },
   }));
-  box.appendChild(el('button', { class: 'pill pill--accent', text: '引き直し', onclick: reroll }));
+  box.appendChild(el('button', { class: 'pill pill--accent', text: '引き直し', onclick: openPackReveal }));
   return box;
 }
-function reroll() {
+// 組の中身だけ決める（状態は書き換えない）。reroll（即反映）と openPackReveal（演出つき）の両方から使う
+function decideRandom() {
   const pool = kingdomPool([...selectedSets]);
-  kingdom = randomKingdom(pool.length >= 10 ? pool : ALL_KINGDOM);
+  const k = randomKingdom(pool.length >= 10 ? pool : ALL_KINGDOM);
   const lpool = landscapePool([...selectedSets]);
-  landscapes = landscapesOn ? randomKingdom(lpool, Math.floor(Math.random() * 3)) : [];
+  const l = landscapesOn ? randomKingdom(lpool, Math.floor(Math.random() * 3)) : [];
+  return { kingdom: k, landscapes: l };
+}
+// 対象の拡張を変えたときなど、演出なしですぐ反映する
+function reroll() {
+  const { kingdom: k, landscapes: l } = decideRandom();
+  kingdom = k;
+  landscapes = l;
   persistSetup();
   renderSetup();
+}
+
+// ---- おまかせ：パックを開ける演出 ----
+// 組を決め、裏向きの札を1枚ずつめくって見せる。タップで全部すぐ出せる。終わったら「この組で始める／もう一度ひく」。
+// reduced-motion では演出をせず最初から表向きで並べる
+function openPackReveal() {
+  const { kingdom: k, landscapes: l } = decideRandom();
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ids = [...k, ...l];
+  const slots = ids.map((id) => {
+    const front = isLandscape(id) ? gcNode(id, false) : cardNode(id, false);
+    const back = el('div', { class: 'packSlot__back' }, [el('span', { class: 'packSlot__mark', text: '?' })]);
+    return el('div', { class: 'packSlot' }, [front, back]);
+  });
+  const grid = el('div', { class: 'cards cards--fan packStage__grid' }, slots);
+  const hint = el('p', { class: 'packStage__hint', text: 'タップでめくる' });
+  const foot = el('div', { class: 'packStage__foot', hidden: true }, [
+    el('button', { class: 'pill', text: 'もう一度ひく', onclick: () => { overlay.remove(); openPackReveal(); } }),
+    el('button', {
+      class: 'pill pill--accent', text: 'この組で始める',
+      onclick: () => { kingdom = k; landscapes = l; persistSetup(); overlay.remove(); startGame(); },
+    }),
+  ]);
+  const box = el('div', { class: 'packStage__box' }, [
+    el('p', { class: 'packStage__title', text: '王国パックを開ける' }),
+    grid, hint, foot,
+  ]);
+  const overlay = el('div', { class: 'cardDetail packStage', role: 'dialog', 'aria-label': 'おまかせの組を開ける' }, [box]);
+  document.body.appendChild(overlay);
+
+  let done = false;
+  function finish() {
+    if (done) return;
+    done = true;
+    for (const s of slots) s.classList.add('is-revealed');
+    hint.hidden = true;
+    foot.hidden = false;
+  }
+  if (reduced) {
+    finish();
+  } else {
+    slots.forEach((s, i) => {
+      setTimeout(() => {
+        if (done) return;
+        s.classList.add('is-revealed');
+        soundPlay();
+        if (i === slots.length - 1) finish();
+      }, 220 * (i + 1));
+    });
+    overlay.addEventListener('click', finish); // どこを押しても一気に全部めくる
+  }
 }
 
 function renderCustomPane() {
@@ -584,17 +643,18 @@ document.getElementById('playercount').addEventListener('click', (e) => {
 });
 document.getElementById('modeTabs').addEventListener('click', (e) => {
   const m = e.target.dataset.mode;
-  if (!m) return;
+  if (!m || m === mode) return;
   mode = m;
   persistSetup();
   renderSetup();
+  if (m === 'random') openPackReveal(); // おまかせを選んだら、その場で組を決めてパックを開ける演出を見せる
 });
 {
   const toggle = document.getElementById('autoTreasureToggle');
   toggle.checked = autoPlayTreasures;
   toggle.addEventListener('change', () => { autoPlayTreasures = toggle.checked; save('autoPlayTreasures', autoPlayTreasures); });
 }
-document.getElementById('startBtn').addEventListener('click', () => {
+function startGame() {
   const k = activeKingdom();
   if (!k) return;
   kingdom = k;
@@ -604,7 +664,8 @@ document.getElementById('startBtn').addEventListener('click', () => {
   summaryOpen = false;
   game = newGame(players, kingdom, seats.map(seatName), { landscapes: activeLandscapes() });
   startTurnPass();
-});
+}
+document.getElementById('startBtn').addEventListener('click', startGame);
 
 // ==================================================================
 // 手番を渡す画面（今この端末を見ている人と、答える人が違うときにはさむ。人どうしのときだけ出す）

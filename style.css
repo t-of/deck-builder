@@ -233,6 +233,28 @@ button { font: inherit; color: inherit; }
 .deckList__close { border: none; background: rgba(255, 255, 255, 0.08); color: inherit; border-radius: 999px; width: 28px; height: 28px; font-size: 16px; line-height: 1; }
 .deckList__body { overflow-y: auto; }
 
+/* おまかせの組を開ける演出（main.js の openPackReveal）。.cardDetail の全画面幕をそのまま使う */
+.packStage__box { width: min(92vw, 420px); max-height: 86vh; overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--ink); border: 1px solid var(--line-gold); border-radius: var(--radius); padding: 16px 12px; }
+.packStage__title { margin: 0; font-size: 14px; letter-spacing: 0.08em; color: var(--accent-bright); }
+.packStage__hint { margin: 0; font-size: 12px; color: var(--muted); }
+.packStage__foot { display: flex; gap: 10px; }
+.packSlot { position: relative; }
+.packSlot__back {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 0.1em solid var(--accent-deep);
+  border-radius: 2px;
+  background: linear-gradient(165deg, #241f33 0%, #130f1c 100%);
+}
+.packSlot__mark { font-family: 'Cinzel', serif; font-size: 1.4em; color: var(--accent); }
+.packSlot.is-revealed .packSlot__back { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .packSlot__back { transition: opacity 0.25s ease, transform 0.25s ease; }
+  .packSlot.is-revealed .packSlot__back { transform: rotateY(90deg) scale(0.85); }
+  .packSlot.is-revealed > .tcgcard { animation: packPop 0.25s ease both; }
+}
+@keyframes packPop { from { transform: scale(0.85); opacity: 0.6; } to { transform: scale(1); opacity: 1; } }
+
 /* ---- 設定画面のタイトルと、段取りが分かる組ごとの箱（.hud を土台にして各見た目の枠を流用） ---- */
 .setupHero { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 0 2px; }
 .setupHero__eyebrow { margin: 0; font-size: 10px; letter-spacing: 0.35em; color: var(--muted); font-family: 'Cinzel', serif; }
