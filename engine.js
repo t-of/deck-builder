@@ -158,6 +158,7 @@ export function takeTop(player) {
     player.deck = shuffle(player.discard);
     player.discard = [];
     // 画面の演出用: 何回目の混ぜか、そのとき手札が何枚だったか（この後に引いた札は捨て札から補充した札）
+    player.topKnown = null;
     player.shuffled = { n: ((player.shuffled && player.shuffled.n) || 0) + 1, handLen: player.hand.length };
     // 星の地図: 混ぜたとき 1 枚を一番上に置いてよい。ponytail: 問わずに、いちばん高い札を上にする（混ぜるのは問いを出せない場所なので）
     for (const h of HOOKS.shuffle) h(player, player.game);
@@ -195,8 +196,9 @@ function drawRaw(player, n) {
   return drawn;
 }
 
-// 山札の上に置く（次に引かれる）
-export const putOnDeck = (player, id) => { player.deck.push(id); };
+// 山札の上に置く（次に引かれる）。置いた札は見えているので、画面で山札の上に薄く出す
+const markTop = (player) => { player.topKnown = { id: player.deck.at(-1), n: player.deck.length }; };
+export const putOnDeck = (player, id) => { player.deck.push(id); markTop(player); };
 
 // 手札の位置 indices のカードを取り出して返す（手札から消える）
 export function takeFromHand(player, indices) {
@@ -283,7 +285,7 @@ export function* gain(game, pi, id, to = 'discard') {
 export function* receive(game, pi, id, to = 'discard') {
   const player = game.players[pi];
   if (to === 'hand') player.hand.push(id);
-  else if (to === 'deck') player.deck.push(id);
+  else if (to === 'deck') putOnDeck(player, id);
   else player.discard.push(id);
   if (pi === game.current) game.turn.gained.push(id);
   const got = { id, to, pi };
@@ -305,7 +307,7 @@ export function* relocate(game, got, dest) {
   if (i < 0) return false;
   from.splice(i, 1);
   if (dest === 'hand') p.hand.push(got.id);
-  else if (dest === 'deck') p.deck.push(got.id);
+  else if (dest === 'deck') putOnDeck(p, got.id);
   else if (dest === 'discard') p.discard.push(got.id);
   else if (dest === 'trash') yield* trashCards(game, p, [got.id]);
   got.to = dest;
@@ -410,7 +412,7 @@ export function* putBackInOrder(game, pi, cards) {
     top.push(...rest.splice(i ?? 0, 1));
   }
   top.push(...rest);
-  for (const id of top.reverse()) game.players[pi].deck.push(id);
+  for (const id of top.reverse()) putOnDeck(game.players[pi], id);
 }
 
 // 山札の上から n 枚めくって取り出す（めくった札はどこにも入っていない状態）

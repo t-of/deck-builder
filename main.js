@@ -1155,6 +1155,21 @@ function animateDraw(p, newNodes) {
   deckPile.querySelector('.pile__n').textContent = String(p.deck.length);
   discardPile.querySelector('.pile__n').textContent = String(p.discard.length);
   deckPile.classList.toggle('is-empty', p.deck.length === 0);
+  // 山札の上に置いた札（引くか混ぜるまで）は、表向きで薄く出す
+  const tk = p.topKnown;
+  const topId = tk && tk.n === p.deck.length && p.deck.at(-1) === tk.id ? tk.id : null;
+  const face = deckPile.querySelector('.pile__face');
+  if ((face && face.dataset.id) !== (topId || undefined)) {
+    if (face) face.remove();
+    if (topId) {
+      const f = cardNode(topId);
+      f.classList.add('pile__face');
+      f.dataset.id = topId;
+      f.tabIndex = -1;
+      f.setAttribute('aria-hidden', 'true');
+      deckPile.prepend(f);
+    }
+  }
   discardPile.classList.toggle('is-empty', p.discard.length === 0);
   for (const g of document.querySelectorAll('.pileGhost')) g.remove();
   const pi = game.players.indexOf(p);
