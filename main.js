@@ -56,7 +56,7 @@ let audioCtx = null;
 let soundOn = load('sound', true);
 let bgmOn = load('bgm', true);
 // 夜の古い城の作戦卓、という雰囲気に合わせて BGM より少し上、控えめに
-const SE_GAIN = { play: 0.45, draw: 0.3, shuffle: 0.55, buy: 0.5, trash: 0.45, attack: 0.4, turn: 0.35, cutin: 0.45, flip: 0.45, fanfare: 0.5 };
+const SE_GAIN = { play: 0.45, draw: 0.3, shuffle: 0.55, buy: 0.5, trash: 0.45, attack: 0.4, turn: 0.35, flip: 0.45 };
 const BGM_GAIN = 0.22;
 const buffers = {};
 let bgmEl = null;
@@ -109,9 +109,7 @@ const soundShuffle = () => sfx('shuffle'); // 山札を混ぜる
 const soundTrash = () => sfx('trash'); // 廃棄（新聞紙を丸める）
 const soundAttack = () => sfx('attack'); // 攻撃を受けた
 const soundTurnStart = () => sfx('turn'); // 自分の番が来た
-const soundCutIn = () => sfx('cutin'); // 高コストの購入カットイン
 const soundFlip = () => sfx('flip'); // パック開封でめくる
-const soundFanfare = () => sfx('fanfare'); // 結果画面、1位のファンファーレ
 
 // ---- DOM 組み立ての小道具 ----
 function el(tag, props = {}, children = []) {
@@ -1171,7 +1169,6 @@ function maybeShowBuyCutIn(id) {
   const isBig = card.cost >= 6 || (card.types.includes('victory') && card.points >= 6);
   if (!isBig) return;
   const fast = allCpu() && spectatorSpeed === 'fast';
-  if (!fast) soundCutIn(); // 観戦の「速い」では省く（カットインの見た目を出さない場合も鳴らす）
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   document.querySelectorAll('.buyCutIn').forEach((n) => n.remove()); // 連続して買われたら前のものは消す
   // 拡大表示（showCardDetail）と同じ見た目にするため card--peek を使い回す
@@ -1514,7 +1511,6 @@ function recordGameEnd(results) {
 
 function showResult() {
   showScreen('result');
-  if (!game.recorded) soundFanfare(); // 描き直しでは鳴らさない（recordGameEnd が recorded を立てる）
   const results = finalResults(game);
   recordGameEnd(results);
   const scoreText = (r) => {
