@@ -20,7 +20,7 @@ import './cards-plunder.js';
 import './cards-risingsun.js';
 import {
   CARDS, SETS, PRESETS, BASIC_IDS, kingdomPool, randomKingdom, styleType, costOf, is, pileOf, isLandscape,
-  newGame, currentPlayer, turnController, playAction, playTreasureGen, playAllTreasures,
+  newGame, currentPlayer, turnController, playAction, playTreasureGen, playAllTreasures, playTreasure,
   enterBuyPhase, canBuy, buyCard, beginTurn, endTurn, spendCoffers, payDebt, finalResults, allCards,
   landscapePool, canBuyEvent, buyEvent, enterNightPhase, canPlayNight, playNight, spendVillager,
   canPlayAction, shadowsInDeck, playShadow, isTreasureNow,
@@ -131,6 +131,7 @@ let pendingGen = null;   // 今進めているジェネレータ（カード・�
 let pendingDone = null;  // 終わったときに呼ぶ（省略時は backToTurn）
 let selected = new Set();
 let prevRender = null; // 直前の renderTurn の手札・場・サプライ・数字（動きを付けるための比較用。新しい対局では null に戻す）
+let endConfirmTurn = null; // 「何も買わずに終える？」を一度押した手番（t オブジェクトそのもの。新しい手番で自然に外れる）
 
 // ---- カードの見た目 ----
 // cost を渡さなければ CARDS[id].cost（対局前の画面用）。対局中は costOf(game, id) を渡す。
@@ -331,6 +332,8 @@ let landscapesOn = typeof load('landscapesOn', true) === 'boolean' ? load('lands
 let landscapes = validLandscapes(load('landscapes', null));
 if (!load('landscapes', null) && PRESETS[0] && PRESETS[0].landscapes) landscapes = [...PRESETS[0].landscapes];
 let customLandscapes = validLandscapes(load('customLandscapes', null));
+// 財宝を自動で出す設定（既定オフ）。基本の財宝（効果のないもの）だけを対象にする
+let autoPlayTreasures = load('autoPlayTreasures', false) === true;
 
 function persistSetup() {
   save('players', players);
@@ -538,6 +541,11 @@ document.getElementById('modeTabs').addEventListener('click', (e) => {
   persistSetup();
   renderSetup();
 });
+{
+  const toggle = document.getElementById('autoTreasureToggle');
+  toggle.checked = autoPlayTreasures;
+  toggle.addEventListener('change', () => { autoPlayTreasures = toggle.checked; save('autoPlayTreasures', autoPlayTreasures); });
+}
 document.getElementById('startBtn').addEventListener('click', () => {
   const k = activeKingdom();
   if (!k) return;
@@ -628,25 +636,47 @@ function renderTurn() {
   clear(buttons);
   if (!humanControls) {
     buttons.appendChild(el('span', { class: 'muted', text: `${p.name}の番です` }));
-  } else if (t.phase === 'action') {
-    if (p.tokens.villagers > 0) {
-      buttons.appendChild(el('button', { class: 'pill', text: `村人を使う（残り${p.tokens.villagers}）`, onclick: () => { spendVillager(game); renderTurn(); } }));
-    }
-    buttons.appendChild(el('button', { class: 'pill pill--accent', text: '購入フェイズへ', onclick: () => run(enterBuyPhase(game)) }));
   } else {
-    if (t.phase === 'buy') {
-      buttons.appendChild(el('button', { class: 'pill', text: '財宝をまとめて出す', onclick: () => { playAllTreasures(game); renderTurn(); } }));
-      if (p.tokens.coffers > 0) {
-        buttons.appendChild(el('button', { class: 'pill', text: `財源を使う（残り${p.tokens.coffers}）`, onclick: () => { spendCoffers(game, 1); renderTurn(); } }));
-      }
-      if (p.tokens.debt > 0) {
-        buttons.appendChild(el('button', { class: 'pill', text: `借金を返す（残り${p.tokens.debt}）`, onclick: () => { payDebt(game); renderTurn(); } }));
-      }
-      if (p.hand.some((id) => is(id, 'night'))) {
-        buttons.appendChild(el('button', { class: 'pill', text: '夜のフェイズへ', onclick: () => { enterNightPhase(game); renderTurn(); } }));
+    // 補助ボタン（主ボタンより小さく脇に残す）
+    const secondary = [];
+    if (t.phase === 'action' && p.tokens.villagers > 0) {
+      secondary.push(el('button', { class: 'pill pill--sm', text: `村人を使う（残り${p.tokens.villagers}）`, onclick: () => { spendVillager(game); renderTurn(); } }));
+    }
+    if (t.phase === 'buy' && p.tokens.coffers > 0) {
+      secondary.push(el('button', { class: 'pill pill--sm', text: `財源を使う（残り${p.tokens.coffers}）`, onclick: () => { spendCoffers(game, 1); renderTurn(); } }));
+    }
+    if (t.phase === 'buy' && p.tokens.debt > 0) {
+      secondary.push(el('button', { class: 'pill pill--sm', text: `借金を返す（残り${p.tokens.debt}）`, onclick: () => { payDebt(game); renderTurn(); } }));
+    }
+
+    // 主ボタン（1つだけ大きく。状況で文言と動きが変わる＝MTGアリーナ風の「次へ」）
+    let primary;
+    if (t.phase === 'action') {
+      primary = {
+        text: '購入へ',
+        onclick: () => run(enterBuyPhase(game), () => { if (autoPlayTreasures) autoPlayPlainTreasures(); backToTurn(); }),
+      };
+    } else {
+      const autoPlayable = t.phase === 'buy' ? p.hand.filter((id) => isTreasureNow(game, id) && (!CARDS[id].play || CARDS[id].autoPlay)) : [];
+      if (autoPlayable.length > 0) {
+        const plain = autoPlayable.every((id) => !CARDS[id].play);
+        const n = plain ? autoPlayable.reduce((sum, id) => sum + (CARDS[id].value || 0), 0) : null;
+        primary = { text: n != null ? `財宝を出す（+${n}金）` : '財宝を出す', onclick: () => { playAllTreasures(game); renderTurn(); } };
+      } else if (t.phase === 'buy' && p.hand.some((id) => is(id, 'night'))) {
+        primary = { text: '夜のフェイズへ', onclick: () => { enterNightPhase(game); renderTurn(); } };
+      } else {
+        const nothingBought = t.bought.length === 0 && t.events.length === 0;
+        if (!nothingBought) endConfirmTurn = null;
+        const hasBuyable = nothingBought && (Object.keys(game.supply).some((id) => canBuy(game, id)) || game.landscapes.some((id) => canBuyEvent(game, id)));
+        if (hasBuyable && endConfirmTurn !== t) {
+          primary = { text: '何も買わずに終える？', onclick: () => { endConfirmTurn = t; renderTurn(); } };
+        } else {
+          primary = { text: '手番を終える', onclick: onEndTurn };
+        }
       }
     }
-    buttons.appendChild(el('button', { class: 'pill pill--accent', text: '手番を終える', onclick: onEndTurn }));
+    buttons.appendChild(el('button', { class: 'pill pill--accent pill--primary', text: primary.text, onclick: primary.onclick }));
+    if (secondary.length) buttons.appendChild(el('div', { class: 'hud__buttons--secondary' }, secondary));
   }
 
   const playArea = document.getElementById('playArea');
@@ -841,8 +871,8 @@ function animateDraw(p, newNodes) {
 // 次に何をすればいいかの短い案内（HUD の近くに出す）
 function turnHint(g, p, t) {
   if (t.phase === 'action') {
-    if (p.hand.some((id) => canPlayAction(g, id))) return 'アクションを使うか、「購入フェイズへ」';
-    return '使えるアクションがなければ「購入フェイズへ」';
+    if (p.hand.some((id) => canPlayAction(g, id))) return 'アクションを使うか、「購入へ」';
+    return '使えるアクションがなければ「購入へ」';
   }
   if (t.phase === 'buy') {
     if (p.hand.some((id) => isTreasureNow(g, id))) return '財宝を出してから、買いたい札をタップ';
@@ -851,6 +881,12 @@ function turnHint(g, p, t) {
   }
   if (t.phase === 'night') return '夜の札を使うか、「手番を終える」';
   return '';
+}
+
+// 「財宝を自動で出す」設定用。効果のある財宝（手で出す順番・可否に意味があるもの）は残す
+function autoPlayPlainTreasures() {
+  const p = currentPlayer(game);
+  for (const id of [...p.hand]) if (is(id, 'treasure') && !CARDS[id].play) playTreasure(game, id);
 }
 
 function onEndTurn() {
