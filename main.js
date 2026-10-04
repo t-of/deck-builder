@@ -1382,7 +1382,8 @@ function scoreBreakdown(pl, g) {
 
 // 対局の終わりに「図鑑」「記録」を更新する（CPU だけの観戦は数えない）
 function recordGameEnd(results) {
-  if (humanCount() < 1) return;
+  if (humanCount() < 1 || game.recorded) return;
+  game.recorded = true; // rerender で結果画面を描き直しても二重に数えない
   // 図鑑: この対局で場に出た・獲得された・買われた札をまとめて「発見」に加える
   // ponytail: ランドマーク等イベント系は「対局で使われた」まで厳密に追わず、組に入っていれば発見扱いにする
   const used = new Set(load('discovered', []));
