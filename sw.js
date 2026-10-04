@@ -9,7 +9,7 @@
 // ブラウザの HTTP キャッシュを通さない（install は reload、fetch は no-cache）。古い main.js と新しい index.html が混ざって動かなくなるのを防ぐ。
 
 const PREFIX = 'deck-builder-';
-const VERSION = 'v56';
+const VERSION = 'v57';
 const CACHE = `${PREFIX}${VERSION}`;
 const FONT_CACHE = `${PREFIX}fonts`;
 
@@ -61,6 +61,17 @@ const SHELL = [
   './art/smithy.png',
   './art/market.png',
   './art/mine.png',
+  './sounds/play.mp3',
+  './sounds/draw.mp3',
+  './sounds/shuffle.mp3',
+  './sounds/buy.mp3',
+  './sounds/trash.mp3',
+  './sounds/attack.mp3',
+  './sounds/turn.mp3',
+  './sounds/cutin.mp3',
+  './sounds/flip.mp3',
+  './sounds/fanfare.mp3',
+  './sounds/bgm.mp3',
 ];
 
 self.addEventListener('install', (e) => {

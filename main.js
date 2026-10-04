@@ -51,39 +51,67 @@ function setAudioSession(soundOn) {
   try { if (navigator.audioSession) navigator.audioSession.type = soundOn ? 'playback' : 'auto'; } catch { /* 対応していない */ }
 }
 
-// ---- 音（短いビープだけ） ----
+// ---- 音（VSQ plus+ の素材を切り出して加工したもの。出典は README） ----
 let audioCtx = null;
 let soundOn = load('sound', true);
-function beep(freq, dur, gain = 0.1) {
+let bgmOn = load('bgm', true);
+// 夜の古い城の作戦卓、という雰囲気に合わせて BGM より少し上、控えめに
+const SE_GAIN = { play: 0.45, draw: 0.3, shuffle: 0.55, buy: 0.5, trash: 0.45, attack: 0.4, turn: 0.35, cutin: 0.45, flip: 0.45, fanfare: 0.5 };
+const BGM_GAIN = 0.22;
+const buffers = {};
+let bgmEl = null;
+function getCtx() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    setAudioSession(true);
+    for (const name of Object.keys(SE_GAIN)) {
+      fetch(`sounds/${name}.mp3`).then((r) => r.arrayBuffer()).then((b) => audioCtx.decodeAudioData(b)).then((buf) => { buffers[name] = buf; }).catch(() => { /* 鳴らないだけ */ });
+    }
+    // blob にしてから流す（audio 要素の Range 取得はサービスワーカーのキャッシュを通らず、圏外で鳴らない）
+    fetch('sounds/bgm.mp3').then((r) => r.blob()).then((b) => {
+      bgmEl = new Audio(URL.createObjectURL(b));
+      bgmEl.loop = true;
+      const g = audioCtx.createGain();
+      g.gain.value = BGM_GAIN; // iPhone は audio.volume が効かないので Web Audio で下げる
+      audioCtx.createMediaElementSource(bgmEl).connect(g).connect(audioCtx.destination);
+      syncBgm();
+    }).catch(() => { /* BGM なしで遊べる */ });
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function syncBgm() {
+  if (!bgmEl) return;
+  if (soundOn && bgmOn && !document.hidden) bgmEl.play().catch(() => { /* 次に触ったときに鳴らす */ });
+  else bgmEl.pause();
+}
+// 最初の音・BGM は触ったときに始める（ブラウザは触る前の音を止める）
+document.addEventListener('pointerdown', () => { if (soundOn) { getCtx(); syncBgm(); } });
+document.addEventListener('visibilitychange', syncBgm);
+function sfx(name) {
   if (!soundOn) return;
   try {
-    if (!audioCtx) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); setAudioSession(true); }
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    const osc = audioCtx.createOscillator();
-    const g = audioCtx.createGain();
-    osc.frequency.value = freq;
-    osc.type = 'sine';
-    g.gain.setValueAtTime(gain, audioCtx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
-    osc.connect(g).connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + dur);
+    const ctx = getCtx();
+    if (!buffers[name]) return;
+    const src = ctx.createBufferSource();
+    const g = ctx.createGain();
+    src.buffer = buffers[name];
+    g.gain.value = SE_GAIN[name];
+    src.connect(g).connect(ctx.destination);
+    src.start();
   } catch { /* 音が出せなくても遊べる */ }
 }
-const soundPlay = () => beep(360, 0.1);
-const soundBuy = () => beep(560, 0.14);
-const soundEnd = () => beep(220, 0.2);
-// 夜の古い城の作戦卓、という雰囲気に合わせて柔らかく小さく
-const soundDraw = () => beep(620, 0.05, 0.035); // 札を引く（連続しないよう呼び出し側で間引く）
-const soundShuffle = () => { beep(220, 0.12, 0.045); setTimeout(() => beep(190, 0.14, 0.035), 90); }; // 山札を混ぜる
-const soundTrash = () => beep(130, 0.2, 0.08); // 廃棄（低く短く）
-const soundAttack = () => beep(170, 0.16, 0.09); // 攻撃を受けた
-const soundTurnStart = () => { beep(500, 0.1, 0.05); setTimeout(() => beep(660, 0.12, 0.05), 90); }; // 自分の番が来た
-const soundCutIn = () => { beep(520, 0.1, 0.08); setTimeout(() => beep(760, 0.2, 0.08), 100); }; // 高コストの購入カットイン
-const soundFlip = () => beep(480, 0.07, 0.07); // パック開封でめくる
-const soundFanfare = () => { // 結果画面、1位のファンファーレ
-  [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.22, 0.09), i * 110));
-};
+const soundPlay = () => sfx('play');
+const soundBuy = () => sfx('buy');
+const soundEnd = () => sfx('play');
+const soundDraw = () => sfx('draw'); // 札を引く（連続しないよう呼び出し側で間引く）
+const soundShuffle = () => sfx('shuffle'); // 山札を混ぜる
+const soundTrash = () => sfx('trash'); // 廃棄（新聞紙を丸める）
+const soundAttack = () => sfx('attack'); // 攻撃を受けた
+const soundTurnStart = () => sfx('turn'); // 自分の番が来た
+const soundCutIn = () => sfx('cutin'); // 高コストの購入カットイン
+const soundFlip = () => sfx('flip'); // パック開封でめくる
+const soundFanfare = () => sfx('fanfare'); // 結果画面、1位のファンファーレ
 
 // ---- DOM 組み立ての小道具 ----
 function el(tag, props = {}, children = []) {
@@ -772,6 +800,16 @@ soundBtn.addEventListener('click', () => {
   save('sound', soundOn);
   setAudioSession(soundOn);
   showSound();
+  syncBgm();
+});
+const bgmBtn = document.getElementById('bgmBtn');
+const showBgm = () => { bgmBtn.textContent = bgmOn ? 'BGM オン' : 'BGM オフ'; bgmBtn.setAttribute('aria-pressed', String(bgmOn)); };
+showBgm();
+bgmBtn.addEventListener('click', () => {
+  bgmOn = !bgmOn;
+  save('bgm', bgmOn);
+  showBgm();
+  syncBgm();
 });
 document.getElementById('recordsBtn').addEventListener('click', showRecords);
 
