@@ -813,7 +813,7 @@ function renderTurn() {
     for (const id of ids) {
       const count = game.supply[id];
       const buyable = humanControls && canBuy(game, id);
-      const node = gcNode(id, buyable, () => run(buyCard(game, id), (ok) => { if (ok) soundBuy(); backToTurn(); }), count);
+      const node = gcNode(id, buyable, () => run(buyCard(game, id), (ok) => { if (ok) { soundBuy(); maybeShowBuyCutIn(id); } backToTurn(); }), count);
       // 前回よりこの山の残りが減っていれば、誰かが買った合図にほのかに光らせる
       const prevCount = prevRender && prevRender.supply[id];
       if (prevCount != null && count < prevCount) node.classList.add('is-bought');
@@ -953,6 +953,28 @@ function animateMedalGains(gains, originNodes) {
     });
     document.body.appendChild(chip);
   });
+}
+
+// 属州・植民地などの高得点札、コスト 6 以上の札を買ったとき、札が大きく横切るカットインを出す。
+// 入力はふさがない（pointer-events: none）。reduced-motion では出さない。CPU 観戦の「速い」設定では短くする
+function maybeShowBuyCutIn(id) {
+  const card = CARDS[id];
+  const isBig = card.cost >= 6 || (card.types.includes('victory') && card.points >= 6);
+  if (!isBig || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  document.querySelectorAll('.buyCutIn').forEach((n) => n.remove()); // 連続して買われたら前のものは消す
+  const fast = allCpu() && spectatorSpeed === 'fast';
+  // 拡大表示（showCardDetail）と同じ見た目にするため card--peek を使い回す
+  const big = gcNode(id, false);
+  big.classList.remove('card--active');
+  big.classList.add('card--peek', 'buyCutIn__card');
+  big.tabIndex = -1;
+  const wrap = el('div', { class: `cardDetail buyCutIn${fast ? ' buyCutIn--fast' : ''}` }, [
+    el('div', { class: 'buyCutIn__veil' }),
+    big,
+  ]);
+  big.addEventListener('animationend', () => wrap.remove());
+  document.body.appendChild(wrap);
+  setTimeout(() => wrap.remove(), fast ? 700 : 1300); // animationend が来ない場合の保険
 }
 
 // 山札・捨て札の枚数を出し、新しく引いた札を山札の位置から 1 枚ずつ飛ばす。
@@ -1100,7 +1122,7 @@ function doCpuMove(pi) {
   if (m.type === 'buyPhase') { run(enterBuyPhase(game)); return; }
   if (m.type === 'treasure') { run(playTreasureGen(game, m.id)); return; }
   if (m.type === 'coffers') { spendCoffers(game, m.n); backToTurn(); return; }
-  if (m.type === 'buy') { run(buyCard(game, m.id), (ok) => { if (ok) soundBuy(); backToTurn(); }); return; }
+  if (m.type === 'buy') { run(buyCard(game, m.id), (ok) => { if (ok) { soundBuy(); maybeShowBuyCutIn(m.id); } backToTurn(); }); return; }
   if (m.type === 'event') { run(buyEvent(game, m.id), (ok) => { if (ok) soundBuy(); backToTurn(); }); return; }
   if (m.type === 'nightPhase') { enterNightPhase(game); backToTurn(); return; }
   if (m.type === 'night') { run(playNight(game, m.id)); return; }
