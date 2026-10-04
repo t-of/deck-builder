@@ -58,7 +58,7 @@ let sfxVol = load('sfxVol', load('sound', true) ? 100 : 0);
 let bgmVol = load('bgmVol', load('sound', true) && load('bgm', true) ? 100 : 0);
 const soundOn = () => sfxVol > 0 || bgmVol > 0;
 // 夜の古い城の作戦卓、という雰囲気に合わせて BGM より少し上、控えめに
-const SE_GAIN = { play: 0.45, draw: 0.3, shuffle: 0.55, buy: 0.5, trash: 0.45, attack: 0.4, turn: 0.35, flip: 0.45 };
+const SE_GAIN = { play: 0.45, draw: 0.3, shuffle: 0.55, buy: 0.5, trash: 0.45, turn: 0.35, flip: 0.45 };
 const BGM_GAIN = 0.22;
 const buffers = {};
 let bgmEl = null;
@@ -111,7 +111,6 @@ const soundEnd = () => sfx('play');
 const soundDraw = () => sfx('draw'); // 札を引く（連続しないよう呼び出し側で間引く）
 const soundShuffle = () => sfx('shuffle'); // 山札を混ぜる
 const soundTrash = () => sfx('trash'); // 廃棄（新聞紙を丸める）
-const soundAttack = () => sfx('attack'); // 攻撃を受けた
 const soundTurnStart = () => sfx('turn'); // 自分の番が来た
 const soundFlip = () => sfx('flip'); // パック開封でめくる
 
@@ -1315,9 +1314,7 @@ function autoPlayPlainTreasures() {
   for (const id of [...p.hand]) if (is(id, 'treasure') && !CARDS[id].play) playTreasure(game, id);
 }
 
-// アクション札を使う。アタック札は、生成器の中で相手が被る前に鳴らす（細かい技ごとではなく、技を出した瞬間に 1 回）
 function runPlayAction(id) {
-  if (is(id, 'attack')) soundAttack();
   run(playAction(game, id));
 }
 
