@@ -794,12 +794,12 @@ button { font: inherit; color: inherit; }
 [data-theme="card"] .cpuThinking__dots span { background: var(--accent); }
 
 /* サプライは種類ごとに見出しを立てて横に並べ、入りきらない組は次の行へ折り返す。
-   組ごとの札は横2行・1行に収まらない組だけ横スクロール */
+   組ごとの札は 2 段で、左から右へコスト順に詰める（列数 --cols は main.js が入れる）。1行に収まらない組だけ横スクロール */
 .supply { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 16px; }
 .supplyGroup { min-width: 0; max-width: 100%; }
 .supplyGroup__label { margin: 6px 0 0; font-size: 12px; color: var(--muted); }
-.supplyGroup__row.cards { display: grid; grid-template-rows: repeat(2, auto); grid-auto-flow: column; grid-auto-columns: 130px; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; }
-[data-theme="card"] .supplyGroup__row { grid-auto-columns: 112px; }
+.supplyGroup__row.cards { --colw: 130px; display: grid; grid-template-columns: repeat(var(--cols, 1), var(--colw)); gap: 8px; overflow-x: auto; padding: 2px 2px 6px; }
+[data-theme="card"] .supplyGroup__row { --colw: 112px; }
 [data-theme="card"] .supplyGroup__row .tcgcard { width: 100%; min-height: 0; padding: 0.35em; font-size: 10px; }
 
 /* ---- 手札の右の山札・捨て札。裏向きの札の形で、枚数を真ん中に出す ---- */
@@ -850,7 +850,7 @@ button { font: inherit; color: inherit; }
   /* サプライは PC と同じく組を横に並べて 2 段に収め、全体を横にスクロールする */
   .supply { flex-wrap: nowrap; overflow-x: auto; gap: 4px 12px; padding-bottom: 4px; }
   .supplyGroup { flex: none; max-width: none; }
-  [data-theme="card"] .supplyGroup__row { grid-auto-columns: 68px; gap: 6px; overflow-x: visible; }
+  [data-theme="card"] .supplyGroup__row { --colw: 68px; gap: 6px; overflow-x: visible; }
   [data-theme="card"] .supplyGroup__row .tcgcard { font-size: 7.2px; }
   [data-theme="card"] .cards--hand, [data-theme="card"] .cards--play {
     flex-wrap: nowrap; overflow-x: auto; justify-content: safe center; padding: 8px 2px 4px;
@@ -873,7 +873,7 @@ button { font: inherit; color: inherit; }
   .game__bottom { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(170px, 210px); gap: 12px; align-items: start; }
   .pile, .pileGhost { --pw: calc(var(--cw) * 0.75); }
   .game__side { display: flex; flex-direction: column; gap: 8px; }
-  [data-theme="card"] .supplyGroup__row { grid-auto-columns: var(--cw); }
+  [data-theme="card"] .supplyGroup__row { --colw: var(--cw); }
   [data-theme="card"] .supplyGroup__row .tcgcard { font-size: calc(var(--cw) / 11.2); }
   [data-theme="card"] .cards--play { flex-wrap: nowrap; overflow-x: auto; min-height: calc(var(--cw) * 0.7 * 88 / 63 + 4px); padding: 2px; }
   [data-theme="card"] .cards--play .tcgcard { width: calc(var(--cw) * 0.7); font-size: calc(var(--cw) * 0.7 / 9.5); }

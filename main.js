@@ -410,6 +410,9 @@ function tagCard(node, text) {
   return node;
 }
 // カードの id を名前・枚数でまとめた短い文言（マットの中身など）
+// サプライの札を 2 段に分け、左から右へ並べる列数
+function setCols(row) { row.style.setProperty('--cols', Math.ceil(row.children.length / 2)); }
+
 function counts(ids) {
   const m = new Map();
   for (const id of ids) m.set(id, (m.get(id) || 0) + 1);
@@ -1053,6 +1056,7 @@ function renderTurn() {
       // 森の賢者: 対局の始めに脇に置いた 3 つの恵みを、その札の横に並べる
       if (id === 'druid' && game.druidBoons) for (const b of game.druidBoons) row.appendChild(gcNode(b, false));
     }
+    setCols(row);
     group.appendChild(row);
     supply.appendChild(group);
   }
@@ -1067,6 +1071,7 @@ function renderTurn() {
     }
     if (game.boons) landscapesBox.appendChild(pileButton('恵みの山', game.boons));
     if (game.hexes) landscapesBox.appendChild(pileButton('呪詛の山', game.hexes));
+    setCols(landscapesBox);
     supply.appendChild(el('div', { class: 'supplyGroup' }, [el('h3', { class: 'supplyGroup__label', text: 'イベントなど' }), landscapesBox]));
   }
   // サプライ外の山（褒賞・賞品など）。イベントと同じく廃棄置き場の左に置く。買えない、タップで説明だけ
@@ -1074,6 +1079,7 @@ function renderTurn() {
   if (nonSupplyIds.length) {
     const nonSupplyBox = el('div', { class: 'cards supplyGroup__row' });
     for (const id of nonSupplyIds) nonSupplyBox.appendChild(gcNode(id, false, null, game.nonSupply[id]));
+    setCols(nonSupplyBox);
     supply.appendChild(el('div', { class: 'supplyGroup' }, [el('h3', { class: 'supplyGroup__label', text: 'サプライ外' }), nonSupplyBox]));
   }
   // 廃棄置き場: 上のバーの真ん中に、横長の枠で枚数と中身を出す
