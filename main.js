@@ -53,7 +53,9 @@ function setAudioSession(soundOn) {
 
 // ---- 音（短いビープだけ） ----
 let audioCtx = null;
+let soundOn = load('sound', true);
 function beep(freq, dur, gain = 0.1) {
+  if (!soundOn) return;
   try {
     if (!audioCtx) { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); setAudioSession(true); }
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -757,6 +759,15 @@ function startGame() {
 }
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('codexBtn').addEventListener('click', showCodex);
+const soundBtn = document.getElementById('soundBtn');
+const showSound = () => { soundBtn.textContent = soundOn ? '音 オン' : '音 オフ'; soundBtn.setAttribute('aria-pressed', String(soundOn)); };
+showSound();
+soundBtn.addEventListener('click', () => {
+  soundOn = !soundOn;
+  save('sound', soundOn);
+  setAudioSession(soundOn);
+  showSound();
+});
 document.getElementById('recordsBtn').addEventListener('click', showRecords);
 
 // ==================================================================
@@ -1410,8 +1421,9 @@ function scoreBreakdown(pl, g) {
 
 // 対局の終わりに「図鑑」「記録」を更新する（CPU だけの観戦は数えない）
 function recordGameEnd(results) {
-  if (humanCount() < 1 || game.recorded) return;
+  if (game.recorded) return;
   game.recorded = true; // rerender で結果画面を描き直しても二重に数えない
+  if (humanCount() < 1) return;
   // 図鑑: この対局で場に出た・獲得された・買われた札をまとめて「発見」に加える
   // ponytail: ランドマーク等イベント系は「対局で使われた」まで厳密に追わず、組に入っていれば発見扱いにする
   const used = new Set(load('discovered', []));
@@ -1444,7 +1456,7 @@ function recordGameEnd(results) {
 
 function showResult() {
   showScreen('result');
-  soundFanfare();
+  if (!game.recorded) soundFanfare(); // 描き直しでは鳴らさない（recordGameEnd が recorded を立てる）
   const results = finalResults(game);
   recordGameEnd(results);
   const scoreText = (r) => {
