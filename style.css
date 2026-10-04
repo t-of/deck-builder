@@ -155,6 +155,35 @@ button { font: inherit; color: inherit; }
 @keyframes endGaugePulse { 0%, 100% { background: transparent; } 50% { background: rgba(255, 107, 107, 0.25); } }
 .othersRow { display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--muted); }
 .otherCard { border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--radius); padding: 4px 8px; }
+
+/* 相手（CPU・交代の人）の直前の手番のまとめ。たたんでいるときはボタン1つだけ */
+.turnSummaryBar { display: flex; flex-direction: column; gap: 6px; }
+.turnSummaryBar__toggle {
+  align-self: flex-start;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.turnSummaryBar__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 40vh;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius);
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.turnSummary { display: flex; flex-direction: column; gap: 4px; }
+.turnSummary__name { margin: 0; font-size: 12px; font-weight: 700; color: var(--fg); }
+.turnSummary__label { margin: 0; font-size: 11px; color: var(--muted); }
+/* 帯の中の札は見た目はそのまま、小さく並べるだけ */
+.turnSummaryBar__panel .cards--mini { gap: 4px; min-height: 0; flex-wrap: nowrap; overflow-x: auto; }
+[data-theme="card"] .turnSummaryBar__panel .cards--mini .tcgcard { width: 56px; font-size: 5.9px; flex: none; }
 .hud { display: flex; flex-direction: column; gap: 6px; background: rgba(255, 255, 255, 0.04); border-radius: var(--radius); padding: 8px 10px; }
 .hud__stats { display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
 .hud__stats .muted { font-size: 12px; color: var(--muted); }

@@ -100,6 +100,11 @@
 
       <!-- 対局画面 -->
       <div id="game" class="game" hidden>
+        <!-- 相手（CPU・交代の人）の直前の手番のまとめ。折りたたみ帯。タップで開く -->
+        <div class="turnSummaryBar" id="turnSummaryBar" hidden>
+          <button class="turnSummaryBar__toggle" id="turnSummaryToggle"></button>
+          <div class="turnSummaryBar__panel" id="turnSummaryPanel" hidden></div>
+        </div>
         <div class="othersRow" id="othersRow"></div>
         <div class="game__table">
           <div class="othersRow" id="matsRow"></div>

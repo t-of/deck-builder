@@ -132,6 +132,7 @@ let pendingDone = null;  // 終わったときに呼ぶ（省略時は backToTur
 let selected = new Set();
 let prevRender = null; // 直前の renderTurn の手札・場・サプライ・数字（動きを付けるための比較用。新しい対局では null に戻す）
 let endConfirmTurn = null; // 「何も買わずに終える？」を一度押した手番（t オブジェクトそのもの。新しい手番で自然に外れる）
+let summaryOpen = false; // 「相手の手番」帯を開いているか。手番を渡すたびにたたみ直す
 
 // ---- カードの見た目 ----
 // cost を渡さなければ CARDS[id].cost（対局前の画面用）。対局中は costOf(game, id) を渡す。
@@ -600,6 +601,7 @@ document.getElementById('startBtn').addEventListener('click', () => {
   persistSetup();
   shownPlayer = null;
   prevRender = null;
+  summaryOpen = false;
   game = newGame(players, kingdom, seats.map(seatName), { landscapes: activeLandscapes() });
   startTurnPass();
 });
@@ -608,6 +610,7 @@ document.getElementById('startBtn').addEventListener('click', () => {
 // 手番を渡す画面（今この端末を見ている人と、答える人が違うときにはさむ。人どうしのときだけ出す）
 // ==================================================================
 function goToPass(pi, onReady) {
+  summaryOpen = false; // 渡したら、まず相手の帯はたたんでおく
   document.getElementById('passLabel').textContent = `${game.players[pi].name}に渡してください`;
   showScreen('pass');
   const btn = document.getElementById('passBtn');
@@ -626,6 +629,38 @@ function startTurnPass() {
 }
 
 // ==================================================================
+// 相手（CPU・交代の人）の直前の手番のまとめ。折りたたみ帯。タップで札を見て開閉できる
+function renderTurnSummaries() {
+  const bar = document.getElementById('turnSummaryBar');
+  const toggle = document.getElementById('turnSummaryToggle');
+  const panel = document.getElementById('turnSummaryPanel');
+  const list = [...(game.turnSummaries || [])].slice(-4).reverse();
+  bar.hidden = list.length === 0;
+  if (!list.length) return;
+  toggle.textContent = `${summaryOpen ? '▾' : '▸'} 相手の手番（${list.length}）`;
+  toggle.onclick = () => { summaryOpen = !summaryOpen; renderTurnSummaries(); };
+  panel.hidden = !summaryOpen;
+  if (!summaryOpen) return;
+  clear(panel);
+  for (const s of list) {
+    const box = el('div', { class: 'turnSummary' });
+    box.appendChild(el('p', { class: 'turnSummary__name', text: s.name }));
+    const row = (label, ids) => {
+      if (!ids.length) return;
+      box.appendChild(el('p', { class: 'turnSummary__label', text: label }));
+      const cards = el('div', { class: 'cards cards--mini' });
+      for (const [id, n] of groupByCost(ids)) cards.appendChild(n > 1 ? tagCard(gcNode(id, false), `${n}枚`) : gcNode(id, false));
+      box.appendChild(cards);
+    };
+    row('使った', s.played);
+    row('買った・得た', s.gained);
+    row('廃棄', s.trashed);
+    if (!s.played.length && !s.gained.length && !s.trashed.length) box.appendChild(el('p', { class: 'turnSummary__label', text: '何もしなかった' }));
+    panel.appendChild(box);
+  }
+}
+
+// ==================================================================
 // 手番の画面
 // ==================================================================
 function renderTurn() {
@@ -634,6 +669,7 @@ function renderTurn() {
   // 手番を操作する人が CPU のあいだは、押しても何も起きないよう手札・サプライなどを押せなくする
   const humanControls = isHumanSeat(turnController(game));
   document.getElementById('cpuThinking').hidden = true;
+  renderTurnSummaries();
 
   const PHASE_LABEL = { action: 'アクションフェイズ', buy: '購入フェイズ', night: '夜のフェイズ' };
   const phasePill = document.getElementById('phasePill');

@@ -126,6 +126,7 @@ export function newGame(numPlayers, kingdom, names, opts = {}) {
     extraTurn: false, // 今の手番が追加の手番か
     over: false,
     log: [`${players[0].name}の番です。`],
+    turnSummaries: [], // 終わった手番のまとめ（{ pi, name, played, gained, trashed }）。画面の「相手の手番」帯用
   };
   // プレイヤーから対局をたどれるように（混ぜるときの決まりが対局を見るため。JSON には出ない）
   for (const p of players) Object.defineProperty(p, 'game', { value: game, enumerable: false });
@@ -216,7 +217,10 @@ export function* trashCards(game, player, ids) {
   game.trash.push(...ids);
   log(game, `${player.name}が「${ids.map((id) => CARDS[id].name).join('」「')}」を廃棄。`);
   const pi = game.players.indexOf(player);
-  if (pi === game.current && game.turn) game.turn.trashed = (game.turn.trashed || 0) + ids.length;
+  if (pi === game.current && game.turn) {
+    game.turn.trashed = (game.turn.trashed || 0) + ids.length;
+    (game.turn.trashedIds = game.turn.trashedIds || []).push(...ids);
+  }
   for (const id of ids) {
     if (CARDS[id].onTrash) yield* CARDS[id].onTrash(game, player, pi, id);
     for (const h of HOOKS.trash) yield* h(game, player, pi, id);
@@ -788,6 +792,7 @@ export function* endTurn(game) {
   payDebt(game); // 残ったお金は消えるので、借金に回す
   for (const h of HOOKS.endTurn) yield* h(game);
   if (game.turn.money < 0) { player.tokens.minusCoin = true; game.turn.money = 0; }
+  const playedSnapshot = [...game.playArea]; // この手番で使って場に残っている札（片付けで捨て札・持続へ移る前）
   for (const id of [...game.playArea]) if (CARDS[id].onCleanup && game.playArea.includes(id)) yield* CARDS[id].onCleanup(game, player, game.current);
   for (const id of game.turn.stay) {
     const i = game.playArea.indexOf(id);
@@ -804,6 +809,9 @@ export function* endTurn(game) {
   if (!game.extraTurn) player.turnsTaken += 1;
   player.lastGains = game.turn.gained;
   player.lastTrashed = game.turn.trashed || 0;
+  // 相手の手番のまとめ（画面の折りたたみ帯用）。直近分だけ残す
+  game.turnSummaries.push({ pi: game.current, name: player.name, played: playedSnapshot, gained: [...game.turn.gained], trashed: [...(game.turn.trashedIds || [])] });
+  if (game.turnSummaries.length > 8) game.turnSummaries.shift();
   const extra = (game.turn.outpost || game.turn.mission || game.turn.seize || game.turn.voyage) && !game.extraTurn;
   const possess = !extra && !game.extraTurn && game.turn.possess;
   const wasPossessed = game.controller != null;
