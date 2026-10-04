@@ -927,3 +927,4 @@ button { font: inherit; color: inherit; }
   background: linear-gradient(180deg, rgba(60, 48, 16, 0.6), rgba(6, 6, 7, 0.5));
   box-shadow: 0 0 20px rgba(201, 162, 39, 0.18);
 }
+.toggleRow input[type="range"] { flex: 1; max-width: 240px; accent-color: var(--accent); }

@@ -53,13 +53,16 @@ function setAudioSession(soundOn) {
 
 // ---- 音（VSQ plus+ の素材を切り出して加工したもの。出典は README） ----
 let audioCtx = null;
-let soundOn = load('sound', true);
-let bgmOn = load('bgm', true);
+// 音量は 0〜100（0 で止める）。前の「音」「BGM」のオン・オフから引き継ぐ
+let sfxVol = load('sfxVol', load('sound', true) ? 100 : 0);
+let bgmVol = load('bgmVol', load('sound', true) && load('bgm', true) ? 100 : 0);
+const soundOn = () => sfxVol > 0 || bgmVol > 0;
 // 夜の古い城の作戦卓、という雰囲気に合わせて BGM より少し上、控えめに
 const SE_GAIN = { play: 0.45, draw: 0.3, shuffle: 0.55, buy: 0.5, trash: 0.45, attack: 0.4, turn: 0.35, flip: 0.45 };
 const BGM_GAIN = 0.22;
 const buffers = {};
 let bgmEl = null;
+let bgmGain = null;
 function getCtx() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -71,9 +74,9 @@ function getCtx() {
     fetch('sounds/bgm.mp3').then((r) => r.blob()).then((b) => {
       bgmEl = new Audio(URL.createObjectURL(b));
       bgmEl.loop = true;
-      const g = audioCtx.createGain();
-      g.gain.value = BGM_GAIN; // iPhone は audio.volume が効かないので Web Audio で下げる
-      audioCtx.createMediaElementSource(bgmEl).connect(g).connect(audioCtx.destination);
+      bgmGain = audioCtx.createGain();
+      bgmGain.gain.value = BGM_GAIN * bgmVol / 100; // iPhone は audio.volume が効かないので Web Audio で下げる
+      audioCtx.createMediaElementSource(bgmEl).connect(bgmGain).connect(audioCtx.destination);
       syncBgm();
     }).catch(() => { /* BGM なしで遊べる */ });
   }
@@ -82,21 +85,22 @@ function getCtx() {
 }
 function syncBgm() {
   if (!bgmEl) return;
-  if (soundOn && bgmOn && !document.hidden) bgmEl.play().catch(() => { /* 次に触ったときに鳴らす */ });
+  bgmGain.gain.value = BGM_GAIN * bgmVol / 100;
+  if (bgmVol > 0 && !document.hidden) bgmEl.play().catch(() => { /* 次に触ったときに鳴らす */ });
   else bgmEl.pause();
 }
 // 最初の音・BGM は触ったときに始める（ブラウザは触る前の音を止める）
-document.addEventListener('pointerdown', () => { if (soundOn) { getCtx(); syncBgm(); } });
+document.addEventListener('pointerdown', () => { if (soundOn()) { getCtx(); syncBgm(); } });
 document.addEventListener('visibilitychange', syncBgm);
 function sfx(name) {
-  if (!soundOn) return;
+  if (!sfxVol) return;
   try {
     const ctx = getCtx();
     if (!buffers[name]) return;
     const src = ctx.createBufferSource();
     const g = ctx.createGain();
     src.buffer = buffers[name];
-    g.gain.value = SE_GAIN[name];
+    g.gain.value = SE_GAIN[name] * sfxVol / 100;
     src.connect(g).connect(ctx.destination);
     src.start();
   } catch { /* 音が出せなくても遊べる */ }
@@ -790,25 +794,19 @@ function startGame() {
 }
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('codexBtn').addEventListener('click', showCodex);
-const soundBtn = document.getElementById('soundBtn');
-const showSound = () => { soundBtn.textContent = soundOn ? '音 オン' : '音 オフ'; soundBtn.setAttribute('aria-pressed', String(soundOn)); };
-showSound();
-soundBtn.addEventListener('click', () => {
-  soundOn = !soundOn;
-  save('sound', soundOn);
-  setAudioSession(soundOn);
-  showSound();
-  syncBgm();
-});
-const bgmBtn = document.getElementById('bgmBtn');
-const showBgm = () => { bgmBtn.textContent = bgmOn ? 'BGM オン' : 'BGM オフ'; bgmBtn.setAttribute('aria-pressed', String(bgmOn)); };
-showBgm();
-bgmBtn.addEventListener('click', () => {
-  bgmOn = !bgmOn;
-  save('bgm', bgmOn);
-  showBgm();
-  syncBgm();
-});
+for (const [id, key] of [['sfxVol', 'sfxVol'], ['bgmVol', 'bgmVol']]) {
+  const input = document.getElementById(id);
+  input.value = key === 'sfxVol' ? sfxVol : bgmVol;
+  input.addEventListener('input', () => {
+    if (key === 'sfxVol') sfxVol = Number(input.value); else bgmVol = Number(input.value);
+    save(key, Number(input.value));
+    setAudioSession(soundOn());
+    if (soundOn()) getCtx();
+    syncBgm();
+  });
+  // 効果音は離したときに 1 回鳴らして大きさを聞かせる
+  if (key === 'sfxVol') input.addEventListener('change', soundBuy);
+}
 document.getElementById('recordsBtn').addEventListener('click', showRecords);
 
 // ==================================================================

@@ -55,8 +55,6 @@
           <div class="setupHero__links">
             <button class="pill" id="codexBtn">図鑑</button>
             <button class="pill" id="recordsBtn">記録</button>
-            <button class="pill" id="soundBtn" aria-pressed="true">音 オン</button>
-            <button class="pill" id="bgmBtn" aria-pressed="true">BGM オン</button>
           </div>
         </div>
 
@@ -92,6 +90,8 @@
         <div class="hud setupCard">
           <p class="setupCard__title"><span class="setupCard__no">4</span>対局の設定</p>
           <label class="toggleRow"><input type="checkbox" id="autoTreasureToggle">財宝を自動で出す（基本の財宝のみ。効果のある財宝は手で出す）</label>
+          <label class="toggleRow">効果音<input type="range" id="sfxVol" min="0" max="100" step="5"></label>
+          <label class="toggleRow">BGM<input type="range" id="bgmVol" min="0" max="100" step="5"></label>
         </div>
         <button class="pill pill--accent pill--start" id="startBtn" disabled>始める</button>
       </div>
