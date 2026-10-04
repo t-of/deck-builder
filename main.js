@@ -1383,7 +1383,14 @@ function doCpuMove(pi) {
   if (m.type === 'shadow') { run(playShadow(game, m.id)); return; }
   if (m.type === 'villager') { spendVillager(game); backToTurn(); return; }
   if (m.type === 'buyPhase') { run(enterBuyPhase(game)); return; }
-  if (m.type === 'treasure') { run(playTreasureGen(game, m.id)); return; }
+  if (m.type === 'treasure') {
+    // 財宝は 1 枚ずつ間をあけず、続けて全部出してから描き直す
+    run(playTreasureGen(game, m.id), () => {
+      if (!game.over && turnController(game) === pi && cpuNextMove(game, level).type === 'treasure') doCpuMove(pi);
+      else backToTurn();
+    });
+    return;
+  }
   if (m.type === 'coffers') { spendCoffers(game, m.n); backToTurn(); return; }
   if (m.type === 'buy') { run(buyCard(game, m.id), (ok) => { if (ok) { soundBuy(); maybeShowBuyCutIn(m.id); } backToTurn(); }); return; }
   if (m.type === 'event') { run(buyEvent(game, m.id), (ok) => { if (ok) soundBuy(); backToTurn(); }); return; }
