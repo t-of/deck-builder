@@ -1504,7 +1504,10 @@ function mvpNode(g) {
   const box = el('div', { class: 'resultMvp__box' });
   box.appendChild(el('p', { class: 'resultChart__title', text: '活躍した札' }));
   g.players.forEach((p, pi) => {
-    const top = Object.entries(p.cardPlays || {}).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    // 銅貨・銀貨ばかりにならないよう、アクション札があればそれを優先する
+    const all = Object.entries(p.cardPlays || {}).sort((a, b) => b[1] - a[1]);
+    const actions = all.filter(([id]) => CARDS[id].types.includes('action'));
+    const top = (actions.length ? actions : all).slice(0, 3);
     if (!top.length) return;
     const row = el('div', { class: 'resultMvp__row' });
     row.appendChild(el('span', { class: 'resultMvp__name', text: p.name }));
