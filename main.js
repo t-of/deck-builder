@@ -206,6 +206,53 @@ function showCardDetail(node) {
   document.addEventListener('keydown', onKey);
   document.body.appendChild(back);
 }
+// 札の id を種類ごとにまとめ、コスト順（同じコストは名前順）に並べる
+function groupByCost(ids) {
+  const m = new Map();
+  for (const id of ids) m.set(id, (m.get(id) || 0) + 1);
+  return [...m.entries()].sort((a, b) => costOf(game, a[0]) - costOf(game, b[0]) || CARDS[a[0]].name.localeCompare(CARDS[b[0]].name, 'ja'));
+}
+// 山札・捨て札・デッキ全体を一覧するパネル。タブで切り替え、Esc・外側タップ・閉じるボタンで閉じる
+function showDeckList(p) {
+  if (document.querySelector('.deckList')) return;
+  const wholePlay = p === currentPlayer(game) ? game.playArea : p.inPlay; // 手番の人は played 札が playArea にある
+  const TABS = [
+    ['デッキ全体', [...p.hand, ...wholePlay, ...p.deck, ...p.discard, ...Object.values(p.mats).flat()]],
+    ['山札', p.deck],
+    ['捨て札', p.discard],
+  ];
+  const body = el('div', { class: 'deckList__body' });
+  const tabBtns = el('div', { class: 'tabs' }, TABS.map(([label], i) => el('button', {
+    class: `pill${i === 0 ? ' pill--accent' : ''}`, text: label, 'data-i': i,
+  })));
+  const showTab = (i) => {
+    for (const btn of tabBtns.children) btn.classList.toggle('pill--accent', Number(btn.dataset.i) === i);
+    clear(body);
+    const grid = el('div', { class: 'cards' });
+    const groups = groupByCost(TABS[i][1]);
+    if (!groups.length) grid.appendChild(el('p', { class: 'screenCard__note', text: 'なし' }));
+    for (const [id, n] of groups) grid.appendChild(tagCard(gcNode(id, false), `${n}枚`));
+    body.appendChild(grid);
+  };
+  tabBtns.addEventListener('click', (e) => {
+    const i = e.target.dataset.i;
+    if (i != null) showTab(Number(i));
+  });
+  const closeBtn = el('button', { class: 'deckList__close', text: '×', 'aria-label': '閉じる' });
+  const box = el('div', { class: 'deckList__box' }, [
+    el('div', { class: 'deckList__head' }, [el('h2', { text: `${p.name}の札` }), closeBtn]),
+    tabBtns,
+    body,
+  ]);
+  const back = el('div', { class: 'deckList', role: 'dialog', 'aria-label': '山札・捨て札・デッキ全体' }, [box]);
+  const close = () => { back.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  closeBtn.addEventListener('click', close);
+  back.addEventListener('click', (e) => { if (e.target === back) close(); });
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(back);
+  showTab(0);
+}
 // 山に置かれた印（tokens.pile）の文言
 const PILE_LABEL = { card: '+1カード', action: '+1アクション', buy: '+1購入', coin: '+1金', cost: '-2コスト', trash: '廃棄' };
 // 対局中のカード（コストは costOf で、下がっていれば見た目でわかる。サプライの印・厄よけがあれば添える）。
@@ -1184,6 +1231,15 @@ function confettiNode() {
     box.appendChild(piece);
   }
   return box;
+}
+for (const id of ['deckPile', 'discardPile']) {
+  const node = document.getElementById(id);
+  node.addEventListener('click', () => { if (game && !game.over) showDeckList(currentPlayer(game)); });
+  node.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    if (game && !game.over) showDeckList(currentPlayer(game));
+  });
 }
 document.getElementById('restartBtn').addEventListener('click', () => {
   game = null;
