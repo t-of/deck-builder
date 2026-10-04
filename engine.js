@@ -812,6 +812,11 @@ export function* endTurn(game) {
   // 相手の手番のまとめ（画面の折りたたみ帯用）。直近分だけ残す
   game.turnSummaries.push({ pi: game.current, name: player.name, played: playedSnapshot, gained: [...game.turn.gained], trashed: [...(game.turn.trashedIds || [])] });
   if (game.turnSummaries.length > 8) game.turnSummaries.shift();
+  // 結果画面の「点数の推移」「活躍した札」用。この手番で場に出した札を数え、そのときの点数を記録する
+  player.cardPlays = player.cardPlays || {};
+  for (const id of playedSnapshot) player.cardPlays[id] = (player.cardPlays[id] || 0) + 1;
+  player.scoreHistory = player.scoreHistory || [];
+  player.scoreHistory.push(score(player, game));
   const extra = (game.turn.outpost || game.turn.mission || game.turn.seize || game.turn.voyage) && !game.extraTurn;
   const possess = !extra && !game.extraTurn && game.turn.possess;
   const wasPossessed = game.controller != null;

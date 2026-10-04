@@ -444,6 +444,21 @@ button { font: inherit; color: inherit; }
 .ranking li { display: flex; flex-direction: column; gap: 1px; }
 .ranking__breakdown { font-size: 10px; color: var(--muted); }
 
+/* ---- 結果画面: 点数の推移・活躍した札 ---- */
+.resultChart, .resultMvp { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+.resultChart__title { margin: 0; font-size: 11px; letter-spacing: 0.1em; color: var(--muted); font-family: 'Cinzel', serif; }
+.resultChart__box { width: 100%; }
+.resultChart__svg { width: 100%; height: auto; display: block; }
+.resultChart__axis { stroke: rgba(255, 255, 255, 0.15); stroke-width: 1; }
+.resultChart__line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.resultChart__legend { display: flex; flex-wrap: wrap; gap: 8px; }
+.resultChart__legendItem { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+.resultChart__dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.resultMvp__row { display: flex; align-items: center; gap: 6px; }
+.resultMvp__name { font-size: 11px; color: var(--muted); flex: 0 0 auto; width: 3.5em; }
+.resultMvp__cards { flex: 1 1 auto; flex-wrap: nowrap; overflow-x: auto; }
+[data-theme="card"] .resultMvp__cards .tcgcard { width: 56px; font-size: 5.9px; flex: none; }
+
 /* ---- 1位の紙吹雪（CSS のアニメだけ。reduced-motion では降らせず、そのまま見えない） ---- */
 .confetti { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
 .confetti__piece { position: absolute; top: -8px; left: 50%; width: 5px; height: 9px; background: var(--accent); opacity: 0; transform: translateX(var(--x)) rotate(var(--r)); }

@@ -1451,6 +1451,69 @@ function showResult() {
     if (breakdown) li.appendChild(el('span', { class: 'ranking__breakdown', text: breakdown }));
     ranking.appendChild(li);
   });
+
+  clear(document.getElementById('resultChart'));
+  document.getElementById('resultChart').appendChild(scoreChartNode(game));
+  clear(document.getElementById('resultMvp'));
+  document.getElementById('resultMvp').appendChild(mvpNode(game));
+}
+// プレイヤーごとの線の色（表彰台と合わせた金・銀・銅 + もう1色）
+const PLAYER_COLORS = ['#d8b23f', '#9aa0ab', '#a8703c', '#7fae6c'];
+// 点数の推移の折れ線グラフ（SVG、ライブラリなし）。player.scoreHistory は手番ごとの得点
+function scoreChartNode(g) {
+  const box = el('div', { class: 'resultChart__box' });
+  box.appendChild(el('p', { class: 'resultChart__title', text: '点数の推移' }));
+  const W = 300, H = 120, PAD = 10;
+  const series = g.players.map((p) => p.scoreHistory || []);
+  const maxLen = Math.max(1, ...series.map((s) => s.length));
+  const maxScore = Math.max(1, ...series.flat());
+  const x = (i) => PAD + (i / Math.max(1, maxLen - 1)) * (W - PAD * 2);
+  const y = (v) => H - PAD - (v / maxScore) * (H - PAD * 2);
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('class', 'resultChart__svg');
+  const baseline = document.createElementNS(svg.namespaceURI, 'line');
+  baseline.setAttribute('x1', PAD); baseline.setAttribute('x2', W - PAD);
+  baseline.setAttribute('y1', H - PAD); baseline.setAttribute('y2', H - PAD);
+  baseline.setAttribute('class', 'resultChart__axis');
+  svg.appendChild(baseline);
+  series.forEach((hist, pi) => {
+    if (!hist.length) return;
+    const color = PLAYER_COLORS[pi % PLAYER_COLORS.length];
+    const d = hist.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+    const path = document.createElementNS(svg.namespaceURI, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'resultChart__line');
+    path.style.stroke = color;
+    svg.appendChild(path);
+  });
+  box.appendChild(svg);
+  const legend = el('div', { class: 'resultChart__legend' });
+  g.players.forEach((p, pi) => {
+    const item = el('span', { class: 'resultChart__legendItem' });
+    item.appendChild(el('span', { class: 'resultChart__dot' }));
+    item.lastChild.style.background = PLAYER_COLORS[pi % PLAYER_COLORS.length];
+    item.appendChild(document.createTextNode(p.name));
+    legend.appendChild(item);
+  });
+  box.appendChild(legend);
+  return box;
+}
+// プレイヤーごとに、いちばん多く場に出した札を 3 枚まで見せる
+function mvpNode(g) {
+  const box = el('div', { class: 'resultMvp__box' });
+  box.appendChild(el('p', { class: 'resultChart__title', text: '活躍した札' }));
+  g.players.forEach((p, pi) => {
+    const top = Object.entries(p.cardPlays || {}).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    if (!top.length) return;
+    const row = el('div', { class: 'resultMvp__row' });
+    row.appendChild(el('span', { class: 'resultMvp__name', text: p.name }));
+    const cards = el('div', { class: 'cards cards--mini resultMvp__cards' });
+    for (const [id, n] of top) cards.appendChild(cardNode(id, false, null, null, undefined, `${n}回使用`));
+    row.appendChild(cards);
+    box.appendChild(row);
+  });
+  return box;
 }
 // 1位を祝う紙吹雪（CSS のアニメだけで散らす。reduced-motion では止まったまま見えなくてよいので display は消さない）
 function confettiNode() {
