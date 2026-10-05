@@ -366,7 +366,10 @@ export function* askHand(game, pi, purpose, min, max, pred) {
   // 選び方が 1 通りしかない（全部選ぶしかない・同じ札しかない）ときは問わない
   if (lo === hi && (lo === options.length || new Set(options.map((i) => player.hand[i])).size === 1)) return options.slice(0, lo);
   const ans = yield { type: 'hand', player: answerer(game, pi), owner: pi, purpose, min: lo, max: hi, options };
-  return (ans || []).filter((i) => options.includes(i)).slice(0, hi);
+  // 答えは上限(hi)だけでなく下限(lo)・重複も見る。足りなければ残りの選択肢の先頭から補う（ゲストが [] 等を送っても崩れないように）
+  let picked = [...new Set(ans || [])].filter((i) => options.includes(i)).slice(0, hi);
+  if (picked.length < lo) picked = [...picked, ...options.filter((i) => !picked.includes(i))].slice(0, lo);
+  return picked;
 }
 
 export function* askSupply(game, pi, purpose, maxCost, pred, optional = false, maxPotion = 0) {
@@ -383,7 +386,13 @@ export function* askCards(game, pi, purpose, cards, min, max) {
   const hi = Math.min(max, cards.length);
   if (lo === hi && (lo === cards.length || new Set(cards).size === 1)) return cards.map((_, i) => i).slice(0, lo);
   const ans = yield { type: 'cards', player: answerer(game, pi), owner: pi, purpose, cards, min: lo, max: hi };
-  return [...new Set(ans || [])].filter((i) => i >= 0 && i < cards.length).slice(0, hi);
+  // 答えは上限(hi)だけでなく下限(lo)・重複も見る。足りなければ残りの選択肢の先頭から補う
+  let picked = [...new Set(ans || [])].filter((i) => i >= 0 && i < cards.length).slice(0, hi);
+  if (picked.length < lo) {
+    const rest = cards.map((_, i) => i).filter((i) => !picked.includes(i));
+    picked = [...picked, ...rest].slice(0, lo);
+  }
+  return picked;
 }
 
 export function* askChoose(game, pi, purpose, choices, cards) {

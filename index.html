@@ -35,6 +35,10 @@
 </head>
 <body>
   <main class="app">
+    <div class="host-gone" id="hostGoneBar" hidden>
+      <span>ホストが切れました。</span>
+      <button class="pill pill--accent" id="hostGoneBtn">代わりに進める</button>
+    </div>
     <header class="bar">
       <h1 class="bar__title">ドミニオン</h1>
       <div class="log" id="log"></div>
@@ -54,6 +58,7 @@
           <h2 class="setupHero__title">卓を整える</h2>
           <div class="setupHero__links">
             <button class="pill" id="onlineBtn">みんなのスマホで</button>
+            <button class="pill" id="onlineResumeBtn" hidden>部屋に戻る</button>
             <button class="pill" id="codexBtn">図鑑</button>
             <button class="pill" id="recordsBtn">記録</button>
           </div>
@@ -74,6 +79,7 @@
             <button data-n="4">4人</button>
           </div>
           <div class="setupSection" id="onlineSeatsBox"></div>
+          <div class="chipRow" id="onlineSubBar" hidden></div>
           <p class="setupCard__note" id="onlineWaitNote" hidden>ホストが始めるのを待っています。</p>
           <button class="pill" id="onlineLeaveBtn">部屋を出る</button>
         </div>
@@ -186,6 +192,7 @@
               <div class="hud__buttons" id="turnButtons"></div>
             </div>
             <p class="cpuThinking" id="cpuThinking" hidden>CPU が考えています<span class="cpuThinking__dots"><span></span><span></span><span></span></span></p>
+            <div class="chipRow" id="onlineSubBarGame" hidden></div>
           </div>
         </div>
       </div>
@@ -207,7 +214,7 @@
         <ol id="ranking" class="ranking"></ol>
         <div class="resultChart" id="resultChart"></div>
         <div class="resultMvp" id="resultMvp"></div>
-        <button class="pill pill--accent" id="restartBtn">もう一度遊ぶ</button>
+        <div class="chipRow" id="resultActions"></div>
       </div>
     </section>
 

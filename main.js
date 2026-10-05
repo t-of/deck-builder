@@ -24,14 +24,14 @@ import {
   landscapePool, canBuyEvent, canPlayNight, canPlayAction, shadowsInDeck, isTreasureNow, emptyPiles,
   EMPTY_PILES_LIMIT, canUndoToAction, canUndoBuy, PUBLIC_MATS, viewFor, questionForAnswerer, questionSummary,
 } from './engine.js';
-// 盤を動かす「1手」の中身（main.js の act() とオンライン対戦の再生が共有する）
-import { actionGen } from './actions.js';
+// 盤を動かす「1手」の中身（main.js の act() とオンライン対戦の再生が共有する）。replay はホストの引き継ぎ用
+import { actionGen, replay } from './actions.js';
 // CPU（1台の端末で人の代わりに席に着く）。画面からはこの3つだけ使う
 import { LEVELS as CPU_LEVELS, nextMove as cpuNextMove, answer as cpuAnswer, planFor as cpuPlanFor } from './cpu.js';
 // 通信対戦（みんなのスマホで）。部屋のしくみ自体は online.js 経由の room.js（正本は本部の online-kit）
 import {
   createRoom, joinRoom, isValidCode, roomSanitizeName, roomLinkFor, roomCodeFromHash, roomQrSvg,
-  GAME, emptySeats, parseSeats, parseSettings, seatMembers, canStart,
+  GAME, emptySeats, parseSeats, parseSettings, seatMembers, canStart, subSeat, freeSeat, revertSubbedSeats,
 } from './online.js';
 
 // localStorage はほかのアプリと共有される（同じ t-of.github.io のため）。
@@ -517,12 +517,13 @@ let customLandscapes = validLandscapes(load('customLandscapes', null));
 // 財宝を自動で出す設定（既定オフ）。基本の財宝（効果のないもの）だけを対象にする
 let autoPlayTreasures = load('autoPlayTreasures', false) === true;
 
-// ---- 通信対戦（みんなのスマホで）。段階5: 対局の同期本体。
+// ---- 通信対戦（みんなのスマホで）。対局の同期本体に加え、切断・つなぎ直し・ホストの引き継ぎ（段階6）。
 // ホストは act()・answer() をそのまま使って盤を進め、進むたび publishOnlineGame() で各席へ配る。
-// ゲストは act()・answer() が room.send するだけ（盤は一切動かさない）。切断・引き継ぎは段階6。
+// ゲストは act()・answer() が room.send するだけ（盤は一切動かさない）。
 let onlineRoom = null;          // room.js の Room。1台モードでは null
 let onlineMeta = null;          // 部屋の meta（settings・seats は JSON 文字列のまま持つ）
 let onlineMembers = {};         // { [uid]: { name, online, joinedAt } }
+let onlineSeatsArr = [];        // meta.seats をパースしたもの（代打CPU・切断の表示に使う）
 let onlineSeatUids = [];        // meta.seats の uid だけを抜いた列（人の席はuid、CPUの席はnull）
 let onlinePlayerCount = 2;      // 待合で選ぶ人数（2〜4）
 let onlineName = load('onlineName', '');
@@ -531,6 +532,19 @@ let offlineBackup = null;       // 部屋に入る前の players/seats/names（�
 let activeQuestion = null;      // ホスト: 今配っている問い（answerQuestionの確かめ用）。ゲスト: 受け取った問い（概要かid入りか）
 let lastEvent = null;           // ホスト: 直前の act() で起きた演出向けの小さな知らせ（{ kind: 'buy', id }）。publish のたびに1回だけ配り消す
 let lastAppliedSeq = -1;        // ゲスト: 直前に受け取った publish の seq（再接続などで1手より多く進んでいたら演出を鳴らさない）
+// 通信対戦: 切断の見張り。uid → 切れたと分かった時刻（オンラインに戻ったら消す）
+const OFFLINE_WAIT_MS = 20000;
+let offlineSince = {};
+function isLongOffline(uid) { return !!uid && offlineSince[uid] != null && Date.now() - offlineSince[uid] >= OFFLINE_WAIT_MS; }
+// 20秒の判定は顔ぶれが変わらなくても経つので、時間だけでも見直す
+setInterval(() => {
+  if (!onlineRoom) return;
+  renderHostGoneBar();
+  if (onlineRoom.isHost) {
+    renderOnlineSubBar('onlineSubBar');
+    renderOnlineSubBar('onlineSubBarGame');
+  }
+}, 3000);
 function isOnlineGuest() { return !!(onlineRoom && !onlineRoom.isHost); }
 // 自分（通信対戦で座っている席）から見た「自分の手札・山札」を持つ人。1台モードや席が無ければ手番の人
 function myBoardPlayer() {
@@ -677,6 +691,7 @@ function renderOnlineCard() {
   startBtn.hidden = !host;
   if (host) startBtn.disabled = !activeKingdom() || !ready;
   document.getElementById('onlineWaitNote').hidden = host;
+  if (host) renderOnlineSubBar('onlineSubBar'); else document.getElementById('onlineSubBar').hidden = true;
 }
 
 function renderOnlineSeatsBox(seatsArr, host) {
@@ -685,7 +700,7 @@ function renderOnlineSeatsBox(seatsArr, host) {
   seatsArr.forEach((seat, i) => {
     const row = el('div', { class: 'onlineSeatRow' });
     let label;
-    if (seat.type === 'cpu') label = `CPU（${CPU_LEVELS.find((l) => l.id === seat.level)?.name || 'ふつう'}）`;
+    if (seat.type === 'cpu') label = `CPU（${CPU_LEVELS.find((l) => l.id === seat.level)?.name || 'ふつう'}）${seat.subbed ? '（代打）' : ''}`;
     else if (seat.uid) {
       const member = onlineMembers[seat.uid];
       const suffix = seat.uid === onlineRoom.uid ? '（自分）' : (member && member.online === false ? '・切断中' : '');
@@ -721,13 +736,96 @@ function setOnlineSeat(i, patch) {
   onlineRoom.setMeta({ seats: JSON.stringify(arr) });
 }
 
-// ホストだけ: 新しく入ってきた人を、空いている人の席に座らせる
+// ホストだけ: 新しく入ってきた人を空いている人の席に座らせ、CPUに代わってもらっていた人がつながり直していたら
+// 人の席に戻す
 function hostSyncSeats() {
   if (!onlineRoom || !onlineRoom.isHost || !onlineMeta) return;
   const count = parseSettings(onlineMeta.settings).playerCount || onlinePlayerCount;
   const before = parseSeats(onlineMeta.seats, count);
-  const after = seatMembers(before, onlineMembers);
-  if (JSON.stringify(after) !== JSON.stringify(before)) onlineRoom.setMeta({ seats: JSON.stringify(after) });
+  const after = revertSubbedSeats(seatMembers(before, onlineMembers), onlineMembers);
+  if (JSON.stringify(after) !== JSON.stringify(before)) { onlineRoom.setMeta({ seats: JSON.stringify(after) }); applyOnlineSeatsToLocal(after); }
+}
+
+// meta.seats（人・CPU・代打の別）を、通信対戦中に使う local な onlineSeatsArr/onlineSeatUids/seats にまとめて映す
+function applyOnlineSeatsToLocal(seatsArr) {
+  onlineSeatsArr = seatsArr;
+  onlineSeatUids = seatsArr.map((s) => (s.type === 'human' ? (s.uid || null) : null));
+  seats = seatsArr.map((s) => (s.type === 'cpu' ? { type: 'cpu', level: s.level || 'normal' } : { type: 'human' }));
+}
+
+// ホストだけ: 届いた「部屋を出る」をあてる。対局中ならその席をCPUに、待合なら席を空ける
+function hostLeaveSeat(uid) {
+  if (!onlineRoom || !onlineRoom.isHost || !onlineMeta) return;
+  const count = parseSettings(onlineMeta.settings).playerCount || onlinePlayerCount;
+  const arr = parseSeats(onlineMeta.seats, count);
+  const i = arr.findIndex((s) => s.type === 'human' && s.uid === uid);
+  if (i === -1) return;
+  const duringGame = !!(game && !game.over && onlineMeta.status === 'playing');
+  const next = duringGame ? subSeat(arr, i) : freeSeat(arr, i);
+  onlineRoom.setMeta({ seats: JSON.stringify(next) });
+  if (duringGame) { applyOnlineSeatsToLocal(next); hostMaybeAutoAdvance(); }
+}
+
+// ホストだけ: 「CPUに代わってもらう」ボタン（切れて20秒たった席）
+function hostSubForDisconnected(uid) {
+  if (!onlineRoom || !onlineRoom.isHost || !onlineMeta) return;
+  const count = parseSettings(onlineMeta.settings).playerCount || onlinePlayerCount;
+  const arr = parseSeats(onlineMeta.seats, count);
+  const i = arr.findIndex((s) => s.type === 'human' && s.uid === uid);
+  if (i === -1) return;
+  const next = subSeat(arr, i);
+  onlineRoom.setMeta({ seats: JSON.stringify(next) });
+  applyOnlineSeatsToLocal(next); // 配信を待たず、ホスト自身の判断をすぐ反映
+  hostMaybeAutoAdvance();
+}
+
+// 席がCPUに替わった直後、ちょうどその席の番・その席あての問いで止まっていたら、すぐCPUに進めさせる
+function hostMaybeAutoAdvance() {
+  if (!onlineRoom || !onlineRoom.isHost || !game || game.over) return;
+  if (pendingGen && activeQuestion && !isHumanSeat(activeQuestion.player)) {
+    answer(cpuAnswer(game, activeQuestion, seats[activeQuestion.player].level));
+    return;
+  }
+  if (!pendingGen) {
+    const pi = turnController(game);
+    if (!isHumanSeat(pi)) scheduleCpuMove(pi);
+  }
+}
+
+// 対局中に長く切れている人の席を、host が「CPUに代わってもらう」ボタンとして出す（待合・対局画面の両方で使う）
+function renderOnlineSubBar(targetId) {
+  const box = document.getElementById(targetId);
+  if (!box) return;
+  clear(box);
+  if (!onlineRoom || !onlineRoom.isHost) { box.hidden = true; return; }
+  let any = false;
+  onlineSeatsArr.forEach((seat, i) => {
+    if (seat.type !== 'human' || !seat.uid || !isLongOffline(seat.uid)) return;
+    any = true;
+    box.appendChild(el('button', { class: 'pill pill--sm', text: `${i + 1}人目をCPUに代わってもらう`, onclick: () => hostSubForDisconnected(seat.uid) }));
+  });
+  box.hidden = !any;
+}
+
+// つながりの見張り。offlineSinceを更新する（切れた瞬間に音を鳴らす仕組みは今のところ持たない）
+function noteMembersOnline(members) {
+  const now = Date.now();
+  Object.keys(members).forEach((uid) => {
+    if (members[uid].online === false) { if (!(uid in offlineSince)) offlineSince[uid] = now; } else delete offlineSince[uid];
+  });
+}
+function renderHostGoneBar() {
+  document.getElementById('hostGoneBar').hidden = !(onlineRoom && !onlineRoom.isHost && onlineMeta && isLongOffline(onlineMeta.hostUid));
+}
+
+// 通信対戦の席の表示に添える札（代打CPU・切断中）。1台モードや該当なしでは空
+function onlineSeatTag(i) {
+  if (!onlineRoom) return '';
+  const seat = onlineSeatsArr[i];
+  if (!seat) return '';
+  if (seat.type === 'cpu' && seat.subbed) return '（代打）';
+  if (seat.type === 'human' && seat.uid && onlineMembers[seat.uid] && onlineMembers[seat.uid].online === false) return '・切断中';
+  return '';
 }
 
 // 自分（このブラウザのuid）がどの席か。CPU席・座っていない席・1台モードではnull
@@ -741,16 +839,25 @@ function wireOnlineRoom() {
   onlineRoom.onMeta((meta) => {
     onlineMeta = meta;
     const count = parseSettings(meta && meta.settings).playerCount || onlinePlayerCount;
-    onlineSeatUids = parseSeats(meta && meta.seats, count).map((s) => (s.type === 'human' ? (s.uid || null) : null));
+    applyOnlineSeatsToLocal(parseSeats(meta && meta.seats, count));
+    renderHostGoneBar();
     // 対局が始まったら（status: 'playing'）、待合（#setup）を作り直して引き戻さない。
-    // ゲストは、自分の盤（onPriv）がもう届いていれば、席の入れ替わり通知のたびに開き直す
-    if (meta && meta.status === 'playing') { if (isOnlineGuest() && game) renderOnlineGuestScreen(); return; }
+    // ゲストは、自分の盤（onPriv）がもう届いていれば、席の入れ替わり通知のたびに開き直す。
+    // ホストが対局中にページを開き直した（game がまだ無い）ときは、hostState から続きを作り直す
+    if (meta && meta.status === 'playing') {
+      if (onlineRoom.isHost && !game) { resumeHostFromHostState(); return; }
+      if (isOnlineGuest() && game) renderOnlineGuestScreen();
+      return;
+    }
     renderSetup();
   });
   onlineRoom.onMembers((members) => {
     onlineMembers = members || {};
+    noteMembersOnline(onlineMembers);
     hostSyncSeats();
     renderSetup();
+    renderHostGoneBar();
+    if (game && !document.getElementById('game').hidden) renderTurn();
   });
   // ホストだけ: ゲストから届いた操作・問いの答えを確かめて当てる
   if (onlineRoom.isHost) onlineRoom.onAction(({ uid, name, args }) => hostApplyAction(uid, name, args));
@@ -791,16 +898,24 @@ function renderOnlineGuestScreen() {
   if (activeQuestion) renderOnlineWaitBar(activeQuestion); else document.getElementById('cpuThinking').hidden = true;
 }
 
-async function enterRoom(fn) {
+async function enterRoom(fn, { isResume = false } = {}) {
   document.getElementById('onlineChoiceError').textContent = '';
   try {
     const room = await fn();
     onlineRoom = room;
-    offlineBackup = { players, seats: seats.map((s) => ({ ...s })), names: [...names] };
+    offlineBackup = offlineBackup || { players, seats: seats.map((s) => ({ ...s })), names: [...names] };
+    save('onlineRoom', { v: 1, code: room.code, at: Date.now() });
+    refreshOnlineResume();
     wireOnlineRoom();
     showScreen('setup');
     renderSetup();
   } catch (err) {
+    if (isResume) {
+      // 部屋に戻ろうとして失敗＝もう部屋がない。前回の部屋のキーを消す
+      try { localStorage.removeItem(STORE + 'onlineRoom'); } catch { /* 無視 */ }
+      refreshOnlineResume();
+      return;
+    }
     document.getElementById('onlineChoiceError').textContent = (err && err.message) || '部屋に入れませんでした';
     showScreen('onlineChoice');
   }
@@ -808,11 +923,24 @@ async function enterRoom(fn) {
 
 async function leaveOnlineRoom() {
   if (!onlineRoom) return;
+  // ゲスト自身が抜けるときは、席を片付けてもらうようホストにお願いしてから抜ける
+  if (!onlineRoom.isHost) { try { await onlineRoom.send('leaveSeat', {}); } catch { /* 無視 */ } }
   try { await onlineRoom.leave(); } catch { /* 無視 */ }
-  onlineRoom = null; onlineMeta = null; onlineMembers = {}; onlineSeatUids = [];
+  onlineRoom = null; onlineMeta = null; onlineMembers = {}; onlineSeatsArr = []; onlineSeatUids = []; offlineSince = {};
+  document.getElementById('hostGoneBar').hidden = true;
   if (offlineBackup) { ({ players, seats, names } = offlineBackup); offlineBackup = null; }
+  try { localStorage.removeItem(STORE + 'onlineRoom'); } catch { /* 無視 */ }
+  refreshOnlineResume();
   showScreen('setup');
   renderSetup();
+}
+
+// 前回の部屋に戻れるかの表示（「みんなのスマホで」の隣に出す）
+function refreshOnlineResume() {
+  const saved = load('onlineRoom', null);
+  const btn = document.getElementById('onlineResumeBtn');
+  btn.hidden = !saved || !!onlineRoom;
+  if (saved) btn.textContent = `部屋に戻る（${saved.code}）`;
 }
 
 // ホストだけ: 今の game を各席へ配る。act() の終わり・問いが出たとき・答えのあとの、手が進むたびに呼ぶ。
@@ -836,6 +964,39 @@ function publishOnlineGame(q) {
   });
 }
 
+// ホストが切れて、ほかの端末が引き継いだ（または、ホスト自身が対局中にページを開き直した）ときに呼ぶ。
+// hostState（{ game, inProgress }）を読み、inProgress があれば控え（before）から action を打ち直し、
+// answers を流し込んで同じ game に作り直す。answers を流し終えてまだ問いの途中（まさに引き継いだ瞬間）なら、
+// 生きたジェネレータ（pendingGen）を据えてそこから続ける
+async function resumeHostFromHostState() {
+  if (!onlineRoom || !onlineRoom.isHost) return;
+  let full;
+  try { full = await onlineRoom.fetchHostState(); } catch { full = null; }
+  if (!full) return;
+  let parsed;
+  try { parsed = JSON.parse(full); } catch { return; }
+  game = parsed.game;
+  for (const p of game.players) Object.defineProperty(p, 'game', { value: game, enumerable: false });
+  pendingGen = null; pendingDone = null; inProgress = null; activeQuestion = null;
+  shownPlayer = null; prevRender = null; summaryOpen = false;
+  let question = null;
+  if (parsed.inProgress) {
+    const resumed = replay(parsed.inProgress.before, parsed.inProgress.action, parsed.inProgress.answers);
+    game = resumed.game;
+    inProgress = { before: parsed.inProgress.before, action: parsed.inProgress.action, answers: [...parsed.inProgress.answers] };
+    pendingGen = resumed.gen;
+    question = resumed.question;
+  }
+  if (game.over) { publishOnlineGame(); showResult(); return; }
+  if (question) { showQuestion(question); return; }
+  activeQuestion = null;
+  publishOnlineGame();
+  showScreen('game');
+  renderTurn();
+  const pi = turnController(game);
+  if (!isHumanSeat(pi)) scheduleCpuMove(pi);
+}
+
 // ホストだけ: 届いた操作を「送り主の席が今の手番（turnController）か」「問いの途中でないか」「id がカードとして
 // 実在するか」を確かめてから act() に当てる。中身（買えるか・出せるか等）は engine 側の canBuy・canPlayAction 等が
 // 自分で確かめて無効なら何もしない（買おうとした、くらいは信じてよい）ので、ここでは「人の番を横取りしない」ところまで見る
@@ -855,6 +1016,7 @@ function validActArgs(type, args) {
   }
 }
 function hostApplyAction(uid, name, args) {
+  if (name === 'leaveSeat') { hostLeaveSeat(uid); return; } // 待合・対局中どちらでも受ける
   if (!onlineRoom || !onlineRoom.isHost || !game || game.over) return;
   if (name === 'answerQuestion') { hostApplyAnswer(uid, args && args.value); return; }
   if (pendingGen) return; // 問いに答えている最中は、ほかの操作を受け付けない
@@ -882,9 +1044,8 @@ function onlineStartGame() {
   if (!canStart(seatsArr)) return;
   kingdom = k;
   players = count;
-  seats = seatsArr.map((s) => (s.type === 'cpu' ? { type: 'cpu', level: s.level || 'normal' } : { type: 'human' }));
+  applyOnlineSeatsToLocal(seatsArr);
   names = seatsArr.map((s) => (s.type === 'human' ? (s.name || '') : ''));
-  onlineSeatUids = seatsArr.map((s) => (s.type === 'human' ? (s.uid || null) : null));
   shownPlayer = null;
   prevRender = null;
   summaryOpen = false;
@@ -1182,6 +1343,8 @@ function renderTurn() {
   const humanControls = onlineRoom ? mySeatIndex() === turnController(game) : isHumanSeat(turnController(game));
   document.getElementById('cpuThinking').hidden = true;
   renderTurnSummaries();
+  // 通信対戦のホストだけ: 長く切れている席の「CPUに代わってもらう」ボタンを対局画面にも出す
+  if (onlineRoom && onlineRoom.isHost) renderOnlineSubBar('onlineSubBarGame'); else document.getElementById('onlineSubBarGame').hidden = true;
 
   const PHASE_LABEL = { action: 'アクションフェイズ', buy: '購入フェイズ', night: '夜のフェイズ' };
   const phasePill = document.getElementById('phasePill');
@@ -1190,7 +1353,7 @@ function renderTurn() {
 
   const stats = document.getElementById('stats');
   clear(stats);
-  stats.appendChild(el('span', { class: 'hud__name', text: p.name }));
+  stats.appendChild(el('span', { class: 'hud__name', text: p.name + onlineSeatTag(game.current) }));
   const medals = el('div', { class: 'medals' });
   // 前回より増えた分は animateMedalGains でチップを飛ばしてから跳ねさせる（それまでは medal--bump を付けない）
   const prevNums = prevRender && prevRender.pi === game.current ? prevRender.nums : {};
@@ -1236,7 +1399,7 @@ function renderTurn() {
       if (!ids.length) continue;
       bits.push(PUBLIC_MATS.includes(name) ? `${MAT_LABEL[name]}：${counts(ids)}` : `${MAT_LABEL[name] || name} ${ids.length}枚`);
     }
-    others.appendChild(el('div', { class: 'otherCard', text: `${op.name}：${bits.join('・')}` }));
+    others.appendChild(el('div', { class: 'otherCard', text: `${op.name}${onlineSeatTag(i)}：${bits.join('・')}` }));
   });
 
   const buttons = document.getElementById('turnButtons');
@@ -1960,6 +2123,44 @@ function showResult() {
   document.getElementById('resultChart').appendChild(scoreChartNode(game));
   clear(document.getElementById('resultMvp'));
   document.getElementById('resultMvp').appendChild(mvpNode(game));
+  renderResultActions();
+}
+// 結果画面のボタン。1台モードは「もう一度遊ぶ」だけ。通信対戦はホスト/ゲストで出し分ける
+// （ホスト: もう一度＝同じ顔ぶれで待合へ／部屋を片付ける。ゲスト: 待合に戻る／部屋を出る）
+function renderResultActions() {
+  const box = document.getElementById('resultActions');
+  clear(box);
+  if (!onlineRoom) {
+    box.appendChild(el('button', {
+      class: 'pill pill--accent', text: 'もう一度遊ぶ',
+      onclick: () => { game = null; shownPlayer = null; prevRender = null; showScreen('setup'); renderSetup(); },
+    }));
+    return;
+  }
+  if (onlineRoom.isHost) {
+    box.appendChild(el('button', {
+      class: 'pill pill--accent', text: 'もう一度（同じ顔ぶれ）',
+      onclick: () => { game = null; onlineRoom.setMeta({ status: 'lobby' }); showScreen('setup'); renderSetup(); },
+    }));
+    box.appendChild(el('button', {
+      class: 'pill', text: '部屋を片付けてタイトルへ',
+      onclick: async () => {
+        try { await onlineRoom.close(); } catch { /* 無視 */ }
+        onlineRoom = null; onlineMeta = null; onlineMembers = {}; onlineSeatsArr = []; onlineSeatUids = []; offlineSince = {}; game = null;
+        document.getElementById('hostGoneBar').hidden = true;
+        try { localStorage.removeItem(STORE + 'onlineRoom'); } catch { /* 無視 */ }
+        refreshOnlineResume();
+        if (offlineBackup) { ({ players, seats, names } = offlineBackup); offlineBackup = null; }
+        showScreen('setup'); renderSetup();
+      },
+    }));
+  } else {
+    box.appendChild(el('button', {
+      class: 'pill pill--accent', text: '待合に戻る',
+      onclick: () => { game = null; showScreen('setup'); renderSetup(); },
+    }));
+    box.appendChild(el('button', { class: 'pill', text: '部屋を出る', onclick: async () => { await leaveOnlineRoom(); } }));
+  }
 }
 // プレイヤーごとの線の色（表彰台と合わせた金・銀・銅 + もう1色）
 const PLAYER_COLORS = ['#d8b23f', '#9aa0ab', '#a8703c', '#7fae6c'];
@@ -2045,13 +2246,6 @@ for (const id of ['deckPile', 'discardPile']) {
     if (game && !game.over) showDeckList(myBoardPlayer());
   });
 }
-document.getElementById('restartBtn').addEventListener('click', () => {
-  game = null;
-  shownPlayer = null;
-  prevRender = null;
-  showScreen('setup');
-  renderSetup();
-});
 
 // ==================================================================
 // 通信対戦（みんなのスマホで）: 名前 → 部屋を作る/コードで入る → 待合（#setup を参照）
@@ -2095,8 +2289,26 @@ document.getElementById('inviteQrBtn').addEventListener('click', () => {
   if (!box.hidden) box.innerHTML = roomQrSvg(onlineRoom.code);
 });
 document.getElementById('onlineLeaveBtn').addEventListener('click', () => { leaveOnlineRoom(); });
+document.getElementById('onlineResumeBtn').addEventListener('click', () => {
+  const saved = load('onlineRoom', null);
+  if (!saved) return;
+  enterRoom(() => joinRoom(saved.code, { game: GAME, name: onlineName || '名無し' }), { isResume: true });
+});
+// ホストが切れて20秒たつと出す帯。最初に押した人が新しいホストになる
+document.getElementById('hostGoneBtn').addEventListener('click', async () => {
+  if (!onlineRoom || onlineRoom.isHost) return;
+  // 引き継ぎが終わる（resumeHostFromHostStateがrenderTurn/renderQuestionし直す）までは、
+  // 古い（ホストが生きていた頃の）ボタンを誤って押せないようにしておく。押すとisHostの切り替わりの
+  // わずかな間に act() がゲストのまま room.send され、そのまま自分あてに届いて混ざった game を publish してしまう
+  for (const id of ['turnButtons', 'choiceButtons', 'choiceGrid']) { const el_ = document.getElementById(id); if (el_) el_.innerHTML = ''; }
+  try { await onlineRoom.takeOver(); } catch { return; } // rules がだめなら何もせず終わる（もう誰かが引き継いだ等）
+  document.getElementById('hostGoneBar').hidden = true;
+  onlineRoom.onAction(({ uid, name, args }) => hostApplyAction(uid, name, args));
+  await resumeHostFromHostState();
+});
 
 renderSetup();
+refreshOnlineResume();
 
 // リンク（#room=ABCD）で開いたら、名前を聞いてからその部屋に直接入る
 const hashRoomCode = roomCodeFromHash(location.hash);

@@ -31,8 +31,23 @@ function recordedAct(game, type, args, level) {
   const beforeJson = JSON.parse(JSON.stringify(before));
   const actionJson = JSON.parse(JSON.stringify({ type, args }));
   const answersJson = JSON.parse(JSON.stringify(answers));
-  const replayed = replay(beforeJson, actionJson, answersJson);
+  const { game: replayed, question } = replay(beforeJson, actionJson, answersJson);
   assert.equal(JSON.stringify(replayed), JSON.stringify(game), `再生が本物と一致しない（${type} ${JSON.stringify(args)}）`);
+  assert.equal(question, null, `全部の答えを流したのに問いが残っている（${type} ${JSON.stringify(args)}）`);
+
+  // ホストの引き継ぎが「答えの途中」で起きたとき（control: 控えた答えを途中までしか流し込めなかった）も確かめる。
+  // 先頭の答えだけ流し、残った生きたジェネレータに残りの答えを流せば、本物と同じ game になるはず
+  if (answers.length) {
+    const half = Math.floor(answers.length / 2);
+    const resumed = replay(beforeJson, actionJson, answersJson.slice(0, half));
+    assert.notEqual(resumed.question, null, `答えを全部流していないのに問いが終わっている（${type} ${JSON.stringify(args)}）`);
+    let s2 = { done: false, value: resumed.question };
+    for (const ans of answersJson.slice(half)) {
+      if (s2.done) break;
+      s2 = resumed.gen.next(ans);
+    }
+    assert.equal(JSON.stringify(resumed.game), JSON.stringify(game), `途中から再開した game が本物と一致しない（${type} ${JSON.stringify(args)}）`);
+  }
   return step.value;
 }
 

@@ -636,3 +636,26 @@ console.log('ok: risingsun');
   assert.equal(g.turn.money, 3); assert.equal(g.players[0].hand.length, 0);
   console.log('ok: extras');
 }
+
+// ---- askHand・askCards: 下限（min）と重複を守る（通信対戦でゲストが [] や重複を送っても崩れない） ----
+{
+  const { askHand, askCards } = await import('../engine.js');
+  // 民兵の捨て札相当: 手札4枚から2枚捨てる想定（min=2, max=2）。[] を送っても2枚（先頭から）捨てたことになる
+  g = setup(['copper', 'silver', 'estate', 'duchy']);
+  let gen = askHand(g, 0, 'test', 2, 2);
+  let s = gen.next();
+  s = gen.next([]);
+  assert.deepEqual(s.value, [0, 1], '空の答えでも min 枚、先頭から補う');
+  // 重複（[0,0]）を送っても1枚ぶんとして扱い、足りない分を補う
+  gen = askHand(g, 0, 'test', 2, 2);
+  gen.next();
+  s = gen.next([0, 0]);
+  assert.deepEqual(s.value, [0, 1], '重複は除き、min に足りない分を補う');
+  // askCards も同じ
+  const cards = ['copper', 'silver', 'estate'];
+  gen = askCards(g, 0, 'test', cards, 2, 2);
+  gen.next();
+  s = gen.next([1, 1]);
+  assert.deepEqual(s.value, [1, 0], 'askCards も重複を除き min まで補う');
+  console.log('ok: askHand/askCards の min・重複');
+}

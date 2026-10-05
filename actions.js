@@ -44,7 +44,10 @@ export function* actionGen(game, type, args = {}) {
 }
 
 // ホストの引き継ぎ用の再生: before（直前の控え）に action を打ち直し、answers を順に流し込む。
-// 種つき乱数のおかげで、同じ山札・同じ結果になる（CPU の自動応答はここでは一切呼ばない。記録された答えをそのまま使う）
+// 種つき乱数のおかげで、同じ山札・同じ結果になる（CPU の自動応答はここでは一切呼ばない。記録された答えをそのまま使う）。
+// answers を使い切ってもまだ問いの途中（新しいホストが引き継いだ直後）のことがあるので、
+// 生きたジェネレータ（gen）と、途中なら今出ている問い（question）もあわせて返す。
+// gen.next(ans) を続けて呼べば、その場から続きを進められる（question が null なら、もうこの手は終わっている）
 export function replay(before, action, answers) {
   const game = structuredClone(before);
   for (const p of game.players) Object.defineProperty(p, 'game', { value: game, enumerable: false });
@@ -54,5 +57,5 @@ export function replay(before, action, answers) {
     if (step.done) break;
     step = gen.next(ans);
   }
-  return game;
+  return { game, gen, question: step.done ? null : step.value };
 }
