@@ -23,7 +23,7 @@ import {
   newGame, currentPlayer, turnController, playAction, playTreasureGen, playAllTreasures, playTreasure,
   enterBuyPhase, canBuy, buyCard, beginTurn, endTurn, spendCoffers, payDebt, finalResults, allCards,
   landscapePool, canBuyEvent, buyEvent, enterNightPhase, canPlayNight, playNight, spendVillager,
-  canPlayAction, shadowsInDeck, playShadow, isTreasureNow, emptyPiles, EMPTY_PILES_LIMIT, canUndoToAction,
+  canPlayAction, shadowsInDeck, playShadow, isTreasureNow, emptyPiles, EMPTY_PILES_LIMIT, canUndoToAction, canUndoBuy,
 } from './engine.js';
 // CPU（1台の端末で人の代わりに席に着く）。画面からはこの3つだけ使う
 import { LEVELS as CPU_LEVELS, nextMove as cpuNextMove, answer as cpuAnswer, planFor as cpuPlanFor } from './cpu.js';
@@ -177,8 +177,9 @@ let endConfirmTurn = null; // 「何も買わずに終える？」を一度押�
 let summaryOpen = false; // 「相手の手番」帯を開いているか。手番を渡すたびにたたみ直す
 let humanBought = {}; // 今の対局で人が買った札の数（記録「よく買った札」用。対局ごとにリセット）
 let questionsAsked = 0; // 問いが出た回数（間違えて購入フェイズに入ったときの「戻れるか」判定に使う）
-let buyUndoSnapshot = null; // アクションフェイズへ戻すための複製。戻れなくなったら null にする
-let buyUndoBaseline = null; // 複製を取った直後（購入フェイズに入って財宝を自動で出した直後）の状態。これと変わったら戻せない
+// 間違えたときに戻すための複製の積み重ね（購入フェイズに入った・買った のたびに積む）。
+// { snap: 戻す先, base: 積んだ直後の状態（これと変わったら戻せない）, label: ボタンの文言, bought: 買った札 }
+let undoStack = [];
 
 // ---- カードの見た目 ----
 // cost を渡さなければ CARDS[id].cost（対局前の画面用）。対局中は costOf(game, id) を渡す。
@@ -795,7 +796,7 @@ function startGame() {
   seenShuffle.clear();
   seenTrash = 0;
   questionsAsked = 0;
-  buyUndoSnapshot = null; buyUndoBaseline = null;
+  undoStack = [];
   game = newGame(players, kingdom, seats.map(seatName), { landscapes: activeLandscapes() });
   startTurnPass();
 }
@@ -953,10 +954,10 @@ function renderTurn() {
     if (t.phase === 'buy' && p.tokens.debt > 0) {
       secondary.push(el('button', { class: 'pill pill--sm', text: `借金を返す（残り${p.tokens.debt}）`, onclick: () => { payDebt(game); renderTurn(); } }));
     }
-    // 間違えて購入フェイズに入ったときだけ出す「戻る」。何か他の操作をしたら（買う・財源・借金など）消える
-    if (buyUndoSnapshot && JSON.stringify(game) !== JSON.stringify(buyUndoBaseline)) { buyUndoSnapshot = null; buyUndoBaseline = null; }
-    if (t.phase === 'buy' && buyUndoSnapshot) {
-      secondary.push(el('button', { class: 'pill pill--sm', text: 'アクションフェイズに戻る', onclick: () => restoreToActionPhase() }));
+    // 間違えて購入フェイズに入った・買ったときだけ出す「戻る」。ほかの操作をしたら（財宝・財源・借金など）消える
+    if (undoStack.length && JSON.stringify(game) !== JSON.stringify(undoStack.at(-1).base)) undoStack = [];
+    if (t.phase === 'buy' && undoStack.length) {
+      secondary.push(el('button', { class: 'pill pill--sm', text: undoStack.at(-1).label, onclick: () => undoLast() }));
     }
 
     // 主ボタン（1つだけ大きく。状況で文言と動きが変わる＝MTGアリーナ風の「次へ」）
@@ -970,11 +971,9 @@ function renderTurn() {
           run(enterBuyPhase(game), () => {
             if (autoPlayTreasures) autoPlayPlainTreasures();
             // 購入フェイズの始めの効果で何も起きておらず、問いも出ていなければ、ここへ戻れるようにしておく
+            undoStack = [];
             if (questionsAsked === askedBefore && canUndoToAction(game, preBuySnapshot)) {
-              buyUndoSnapshot = preBuySnapshot;
-              buyUndoBaseline = structuredClone(game);
-            } else {
-              buyUndoSnapshot = null; buyUndoBaseline = null;
+              undoStack.push({ snap: preBuySnapshot, base: structuredClone(game), label: 'アクションフェイズに戻る' });
             }
             backToTurn();
           });
@@ -1042,7 +1041,20 @@ function renderTurn() {
     for (const id of ids) {
       const count = game.supply[id];
       const buyable = humanControls && canBuy(game, id);
-      const node = gcNode(id, buyable, () => run(buyCard(game, id), (ok) => { if (ok) { soundBuy(); maybeShowBuyCutIn(id); if (isHumanSeat(game.current)) humanBought[id] = (humanBought[id] || 0) + 1; } backToTurn(); }), count);
+      const node = gcNode(id, buyable, () => {
+        const pre = structuredClone(game);
+        const askedBefore = questionsAsked;
+        run(buyCard(game, id), (ok) => {
+          if (ok) {
+            soundBuy(); maybeShowBuyCutIn(id);
+            if (isHumanSeat(game.current)) humanBought[id] = (humanBought[id] || 0) + 1;
+            // 問いが出ず、伏せた札も見えていなければ取り消せる（続けて買えば、さらに前へ戻れる）
+            if (questionsAsked === askedBefore && canUndoBuy(game, pre)) undoStack.push({ snap: pre, base: structuredClone(game), label: `${CARDS[id].name}の購入を取り消す`, bought: id });
+            else undoStack = [];
+          }
+          backToTurn();
+        });
+      }, count);
       // 前回よりこの山の残りが減っていれば、誰かが買った合図にほのかに光らせる
       const prevCount = prevRender && prevRender.supply[id];
       if (prevCount != null && count < prevCount) node.classList.add('is-bought');
@@ -1421,14 +1433,15 @@ function backToTurn() {
   renderTurn();
   scheduleCpuMove(pi);
 }
-// 間違えて購入へ進んだのを戻す。複製を今の対局にかぶせる（同じ game のまま中身だけ差し替え、ほかの参照を壊さない）
-function restoreToActionPhase() {
-  const snap = buyUndoSnapshot;
-  buyUndoSnapshot = null; buyUndoBaseline = null;
+// 間違えて購入へ進んだ・買ったのを戻す。複製を今の対局にかぶせる（同じ game のまま中身だけ差し替え、ほかの参照を壊さない）
+function undoLast() {
+  const { snap, bought } = undoStack.pop();
+  if (bought && humanBought[bought]) humanBought[bought] -= 1;
   for (const k of Object.keys(game)) delete game[k];
   Object.assign(game, snap);
   for (const pl of game.players) Object.defineProperty(pl, 'game', { value: game, enumerable: false }); // newGame と同じ、非列挙の複製（structuredClone で消える）を作り直す
-  game.log.push('アクションフェイズに戻した。');
+  game.log.push(bought ? `${CARDS[bought].name}の購入を取り消した。` : 'アクションフェイズに戻した。');
+  if (undoStack.length) undoStack.at(-1).base = structuredClone(game); // 足したログで、一つ前へ戻るボタンが消えないように
   renderTurn();
 }
 

@@ -671,6 +671,15 @@ export function canUndoToAction(game, snapshot) {
     && game.log.length === snapshot.log.length;
 }
 
+// 買ったのを取り消してよいか（買ったことで、まだ見えていなかった札が見えていないか）。
+// 手札が変わらず、山札（恵み・呪詛の山も）が元の並びの上に積まれただけなら、何も見えていない（山札の上は末尾）
+export function canUndoBuy(game, snapshot) {
+  const prefix = (a, b) => b.length >= a.length && a.every((id, i) => b[i] === id);
+  return game.turn.phase === 'buy' && game.current === snapshot.current && !game.over
+    && game.players.every((pl, i) => JSON.stringify(pl.hand) === JSON.stringify(snapshot.players[i].hand) && prefix(snapshot.players[i].deck, pl.deck))
+    && ['boons', 'hexes'].every((k) => !snapshot[k] || prefix(snapshot[k].deck, game[k].deck));
+}
+
 // 購入フェイズに入る（購入フェイズの始めの効果を行う）。画面はこちらを使う
 export function* enterBuyPhase(game) {
   if (game.turn.phase === 'buy') return;
