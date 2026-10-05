@@ -227,6 +227,10 @@ function answerChoose(game, q, level) {
 export function answer(game, q, level = 'strong') {
   if (q.type === 'hand') {
     const owner = game.players[q.owner ?? q.player];
+    const thinPlan = game.cpuPlans && game.cpuPlans[q.owner ?? q.player];
+    if (thinPlan && thinPlan.style === 'thin' && q.owner === q.player && /廃棄/.test(q.purpose)) {
+      return thinTrashPick(game, q, q.options.map((i) => owner.hand[i]), q.options);
+    }
     return answerPick(game, q, q.options.map((i) => owner.hand[i]), q.options, level);
   }
   if (q.type === 'cards') return answerPick(game, q, q.cards, q.cards.map((_, i) => i), level);
@@ -532,6 +536,43 @@ function rushBuy(game, plan, has, info) {
   return null;
 }
 
+// ---- 圧縮型（礼拝堂のような「手札を何枚か廃棄するだけ」の単純な札で、山を薄く・高回転にする） ----
+// 単純な廃棄札かどうか: 攻撃でなく、安く（コスト 3 以下）、文言が「手札を N 枚（まで）廃棄する」だけ
+function isThinner(id) {
+  const c = CARDS[id];
+  if (!c || !c.types.includes('action') || c.types.includes('attack') || c.potion || c.debt || (c.cost || 0) > 3) return false;
+  // 全文がこれだけ（ほかに「獲得する」などの効果が続かない）ときだけ、単純な廃棄札とみなす
+  return /^(手札を|ちがう名前の手札を)[^。]*枚(まで)?廃棄する。?$/.test((c.desc || '').trim());
+}
+// 圧縮型の狙い（王国に単純な廃棄札があれば、それを 1 枚だけ買う候補にする。支え札は上位の狙いと自己対局が組む）
+function thinCandidates(game) {
+  const out = [];
+  for (const pile of Object.keys(game.supply)) {
+    if (isThinner(topOf(game, pile))) out.push(Object.assign([{ pile, limit: 1 }], { style: 'thin' }));
+  }
+  return out;
+}
+// 圧縮型の廃棄: 呪い・廃墟・屋敷は必ず、銅貨も積極的に（ただしデッキに残るお金が 6 金ぐらいを下回らないように）
+function thinTrashPick(game, q, ids, positions) {
+  const info = deckInfo(game, q.owner ?? q.player);
+  const hasBetterMoney = info.all.some((id) => id === 'silver' || id === 'gold' || id === 'platinum');
+  let remaining = info.money;
+  const picks = [];
+  const isJunk = (id) => { const c = CARDS[id]; return id === 'curse' || id === 'estate' || c.types.includes('ruins'); };
+  ids.forEach((id, i) => { if (picks.length < q.max && isJunk(id)) picks.push(positions[i]); }); // 呪い・廃墟・屋敷はお金を生まないので、残りお金には影響しない
+  ids.forEach((id, i) => {
+    if (id !== 'copper' || picks.length >= q.max) return;
+    if (!hasBetterMoney && remaining - 1 < 6) return; // お金が足りなくなるなら銅貨は残す
+    picks.push(positions[i]);
+    remaining -= 1;
+  });
+  // 最低枚数に届かなければ、お金の床を無視してでも残りの銅貨で埋める（必ず選ばせる札のとき用）
+  if (picks.length < q.min) {
+    ids.forEach((id, i) => { if (picks.length < q.min && id === 'copper' && !picks.includes(positions[i])) picks.push(positions[i]); });
+  }
+  return picks;
+}
+
 // 狙いの札と枚数を自己対局で決める（その対局で 1 回だけ。結果は game.cpuPlans に残す）
 export function planFor(game, pi, level) {
   game.cpuPlans = game.cpuPlans || {};
@@ -562,7 +603,7 @@ export function planFor(game, pi, level) {
   };
   // 効果の読める札の見積もり（targetCard）で選んだ札は、自己対局の数が少なくてぶれるぶんを少し足しておく
   const guess = targetCard(game);
-  const allCandidates = candidates(game).concat(level === 'expert' ? rushCandidates(game) : []);
+  const allCandidates = candidates(game).concat(level === 'expert' ? [...rushCandidates(game), ...thinCandidates(game)] : []);
   let results = allCandidates.map((plan) => ({ plan, s: score(plan) + (guess && !plan.style && plan[0].pile === guess.pile ? 0.1 : 0) }));
   results.sort((a, b) => b.s - a.s);
   // さいきょう: 上位 6 つをもっと多く試し直し、上位 3 つの組み合わせも試す
@@ -588,16 +629,20 @@ export function planFor(game, pi, level) {
     const payers = bestByPile((r) => { const f = feats(topOf(game, r.plan[0].pile)); return f.actions >= 1 && (f.coins >= 1 || f.buys >= 1); }).slice(0, 2);
     // 庭園ラッシュ型も、初段の数少ない自己対局では成績がぶれて上位 6 に残らないことがあるので、必ず試し直す
     const rushers = results.filter((r) => r.plan.style === 'rush');
+    // 圧縮型も、単独（廃棄札 1 枚だけ）では成績が読みにくく上位 6 に残らないことがあるので、必ず試し直す
+    const thinners = results.filter((r) => r.plan.style === 'thin');
     const village = villages[0];
     const draw = draws[0];
     let shortlist = results.slice(0, 6);
-    for (const r of [...villages, ...draws, ...payers, ...rushers]) if (r && !shortlist.includes(r)) shortlist = [...shortlist, r];
+    for (const r of [...villages, ...draws, ...payers, ...rushers, ...thinners]) if (r && !shortlist.includes(r)) shortlist = [...shortlist, r];
     const top = shortlist.map((r) => ({ plan: r.plan, s: r.plan === rival ? 0.5 : score(r.plan, 30, rival) }));
     const tops = [...top].sort((a, b) => b.s - a.s).slice(0, 3);
     for (let a = 0; a < tops.length; a++) for (let b = a + 1; b < tops.length; b++) {
       if (tops[a].plan.style === 'rush' || tops[b].plan.style === 'rush') continue; // 庭園ラッシュはほかの狙いと組ませない
       if (tops[a].plan[0].pile === tops[b].plan[0].pile) continue;
-      const plan = [tops[a].plan[0], tops[b].plan[0]];
+      // 圧縮型（廃棄札）＋ほかの狙いの組は、圧縮型のまま（廃棄のときの考え方を引き継ぐ）
+      const style = tops[a].plan.style === 'thin' || tops[b].plan.style === 'thin' ? 'thin' : undefined;
+      const plan = style ? Object.assign([tops[a].plan[0], tops[b].plan[0]], { style }) : [tops[a].plan[0], tops[b].plan[0]];
       top.push({ plan, s: score(plan, 30, rival) });
     }
     // 村・引く札は単独では弱くて上位 3 に残らないことが多いが、組ませて初めて強い（エンジン）ので、
@@ -614,6 +659,16 @@ export function planFor(game, pi, level) {
       if (piles.size < 3) continue;
       const plan = [village.plan[0], draw.plan[0], pay.plan[0]];
       top.push({ plan, s: score(plan, 30, rival) });
+    }
+    // 圧縮型も単独では弱くて上位 3 に残らないことが多いが、強い狙いと組んで初めて効くので、
+    // 一番良い圧縮型 1 つと、上位の狙い（圧縮型・庭園ラッシュ以外。2 枚以上の組ならそのまま）の組はいつも試す
+    const bestThin = [...thinners].sort((a, b) => b.s - a.s)[0];
+    if (bestThin) {
+      for (const o of tops.filter((r) => r.plan.style !== 'thin' && r.plan.style !== 'rush' && !r.plan.some((x) => x.pile === bestThin.plan[0].pile))) {
+        const plan = Object.assign([bestThin.plan[0], ...o.plan], { style: 'thin' });
+        if (top.some((r) => r.plan.length === plan.length && r.plan.every((x) => plan.some((y) => y.pile === x.pile)))) continue;
+        top.push({ plan, s: score(plan, 30, rival) });
+      }
     }
     results = top.sort((a, b) => b.s - a.s);
     // 村＋引く札の組（エンジン）は、単独で決めた枚数では足りないことが多いので、枚数も試し直す
