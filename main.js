@@ -22,7 +22,7 @@ import {
   CARDS, SETS, PRESETS, BASIC_IDS, kingdomPool, randomKingdom, styleType, costOf, is, pileOf, isLandscape,
   newGame, currentPlayer, turnController, canBuy, finalResults, allCards,
   landscapePool, canBuyEvent, canPlayNight, canPlayAction, shadowsInDeck, isTreasureNow, emptyPiles,
-  EMPTY_PILES_LIMIT, canUndoToAction, canUndoBuy, PUBLIC_MATS, viewFor,
+  EMPTY_PILES_LIMIT, canUndoToAction, canUndoBuy, PUBLIC_MATS, viewFor, questionForAnswerer, questionSummary,
 } from './engine.js';
 // 盤を動かす「1手」の中身（main.js の act() とオンライン対戦の再生が共有する）
 import { actionGen } from './actions.js';
@@ -517,9 +517,9 @@ let customLandscapes = validLandscapes(load('customLandscapes', null));
 // 財宝を自動で出す設定（既定オフ）。基本の財宝（効果のないもの）だけを対象にする
 let autoPlayTreasures = load('autoPlayTreasures', false) === true;
 
-// ---- 通信対戦（みんなのスマホで）。段階4: 名前→部屋→待合→「はじめる」で、全員が同じ王国・同じ席順の
-// 対局画面を開くところまで。手番の同期・問いの配布（answerQuestion の配布など）は段階5。
-// ここでは guest の act() を no-op にして、host の端末だけが実際に対局を進める。
+// ---- 通信対戦（みんなのスマホで）。段階5: 対局の同期本体。
+// ホストは act()・answer() をそのまま使って盤を進め、進むたび publishOnlineGame() で各席へ配る。
+// ゲストは act()・answer() が room.send するだけ（盤は一切動かさない）。切断・引き継ぎは段階6。
 let onlineRoom = null;          // room.js の Room。1台モードでは null
 let onlineMeta = null;          // 部屋の meta（settings・seats は JSON 文字列のまま持つ）
 let onlineMembers = {};         // { [uid]: { name, online, joinedAt } }
@@ -528,7 +528,18 @@ let onlinePlayerCount = 2;      // 待合で選ぶ人数（2〜4）
 let onlineName = load('onlineName', '');
 let onlinePendingCode = null;   // リンク（#room=）から開いたときの、まだ入っていないコード
 let offlineBackup = null;       // 部屋に入る前の players/seats/names（部屋を出たら戻す。localStorageには書かない）
+let activeQuestion = null;      // ホスト: 今配っている問い（answerQuestionの確かめ用）。ゲスト: 受け取った問い（概要かid入りか）
+let lastEvent = null;           // ホスト: 直前の act() で起きた演出向けの小さな知らせ（{ kind: 'buy', id }）。publish のたびに1回だけ配り消す
+let lastAppliedSeq = -1;        // ゲスト: 直前に受け取った publish の seq（再接続などで1手より多く進んでいたら演出を鳴らさない）
 function isOnlineGuest() { return !!(onlineRoom && !onlineRoom.isHost); }
+// 自分（通信対戦で座っている席）から見た「自分の手札・山札」を持つ人。1台モードや席が無ければ手番の人
+function myBoardPlayer() {
+  if (onlineRoom) {
+    const seat = mySeatIndex();
+    if (seat != null) return game.players[seat];
+  }
+  return currentPlayer(game);
+}
 
 function persistSetup() {
   save('players', players);
@@ -741,35 +752,43 @@ function wireOnlineRoom() {
     hostSyncSeats();
     renderSetup();
   });
-  // ゲストだけ: ホストが配った最初の1回（自分の席から見た盤。viewFor で他人の手札・山札は枚数だけ）を受け取る
-  onlineRoom.onPriv((json) => {
+  // ホストだけ: ゲストから届いた操作・問いの答えを確かめて当てる
+  if (onlineRoom.isHost) onlineRoom.onAction(({ uid, name, args }) => hostApplyAction(uid, name, args));
+  // ゲストだけ: ホストが publishOnlineGame() のたびに配る「自分の席から見た盤」＋今の問い（自分あてなら中身入り）
+  onlineRoom.onPriv((json, seq) => {
     if (!isOnlineGuest()) return;
-    try { game = JSON.parse(json); } catch { return; }
-    shownPlayer = null;
-    prevRender = null;
+    let parsed;
+    try { parsed = JSON.parse(json); } catch { return; }
+    const firstTime = !game;
+    const fresh = !firstTime && seq === lastAppliedSeq + 1; // 1手ぶんだけ進んだ新着なら演出を鳴らす
+    lastAppliedSeq = seq;
+    game = parsed.game;
+    activeQuestion = parsed.question;
+    if (firstTime) {
+      shownPlayer = null; prevRender = null; summaryOpen = false; humanBought = {};
+      seenShuffle.clear(); seenTrash = 0; questionsAsked = 0;
+    }
+    if (fresh && parsed.event && parsed.event.kind === 'buy') { soundBuy(); maybeShowBuyCutIn(parsed.event.id); }
     renderOnlineGuestScreen();
   });
 }
 
-// ゲスト向けの対局画面。手番の人の手札・山札は自分以外 viewFor で隠れているので、通常の renderTurn
-// （currentPlayer の手札・山札を直接触る）は自分の手番のときしか使えない。それ以外は王国だけ見える
-// 簡単な待ち盤にする（手札も含めた正しい見た目・問いの配布は段階5）
+// 待ち表示: 今の問いに答えるのが自分でなければ、誰が何を選んでいるかだけ出す（choiceOverlay は答える人だけに出す）
+function renderOnlineWaitBar(q) {
+  const thinking = document.getElementById('cpuThinking');
+  thinking.hidden = false;
+  thinking.textContent = `${game.players[q.player].name}が選んでいます：${q.purpose}`;
+}
+
+// ゲスト向けの対局画面。自分が答える問いが来ていれば choiceOverlay、それ以外は renderTurn
+// （myBoardPlayer() が自分の手札・山札を持つので、ほかの人の手番でも自分の手札は見える）
 function renderOnlineGuestScreen() {
-  showScreen('game');
+  if (game.over) { showResult(); return; }
   const mySeat = mySeatIndex();
-  if (mySeat != null && turnController(game) === mySeat) { renderTurn(); return; }
-  document.getElementById('cpuThinking').hidden = true;
-  document.getElementById('phasePill').textContent = '';
-  document.getElementById('turnHint').textContent = `${game.players[game.current].name}の番です。`;
-  clear(document.getElementById('stats'));
-  clear(document.getElementById('turnButtons'));
-  clear(document.getElementById('playArea'));
-  clear(document.getElementById('hand'));
-  clear(document.getElementById('othersRow'));
-  clear(document.getElementById('matsRow'));
-  const supply = document.getElementById('supply');
-  clear(supply);
-  for (const id of game.kingdom) supply.appendChild(cardNode(id, false));
+  if (activeQuestion && mySeat === activeQuestion.player) { renderQuestion(activeQuestion); return; }
+  showScreen('game');
+  renderTurn();
+  if (activeQuestion) renderOnlineWaitBar(activeQuestion); else document.getElementById('cpuThinking').hidden = true;
 }
 
 async function enterRoom(fn) {
@@ -796,12 +815,61 @@ async function leaveOnlineRoom() {
   renderSetup();
 }
 
-// 通信対戦（段階4）: 王国が決まった最初の1回だけ、ホストが各席へ自分から見た盤（viewFor）を配る。
-// 以降の手番ごとの再配布・問いの配布は段階5
-function publishOnlineGame() {
+// ホストだけ: 今の game を各席へ配る。act() の終わり・問いが出たとき・答えのあとの、手が進むたびに呼ぶ。
+// q を渡すと「今出ている問い」も配る（答える人の priv にだけ id 入りの中身、ほかは概要だけ）。
+// 対局が終わっていれば、点を数えるのに全員の手札・山札が要るので viewFor で隠さず、そのまま配る
+function publishOnlineGame(q) {
+  if (!onlineRoom || !onlineRoom.isHost) return;
+  const event = lastEvent;
+  lastEvent = null;
   const priv = {};
-  onlineSeatUids.forEach((uid, seat) => { if (uid) priv[uid] = JSON.stringify(viewFor(game, seat)); });
-  onlineRoom.publish({ pub: JSON.stringify(viewFor(game, null)), priv, host: JSON.stringify(game) });
+  onlineSeatUids.forEach((uid, seat) => {
+    if (!uid) return;
+    const seatGame = game.over ? game : viewFor(game, seat);
+    const question = !q ? null : (seat === q.player ? questionForAnswerer(game, q) : questionSummary(q));
+    priv[uid] = JSON.stringify({ game: seatGame, question, event });
+  });
+  onlineRoom.publish({
+    pub: JSON.stringify({ game: game.over ? game : viewFor(game, null), question: q ? questionSummary(q) : null }),
+    priv,
+    host: JSON.stringify({ game, inProgress }),
+  });
+}
+
+// ホストだけ: 届いた操作を「送り主の席が今の手番（turnController）か」「問いの途中でないか」「id がカードとして
+// 実在するか」を確かめてから act() に当てる。中身（買えるか・出せるか等）は engine 側の canBuy・canPlayAction 等が
+// 自分で確かめて無効なら何もしない（買おうとした、くらいは信じてよい）ので、ここでは「人の番を横取りしない」ところまで見る
+function validActArgs(type, args) {
+  const a = args || {};
+  switch (type) {
+    case 'action': case 'shadow': case 'treasure': case 'night': case 'buy':
+      return typeof a.id === 'string' && !!CARDS[a.id];
+    case 'event':
+      return typeof a.id === 'string' && game.landscapes.includes(a.id);
+    case 'coffers':
+      return Number.isInteger(a.n) && a.n >= 0;
+    case 'villager': case 'payDebt': case 'buyPhase': case 'allTreasures': case 'nightPhase': case 'endTurn':
+      return true;
+    default:
+      return false; // beginTurn はホストが自分で手番の始めに呼ぶだけで、ゲストから受け付けない
+  }
+}
+function hostApplyAction(uid, name, args) {
+  if (!onlineRoom || !onlineRoom.isHost || !game || game.over) return;
+  if (name === 'answerQuestion') { hostApplyAnswer(uid, args && args.value); return; }
+  if (pendingGen) return; // 問いに答えている最中は、ほかの操作を受け付けない
+  const seat = onlineSeatUids.indexOf(uid);
+  if (seat === -1 || seat !== turnController(game)) return; // 自分の番でないのに送った・なりすまし
+  if (!validActArgs(name, args)) return;
+  act(name, args);
+}
+// ホストだけ: 届いた答えを「今の問いに今まさに答えるべき席か」だけ確かめて当てる。
+// 値そのもの（選んだ枚数や id）は engine の ask* 側がすでにクランプ・無視するので、ここでは見ない
+function hostApplyAnswer(uid, value) {
+  if (!activeQuestion) return;
+  const seat = onlineSeatUids.indexOf(uid);
+  if (seat !== activeQuestion.player) return;
+  answer(value);
 }
 
 // ホストだけ: 待合の「はじめる」。1台モードの startGame() とほぼ同じ流れで、座席を部屋のものに差し替えてから作る
@@ -825,6 +893,8 @@ function onlineStartGame() {
   seenTrash = 0;
   questionsAsked = 0;
   undoStack = [];
+  activeQuestion = null;
+  lastEvent = null;
   const seed = (Math.random() * 0x100000000) >>> 0;
   game = newGame(players, kingdom, seats.map(seatName), { landscapes: activeLandscapes(), seed });
   publishOnlineGame();
@@ -1106,8 +1176,10 @@ function renderTurnSummaries() {
 function renderTurn() {
   const p = currentPlayer(game);
   const t = game.turn;
-  // 手番を操作する人が CPU のあいだは、押しても何も起きないよう手札・サプライなどを押せなくする
-  const humanControls = isHumanSeat(turnController(game));
+  // 自分の手札・山札を持つ人（通信対戦なら自分の席、それ以外は手番の人＝p）。人のターンでも自分の手札は見える
+  const handOwner = myBoardPlayer();
+  // 押せる・自分で進められるのは、通信対戦なら「今の手番が自分の席」、それ以外は「手番の人が人」のとき
+  const humanControls = onlineRoom ? mySeatIndex() === turnController(game) : isHumanSeat(turnController(game));
   document.getElementById('cpuThinking').hidden = true;
   renderTurnSummaries();
 
@@ -1183,9 +1255,10 @@ function renderTurn() {
     if (t.phase === 'buy' && p.tokens.debt > 0) {
       secondary.push(el('button', { class: 'pill pill--sm', text: `借金を返す（残り${p.tokens.debt}）`, onclick: () => act('payDebt') }));
     }
-    // 間違えて購入フェイズに入った・買ったときだけ出す「戻る」。ほかの操作をしたら（財宝・財源・借金など）消える
+    // 間違えて購入フェイズに入った・買ったときだけ出す「戻る」。ほかの操作をしたら（財宝・財源・借金など）消える。
+    // 通信対戦中は出さない（ほかの端末に配った後なので、ここだけ巻き戻すと盤がずれる）
     if (undoStack.length && JSON.stringify(game) !== JSON.stringify(undoStack.at(-1).base)) undoStack = [];
-    if (t.phase === 'buy' && undoStack.length) {
+    if (!onlineRoom && t.phase === 'buy' && undoStack.length) {
       secondary.push(el('button', { class: 'pill pill--sm', text: undoStack.at(-1).label, onclick: () => undoLast() }));
     }
 
@@ -1229,11 +1302,14 @@ function renderTurn() {
   // この手番に買った札も場に並べ、「購入」の札で見分ける（本当の行き先は捨て札）
   for (const id of t.bought) playArea.appendChild(tagCard(gcNode(id, false), '購入'));
 
-  // 自分のマットは中身を、手番を終えれば相手にも代わるので隠す必要はない
+  // 手番の人（p）のマット。自分の番なら全部見える。通信対戦で自分の番でないときは、viewFor で
+  // 中身が枚数だけに伏せられている（公開のマットだけ配列のまま届く）ので、Array かどうかで判じる
   const mats = document.getElementById('matsRow');
   clear(mats);
   for (const [name, ids] of Object.entries(p.mats)) {
-    if (ids.length) mats.appendChild(el('div', { class: 'otherCard', text: `${MAT_LABEL[name] || name}：${counts(ids)}` }));
+    if (!ids.length) continue;
+    const text = Array.isArray(ids) ? `${MAT_LABEL[name] || name}：${counts(ids)}` : `${MAT_LABEL[name] || name} ${ids.length}枚`;
+    mats.appendChild(el('div', { class: 'otherCard', text }));
   }
 
   const supply = document.getElementById('supply');
@@ -1316,7 +1392,8 @@ function renderTurn() {
   const shadowLabel = document.getElementById('shadowLabel');
   const shadowRow = document.getElementById('shadowRow');
   clear(shadowRow);
-  const shadows = t.phase === 'action' ? shadowsInDeck(game) : [];
+  // 通信対戦で自分の番でないとき、p（手番の人）の山札は viewFor で枚数だけになっているので呼べない
+  const shadows = t.phase === 'action' && (!onlineRoom || humanControls) ? shadowsInDeck(game) : [];
   shadowLabel.hidden = shadows.length === 0;
   for (const id of shadows) {
     const playable = humanControls && canPlayShadow(id);
@@ -1326,11 +1403,13 @@ function renderTurn() {
   const hand = document.getElementById('hand');
   clear(hand);
   // 手札を扇のように並べるための位置（--i/--n）と、新しく引いた札の見分け（山札から来た合図でスライドイン）
-  const handNew = newnessMarks(prevRender && prevRender.pi === game.current ? prevRender.hand : [], p.hand);
-  hand.style.setProperty('--n', String(p.hand.length));
+  // 手札は handOwner（通信対戦なら自分の席）のもの。手番の人（p）とは限らないので、比較の基準も別に持つ
+  const handSeat = onlineRoom && mySeatIndex() != null ? mySeatIndex() : game.current;
+  const handNew = newnessMarks(prevRender && prevRender.handSeat === handSeat ? prevRender.hand : [], handOwner.hand);
+  hand.style.setProperty('--n', String(handOwner.hand.length));
   // ponytail: 8 枚以上は折り返す前提で扇をやめる。本当に折り返したかは見ていない
-  hand.style.setProperty('--fan', p.hand.length > 7 ? '0' : '1');
-  p.hand.forEach((id, i) => {
+  hand.style.setProperty('--fan', handOwner.hand.length > 7 ? '0' : '1');
+  handOwner.hand.forEach((id, i) => {
     const playableAction = humanControls && t.phase === 'action' && canPlayAction(game, id);
     const playableTreasure = humanControls && t.phase === 'buy' && isTreasureNow(game, id);
     const playableNight = humanControls && t.phase === 'night' && canPlayNight(game, id);
@@ -1342,7 +1421,13 @@ function renderTurn() {
     node.style.setProperty('--i', String(i));
     hand.appendChild(node);
   });
-  animateDraw(p, [...hand.children].filter((_, i) => handNew[i]));
+  // 通信対戦で自分の番でないときは、山札・捨て札は手番の人（p）のもの。手札は動かないので飛ばす演出はせず、枚数だけ合わせる
+  if (!onlineRoom || humanControls) {
+    animateDraw(p, [...hand.children].filter((_, i) => handNew[i]));
+  } else {
+    document.getElementById('deckPile').querySelector('.pile__n').textContent = String(p.deck.length);
+    document.getElementById('discardPile').querySelector('.pile__n').textContent = String(p.discard.length);
+  }
   animateMedalGains(medalGains, newPlayNodes);
 
   // 次にすることの案内（HUD の近くに短く出す）
@@ -1355,7 +1440,8 @@ function renderTurn() {
   // 次回の renderTurn で「増えた・減った」を見分けるための記録
   prevRender = {
     pi: game.current,
-    hand: [...p.hand],
+    handSeat,
+    hand: [...handOwner.hand],
     play: playIds,
     supply: { ...game.supply },
     nums,
@@ -1592,8 +1678,8 @@ function doCpuMove(pi) {
 // type/args は JSON にできる値だけ（カード id・数など）。通信するときはこのままホストへ送る形になる。
 // onDone を省略すると既定の後始末（ふつうは backToTurn）。CPU の財宝の連続出しだけ、ここへ独自の完了処理を渡す。
 function act(type, args = {}, onDone) {
-  // 通信対戦のゲストはまだ操作を送れない（段階5で room.send に差し替える。今は同じ盤が開くところまで）
-  if (isOnlineGuest()) return;
+  // 通信対戦のゲスト: 自分では盤を動かさず、ホストにお願いするだけ（ホストが確かめて当て、publish で返ってくる）
+  if (isOnlineGuest()) { onlineRoom.send(type, args); return; }
   const done = onDone || backToTurn;
   // 引き継ぎ用の控え（段階4で使う。今の手の打ち直しに要る情報だけ持つ）。手が終わると run() の中で null に戻す
   inProgress = { before: structuredClone(game), action: { type, args }, answers: [] };
@@ -1630,6 +1716,7 @@ function act(type, args = {}, onDone) {
       run(actionGen(game, type, args), (ok) => {
         if (ok) {
           soundBuy(); maybeShowBuyCutIn(id);
+          lastEvent = { kind: 'buy', id };
           if (human) {
             humanBought[id] = (humanBought[id] || 0) + 1;
             // 問いが出ず、伏せた札も見えていなければ取り消せる（続けて買えば、さらに前へ戻れる）
@@ -1642,11 +1729,14 @@ function act(type, args = {}, onDone) {
       return;
     }
     case 'event':
-      run(actionGen(game, type, args), (ok) => { if (ok) soundBuy(); done(); });
+      run(actionGen(game, type, args), (ok) => { if (ok) { soundBuy(); lastEvent = { kind: 'buy', id: args.id }; } done(); });
       return;
     case 'endTurn':
       soundEnd();
       run(actionGen(game, type, args), () => {
+        // 通信対戦のホスト: ここで対局が終わることがあり、その場合は次の beginTurn が来ないので、
+        // backToTurn を待たずここで配る（点を数えるのに全員の手札が要るので、over なら隠さず配る）
+        if (onlineRoom && onlineRoom.isHost) { activeQuestion = null; publishOnlineGame(); }
         if (game.over) { showResult(); return; }
         if (onDone) onDone(); else startTurnPass();
       });
@@ -1675,7 +1765,9 @@ function step(result) {
 }
 // 手番の人に画面を戻す（他の人の手札を手番の人に見せない）。手番を操作する人が CPU なら、続けて CPU に打たせる
 function backToTurn() {
-  if (game.over) { showResult(); return; }
+  if (game.over) { if (onlineRoom && onlineRoom.isHost) publishOnlineGame(); showResult(); return; }
+  // 通信対戦のホスト: 問いが無い＝1手終わった区切りなので、ここで各席へ配る（act の終わり・答えのあとの両方がここを通る）
+  if (onlineRoom && onlineRoom.isHost) { activeQuestion = null; publishOnlineGame(); }
   const pi = turnController(game);
   if (isHumanSeat(pi)) { maybeGoToPass(pi, () => { showScreen('game'); renderTurn(); }); return; }
   showScreen('game');
@@ -1698,6 +1790,13 @@ function undoLast() {
 function showQuestion(q) {
   questionsAsked += 1; // 問いが出た＝何かが見えた／選んだ。購入フェイズの始めの効果でこれが起きたら、あとで戻れなくする
   if (!isHumanSeat(q.player)) { answer(cpuAnswer(game, q, seats[q.player].level)); return; }
+  if (onlineRoom) {
+    // 通信対戦のホスト: 配ってから、答える人が自分の席なら choiceOverlay を、そうでなければ待ち表示を出す
+    activeQuestion = q;
+    publishOnlineGame(q);
+    if (mySeatIndex() === q.player) { renderQuestion(q); } else { showScreen('game'); renderTurn(); renderOnlineWaitBar(q); }
+    return;
+  }
   maybeGoToPass(q.player, () => renderQuestion(q));
 }
 function renderQuestion(q) {
@@ -1753,6 +1852,8 @@ function renderQuestion(q) {
   updatePicked();
 }
 function answer(value) {
+  // 通信対戦のゲスト: 自分では進めず、ホストに答えを送るだけ
+  if (isOnlineGuest()) { onlineRoom.send('answerQuestion', { value }); return; }
   if (inProgress) inProgress.answers.push(value);
   step(pendingGen.next(value));
 }
@@ -1936,11 +2037,12 @@ function confettiNode() {
 }
 for (const id of ['deckPile', 'discardPile']) {
   const node = document.getElementById(id);
-  node.addEventListener('click', () => { if (game && !game.over) showDeckList(currentPlayer(game)); });
+  // 通信対戦では自分の山札・捨て札（myBoardPlayer）。手番の人のぶんは viewFor で枚数だけになっていることがある
+  node.addEventListener('click', () => { if (game && !game.over) showDeckList(myBoardPlayer()); });
   node.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     e.preventDefault();
-    if (game && !game.over) showDeckList(currentPlayer(game));
+    if (game && !game.over) showDeckList(myBoardPlayer());
   });
 }
 document.getElementById('restartBtn').addEventListener('click', () => {
