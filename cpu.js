@@ -414,8 +414,9 @@ export function nextMove(game, level = 'strong') {
 
 // ---- 自己対局 ----
 // levels[i] の CPU どうしで 1 局打つ。plans[i] があれば、その人の狙いの札はそれに決める（考え直さない）
-export function simulate(kingdom, landscapes, levels, plans = [], inner = false) {
-  const g = newGame(levels.length, kingdom, levels.map((l, i) => `${l}${i + 1}`), { landscapes });
+// seed を渡すと山札の混ぜ方がその種で決まる（型選びで候補どうしを同じ乱数列で比べ、ぶれを減らすため）
+export function simulate(kingdom, landscapes, levels, plans = [], inner = false, seed) {
+  const g = newGame(levels.length, kingdom, levels.map((l, i) => `${l}${i + 1}`), { landscapes, ...(seed != null ? { seed } : {}) });
   g.cpuPlans = {};
   g.cpuPlanning = inner; // 自己対局の中では、決まっていない CPU は考え直さずに BM で打つ
   plans.forEach((pl, i) => { if (pl) g.cpuPlans[i] = pl; });
@@ -583,6 +584,8 @@ export function planFor(game, pi, level) {
   const kingdom = game.kingdom.filter((id) => id in game.supply || game.stacks[id]);
   const landscapes = game.landscapes;
   // rival があれば、相手もその狙いで打つつよい CPU（なければ ふつう）
+  // 同じ k 回目はどの候補を比べるときも同じ種（共通乱数）にして、山札の混ぜ方のぶれで勝敗が変わらないようにする
+  const seedOf = (k) => 0x9e3779b9 ^ (k + 1) * 0x85ebca6b;
   const score = (plan, games = n, rival = null) => {
     let win = 0;
     let played = 0;
@@ -592,7 +595,7 @@ export function planFor(game, pi, level) {
       const levels = me === 0 ? ['strong', other] : [other, 'strong'];
       const plans = me === 0 ? [plan, rival] : [rival, plan];
       let sg;
-      try { sg = simulate(kingdom, landscapes, levels, plans, true); } catch { sg = null; }
+      try { sg = simulate(kingdom, landscapes, levels, plans, true, seedOf(k)); } catch { sg = null; }
       if (!sg) continue;
       played++;
       const r = finalResults(sg);
