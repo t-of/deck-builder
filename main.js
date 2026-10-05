@@ -20,11 +20,12 @@ import './cards-plunder.js';
 import './cards-risingsun.js';
 import {
   CARDS, SETS, PRESETS, BASIC_IDS, kingdomPool, randomKingdom, styleType, costOf, is, pileOf, isLandscape,
-  newGame, currentPlayer, turnController, playAction, playTreasureGen, playAllTreasures, playTreasure,
-  enterBuyPhase, canBuy, buyCard, beginTurn, endTurn, spendCoffers, payDebt, finalResults, allCards,
-  landscapePool, canBuyEvent, buyEvent, enterNightPhase, canPlayNight, playNight, spendVillager,
-  canPlayAction, shadowsInDeck, playShadow, isTreasureNow, emptyPiles, EMPTY_PILES_LIMIT, canUndoToAction, canUndoBuy,
+  newGame, currentPlayer, turnController, canBuy, finalResults, allCards,
+  landscapePool, canBuyEvent, canPlayNight, canPlayAction, shadowsInDeck, isTreasureNow, emptyPiles,
+  EMPTY_PILES_LIMIT, canUndoToAction, canUndoBuy, PUBLIC_MATS,
 } from './engine.js';
+// 盤を動かす「1手」の中身（main.js の act() とオンライン対戦の再生が共有する）
+import { actionGen } from './actions.js';
 // CPU（1台の端末で人の代わりに席に着く）。画面からはこの3つだけ使う
 import { LEVELS as CPU_LEVELS, nextMove as cpuNextMove, answer as cpuAnswer, planFor as cpuPlanFor } from './cpu.js';
 
@@ -153,8 +154,6 @@ const TYPE_WORD = {
 };
 // マット（p.mats の項目名）の日本語名
 const MAT_LABEL = { tavern: '酒場マット', exile: '追放' };
-// 他の人にも中身を見せるマット（それ以外は枚数だけ）
-const PUBLIC_MATS = ['tavern', 'exile'];
 
 const screens = {
   setup: document.getElementById('setup'),
@@ -171,6 +170,9 @@ let game = null;
 let shownPlayer = null; // 今この端末に手札を見せている人（渡す画面をはさまず勝手に見せない。CPU の番では動かさない）
 let pendingGen = null;   // 今進めているジェネレータ（カード・購入・手番の始め/終わりのどれか）
 let pendingDone = null;  // 終わったときに呼ぶ（省略時は backToTurn）
+// 今進めている手の引き継ぎ用の控え（{ before, action, answers }）。手が終わると null。
+// オンライン対戦のホストが替わったとき、before から action を打ち直し、answers を順に流し込めば同じ game になる（段階4で使う）
+let inProgress = null;
 let selected = new Set();
 let prevRender = null; // 直前の renderTurn の手札・場・サプライ・数字（動きを付けるための比較用。新しい対局では null に戻す）
 let endConfirmTurn = null; // 「何も買わずに終える？」を一度押した手番（t オブジェクトそのもの。新しい手番で自然に外れる）
@@ -1292,12 +1294,6 @@ function turnHint(g, p, t) {
   return '';
 }
 
-// 「財宝を自動で出す」設定用。効果のある財宝（手で出す順番・可否に意味があるもの）は残す
-function autoPlayPlainTreasures() {
-  const p = currentPlayer(game);
-  for (const id of [...p.hand]) if (is(id, 'treasure') && !CARDS[id].play) playTreasure(game, id);
-}
-
 function onEndTurn() {
   act('endTurn');
 }
@@ -1369,36 +1365,23 @@ function doCpuMove(pi) {
 // onDone を省略すると既定の後始末（ふつうは backToTurn）。CPU の財宝の連続出しだけ、ここへ独自の完了処理を渡す。
 function act(type, args = {}, onDone) {
   const done = onDone || backToTurn;
+  // 引き継ぎ用の控え（段階4で使う。今の手の打ち直しに要る情報だけ持つ）。手が終わると run() の中で null に戻す
+  inProgress = { before: structuredClone(game), action: { type, args }, answers: [] };
   switch (type) {
-    case 'beginTurn':
-      run(beginTurn(game), onDone);
-      return;
-    case 'action':
-      run(playAction(game, args.id), onDone);
-      return;
-    case 'shadow':
-      run(playShadow(game, args.id), onDone);
-      return;
-    case 'villager':
-      spendVillager(game);
-      done();
-      return;
-    case 'coffers':
-      spendCoffers(game, args.n);
-      done();
-      return;
-    case 'payDebt':
-      payDebt(game);
-      done();
+    case 'beginTurn': case 'action': case 'shadow': case 'villager': case 'coffers': case 'payDebt':
+    case 'treasure': case 'allTreasures': case 'nightPhase': case 'night':
+      run(actionGen(game, type, args), onDone);
       return;
     case 'buyPhase': {
-      // 戻る（取り消し）・財宝の自動出しは人の番だけの便宜機能
+      // 戻る（取り消し）・財宝の自動出しは人の番だけの便宜機能。
+      // 自動で出すかどうかは、ここで決め切って args に入れる（再生がホストの設定でなく記録された値に従うように）
       const human = isHumanSeat(game.current);
+      args = { ...args, auto: human && autoPlayTreasures };
+      inProgress.action.args = args;
       const preBuySnapshot = human ? structuredClone(game) : null;
       const askedBefore = questionsAsked;
-      run(enterBuyPhase(game), () => {
+      run(actionGen(game, type, args), () => {
         if (human) {
-          if (autoPlayTreasures) autoPlayPlainTreasures();
           // 購入フェイズの始めの効果で何も起きておらず、問いも出ていなければ、ここへ戻れるようにしておく
           undoStack = [];
           if (questionsAsked === askedBefore && canUndoToAction(game, preBuySnapshot)) {
@@ -1409,26 +1392,12 @@ function act(type, args = {}, onDone) {
       });
       return;
     }
-    case 'treasure':
-      run(playTreasureGen(game, args.id), onDone);
-      return;
-    case 'allTreasures':
-      playAllTreasures(game);
-      done();
-      return;
-    case 'nightPhase':
-      enterNightPhase(game);
-      done();
-      return;
-    case 'night':
-      run(playNight(game, args.id), onDone);
-      return;
     case 'buy': {
       const id = args.id;
       const human = isHumanSeat(game.current);
       const pre = human ? structuredClone(game) : null;
       const askedBefore = questionsAsked;
-      run(buyCard(game, id), (ok) => {
+      run(actionGen(game, type, args), (ok) => {
         if (ok) {
           soundBuy(); maybeShowBuyCutIn(id);
           if (human) {
@@ -1443,11 +1412,11 @@ function act(type, args = {}, onDone) {
       return;
     }
     case 'event':
-      run(buyEvent(game, args.id), (ok) => { if (ok) soundBuy(); done(); });
+      run(actionGen(game, type, args), (ok) => { if (ok) soundBuy(); done(); });
       return;
     case 'endTurn':
       soundEnd();
-      run(endTurn(game), () => {
+      run(actionGen(game, type, args), () => {
         if (game.over) { showResult(); return; }
         if (onDone) onDone(); else startTurnPass();
       });
@@ -1468,6 +1437,7 @@ function step(result) {
   if (result.done) {
     const done = pendingDone;
     pendingGen = null; pendingDone = null;
+    inProgress = null; // 手が終わった＝引き継ぎの控えはもう要らない
     if (done) done(result.value); else backToTurn();
     return;
   }
@@ -1531,7 +1501,8 @@ function renderQuestion(q) {
   const isHand = q.type === 'hand';
   const player = game.players[q.owner];
   const positions = isHand ? q.options : q.cards.map((_, i) => i);
-  const idOf = (pos) => (isHand ? player.hand[pos] : q.cards[pos]);
+  // 配られた問い（q.cardsAt、オンライン対戦でほかの人の手札を直接持たない端末向け）なら、そちらから引く
+  const idOf = (pos) => (isHand ? (q.cardsAt ? q.cardsAt[q.options.indexOf(pos)] : player.hand[pos]) : q.cards[pos]);
   confirm.hidden = false;
   confirm.onclick = () => answer([...selected]);
   for (const pos of positions) {
@@ -1552,6 +1523,7 @@ function renderQuestion(q) {
   updatePicked();
 }
 function answer(value) {
+  if (inProgress) inProgress.answers.push(value);
   step(pendingGen.next(value));
 }
 

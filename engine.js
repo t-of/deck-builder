@@ -394,6 +394,40 @@ export function* askChoose(game, pi, purpose, choices, cards) {
 export const askYesNo = (game, pi, purpose, yes = 'はい', no = 'いいえ', cards) =>
   askChoose(game, pi, purpose, [{ value: true, label: yes }, { value: false, label: no }], cards);
 
+// 問いを配る形にする（オンライン対戦のホストがゲストへ送るとき用）。
+// 答える人向け: hand 型は q.owner の手札を options と同じ順で id に埋め込む（cardsAt）。答える本人の priv に入れる
+export function questionForAnswerer(game, q) {
+  if (q.type !== 'hand') return q;
+  return { ...q, cardsAt: q.options.map((pos) => game.players[q.owner].hand[pos]) };
+}
+// ほかの人向け: 中身の無い概要だけ（「○○が『民兵』で捨てる手札を選んでいます」の表示に足りる分）。全員の pub に入れる
+export function questionSummary(q) {
+  return { type: q.type, player: q.player, owner: q.owner, purpose: q.purpose };
+}
+
+// ---- 隠し情報（オンライン対戦の pub/priv 作り用） ----
+// 中身を全員に見せてよいマット（今も「相手の手番」帯で中身を見せている）。それ以外のマット
+// （島・脇に置いた伏せ札など）は、本人以外には枚数だけにする
+export const PUBLIC_MATS = ['tavern', 'exile'];
+
+// game から、seat 以外の手札・山札・伏せたマットを枚数だけにしたコピーを返す（JSON にできる値だけ）。
+// seat を省略する（null/undefined）と全員分を伏せる＝オンライン対戦の pub。
+// seat を渡すとその席だけ手札・山札をそのまま残す＝その人の priv。
+// 公開された場（playArea・supply・discard・trash・landscapes 等）は元々全員に見えているので触らない
+export function viewFor(game, seat) {
+  const view = structuredClone(game);
+  view.players.forEach((p, i) => {
+    if (i === seat) return;
+    p.hand = { length: p.hand.length };
+    p.deck = { length: p.deck.length };
+    delete p.topKnown; // 山札の上に置いた札が見えるのは本人だけ
+    for (const name of Object.keys(p.mats)) {
+      if (!PUBLIC_MATS.includes(name)) p.mats[name] = { length: p.mats[name].length };
+    }
+  });
+  return view;
+}
+
 // 手番の人以外に、席順で fn(pi) を行う。
 // リアクション: onAttack（見せてよい・効果あり）を持つ札は見せるか問う。blocksAttack（水濠）は見せても損がないので自動で見せて防ぐ
 export function* attackOthers(game, fn) {
