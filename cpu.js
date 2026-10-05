@@ -232,6 +232,15 @@ export function answer(game, q, level = 'strong') {
   if (q.type === 'cards') return answerPick(game, q, q.cards, q.cards.map((_, i) => i), level);
   if (q.type === 'supply') {
     if (level === 'weak') return q.optional && Math.random() < 0.2 ? null : pick(q.options);
+    const rushPlan = game.cpuPlans && game.cpuPlans[q.player];
+    if (rushPlan && rushPlan.style === 'rush') {
+      // 庭園ラッシュ: 獲得先は、狙いの勝利点 → 支え札 → 屋敷の順
+      const victoryPart = rushPlan.find((pl) => isRushVictory(topOf(game, pl.pile)));
+      if (victoryPart && q.options.includes(victoryPart.pile)) return victoryPart.pile;
+      const support = rushPlan.find((pl) => (!victoryPart || pl.pile !== victoryPart.pile) && q.options.includes(pl.pile));
+      if (support) return support.pile;
+      if (q.options.includes('estate')) return 'estate';
+    }
     const dir = wantedDirection(q, game);
     if (/印を置く|借金を 2 つ置く|指定する/.test(q.purpose)) {
       return [...q.options].sort((a, b) => costOf(game, b) - costOf(game, a))[0];
@@ -321,23 +330,28 @@ function buyChoice(game, level) {
   // 王国カード（つよい・さいきょう）: 対局の始めに自己対局で決めた「狙いの札と枚数」を買う
   if (SMART(level)) {
     const plan = planFor(game, pi, level);
-    // 村（+アクション2以上）と引く札（+カード2以上）の組はエンジン: 組み上がるまでは、お金を温存せず最優先で買う
-    const isEngine = plan.some((p) => !p.event && feats(topOf(game, p.pile)).actions >= 2)
-      && plan.some((p) => !p.event && feats(topOf(game, p.pile)).cards >= 2);
-    for (const { pile, limit, event } of plan) {
-      if (event) {
-        // イベント・プロジェクト: 買える回数（limit）まで、ほかに買う札がないお金で
-        game.cpuEvents = game.cpuEvents || {};
-        const key = `${pi}:${pile}`;
-        if ((game.cpuEvents[key] || 0) < limit && canBuyEvent(game, pile) && money < 8) { game.cpuEvents[key] = (game.cpuEvents[key] || 0) + 1; return `event:${pile}`; }
-        continue;
+    if (plan.style === 'rush') {
+      const rb = rushBuy(game, plan, has, info);
+      if (rb) return rb;
+    } else {
+      // 村（+アクション2以上）と引く札（+カード2以上）の組はエンジン: 組み上がるまでは、お金を温存せず最優先で買う
+      const isEngine = plan.some((p) => !p.event && feats(topOf(game, p.pile)).actions >= 2)
+        && plan.some((p) => !p.event && feats(topOf(game, p.pile)).cards >= 2);
+      for (const { pile, limit, event } of plan) {
+        if (event) {
+          // イベント・プロジェクト: 買える回数（limit）まで、ほかに買う札がないお金で
+          game.cpuEvents = game.cpuEvents || {};
+          const key = `${pi}:${pile}`;
+          if ((game.cpuEvents[key] || 0) < limit && canBuyEvent(game, pile) && money < 8) { game.cpuEvents[key] = (game.cpuEvents[key] || 0) + 1; return `event:${pile}`; }
+          continue;
+        }
+        if (!has(pile)) continue;
+        const mine = info.all.filter((id) => pileOf(id) === pile || id === pile).length;
+        const cost = costOf(game, pile);
+        if (mine >= limit || money < cost) continue;
+        if (isEngine && mine < 2) return pile; // 最初の 2 枚は組み上げ優先。そのあとはお金とのかねあい
+        if (cost >= 5 ? money < 8 : money < 6) return pile;
       }
-      if (!has(pile)) continue;
-      const mine = info.all.filter((id) => pileOf(id) === pile || id === pile).length;
-      const cost = costOf(game, pile);
-      if (mine >= limit || money < cost) continue;
-      if (isEngine && mine < 2) return pile; // 最初の 2 枚は組み上げ優先。そのあとはお金とのかねあい
-      if (cost >= 5 ? money < 8 : money < 6) return pile;
     }
   }
   if (colony && has('platinum') && money >= 9) return 'platinum';
@@ -453,6 +467,71 @@ function candidates(game) {
   return out;
 }
 
+// ---- 庭園ラッシュ（デッキの大きさで点が増える勝利点カードを、獲得札で集めて速く終わらせる型） ----
+// 庭園型かどうか: 勝利点だけの札で、デッキの枚数が増えるほど pointsFn が増えるもの
+function isRushVictory(id) {
+  const c = CARDS[id];
+  if (!c || !c.pointsFn) return false;
+  if (!c.types.includes('victory') || c.types.includes('action') || c.types.includes('treasure')) return false;
+  const filler = (n) => Array(n).fill('copper');
+  try { return c.pointsFn(filler(30)) > c.pointsFn(filler(5)); } catch { return false; }
+}
+// 「コスト N 以下を獲得する」だけの単純な獲得札なら、その N を返す（廃棄・手札がらみ・攻撃は除く）
+function gainMax(id) {
+  const c = CARDS[id];
+  if (!c || !c.types.includes('action') || c.types.includes('attack')) return 0;
+  const desc = c.desc || '';
+  if (!/獲得/.test(desc) || /廃棄|捨て|見せ|手札に獲得/.test(desc)) return 0;
+  const m = desc.match(/コスト (\d+) 以下/);
+  return m ? Number(m[1]) : 0;
+}
+// +購入のある、安くて単純な札（木こり系）を 1 つ探す
+function extraBuyPile(game, skipPile) {
+  let best = null;
+  let bestScore = 0;
+  for (const pile of Object.keys(game.supply)) {
+    if (pile === skipPile) continue;
+    const id = topOf(game, pile);
+    const c = CARDS[id];
+    if (!c || !c.types.includes('action') || c.types.includes('attack')) continue;
+    const f = feats(id);
+    if (f.buys < 1 || costOf(game, pile) > 4) continue;
+    const s = f.buys * 2 + f.coins + f.cards;
+    if (s > bestScore) { bestScore = s; best = pile; }
+  }
+  return best;
+}
+// 庭園型の狙い（獲得札・+購入札の組み合わせをいくつか候補にする。王国に庭園型がなければ空）
+function rushCandidates(game) {
+  const out = [];
+  for (const pile of Object.keys(game.supply)) {
+    const id = topOf(game, pile);
+    if (!isRushVictory(id)) continue;
+    const vcost = costOf(game, pile);
+    const gainers = Object.keys(game.supply).filter((p2) => p2 !== pile && gainMax(topOf(game, p2)) >= vcost).slice(0, 2);
+    const extra = extraBuyPile(game, pile);
+    const bases = [[], ...gainers.map((g) => [{ pile: g, limit: 6 }])];
+    for (const b of bases) {
+      out.push(Object.assign([...b, { pile, limit: 99 }], { style: 'rush' }));
+      if (extra && !b.some((x) => x.pile === extra)) out.push(Object.assign([...b, { pile: extra, limit: 4 }, { pile, limit: 99 }], { style: 'rush' }));
+    }
+  }
+  return out;
+}
+// 庭園ラッシュ型の買い方: 狙いの勝利点 → 獲得・+購入の支え札 → 屋敷 → 銅貨（お金より枚数を増やす）の順
+function rushBuy(game, plan, has, info) {
+  const victoryPart = plan.find((p) => isRushVictory(topOf(game, p.pile)));
+  const mineOf = (pile) => info.all.filter((cid) => pileOf(cid) === pile || cid === pile).length;
+  if (victoryPart && has(victoryPart.pile)) return victoryPart.pile;
+  for (const { pile, limit } of plan) {
+    if (victoryPart && pile === victoryPart.pile) continue;
+    if (has(pile) && mineOf(pile) < limit) return pile;
+  }
+  if (has('estate')) return 'estate';
+  if (has('copper')) return 'copper';
+  return null;
+}
+
 // 狙いの札と枚数を自己対局で決める（その対局で 1 回だけ。結果は game.cpuPlans に残す）
 export function planFor(game, pi, level) {
   game.cpuPlans = game.cpuPlans || {};
@@ -483,7 +562,8 @@ export function planFor(game, pi, level) {
   };
   // 効果の読める札の見積もり（targetCard）で選んだ札は、自己対局の数が少なくてぶれるぶんを少し足しておく
   const guess = targetCard(game);
-  let results = candidates(game).map((plan) => ({ plan, s: score(plan) + (guess && plan[0].pile === guess.pile ? 0.1 : 0) }));
+  const allCandidates = candidates(game).concat(level === 'expert' ? rushCandidates(game) : []);
+  let results = allCandidates.map((plan) => ({ plan, s: score(plan) + (guess && !plan.style && plan[0].pile === guess.pile ? 0.1 : 0) }));
   results.sort((a, b) => b.s - a.s);
   // さいきょう: 上位 6 つをもっと多く試し直し、上位 3 つの組み合わせも試す
   if (level === 'expert' && results.length) {
@@ -506,13 +586,16 @@ export function planFor(game, pi, level) {
     const draws = bestByPile((r) => feats(topOf(game, r.plan[0].pile)).cards >= 2).slice(0, 2);
     // お金・購入も生む村・市場類（+アクション付きで +金か +購入がある札）。エンジンに混ぜると属州を 1 手番に 2 枚狙える
     const payers = bestByPile((r) => { const f = feats(topOf(game, r.plan[0].pile)); return f.actions >= 1 && (f.coins >= 1 || f.buys >= 1); }).slice(0, 2);
+    // 庭園ラッシュ型も、初段の数少ない自己対局では成績がぶれて上位 6 に残らないことがあるので、必ず試し直す
+    const rushers = results.filter((r) => r.plan.style === 'rush');
     const village = villages[0];
     const draw = draws[0];
     let shortlist = results.slice(0, 6);
-    for (const r of [...villages, ...draws, ...payers]) if (r && !shortlist.includes(r)) shortlist = [...shortlist, r];
+    for (const r of [...villages, ...draws, ...payers, ...rushers]) if (r && !shortlist.includes(r)) shortlist = [...shortlist, r];
     const top = shortlist.map((r) => ({ plan: r.plan, s: r.plan === rival ? 0.5 : score(r.plan, 30, rival) }));
     const tops = [...top].sort((a, b) => b.s - a.s).slice(0, 3);
     for (let a = 0; a < tops.length; a++) for (let b = a + 1; b < tops.length; b++) {
+      if (tops[a].plan.style === 'rush' || tops[b].plan.style === 'rush') continue; // 庭園ラッシュはほかの狙いと組ませない
       if (tops[a].plan[0].pile === tops[b].plan[0].pile) continue;
       const plan = [tops[a].plan[0], tops[b].plan[0]];
       top.push({ plan, s: score(plan, 30, rival) });
@@ -554,7 +637,7 @@ export function planFor(game, pi, level) {
     const base = results[0];
     if (base && base.plan.length) {
       for (const d of [2, 3, 5, 6]) {
-        const plan = Object.assign([...base.plan], { duchyAt: d });
+        const plan = Object.assign([...base.plan], { duchyAt: d, style: base.plan.style });
         const sc = score(plan, 30, rival);
         if (sc > base.s) results.unshift({ plan, s: sc });
       }
