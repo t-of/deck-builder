@@ -279,14 +279,12 @@ function targetCard(game) {
 
 // ---- 手番で次にすること ----
 function actionOrder(game, ids) {
-  // +アクションのある札を先に（その中では +カードの多いもの）、そのあと引く札、ほかの札
-  return [...ids].sort((a, b) => {
-    const fa = feats(a);
-    const fb = feats(b);
-    const va = (fa.actions > 0 ? 100 : 0) + fa.cards * 3 + fa.coins;
-    const vb = (fb.actions > 0 ? 100 : 0) + fb.cards * 3 + fb.coins;
-    return vb - va;
-  });
+  // +アクションのある札を先に（その中では +カードの多いもの）、そのあと引く札、+購入のある終点、ほかの札
+  const value = (id) => {
+    const f = feats(id);
+    return (f.actions > 0 ? 100 : 0) + f.cards * 3 + f.coins + f.buys * 2 + (f.terminal && (f.attack || f.curser) ? 0.5 : 0);
+  };
+  return [...ids].sort((a, b) => value(b) - value(a));
 }
 
 function buyChoice(game, level) {
@@ -512,12 +510,12 @@ export function planFor(game, pi, level) {
     const draw = draws[0];
     let shortlist = results.slice(0, 6);
     for (const r of [...villages, ...draws, ...payers]) if (r && !shortlist.includes(r)) shortlist = [...shortlist, r];
-    const top = shortlist.map((r) => ({ plan: r.plan, s: r.plan === rival ? 0.5 : score(r.plan, 24, rival) }));
+    const top = shortlist.map((r) => ({ plan: r.plan, s: r.plan === rival ? 0.5 : score(r.plan, 30, rival) }));
     const tops = [...top].sort((a, b) => b.s - a.s).slice(0, 3);
     for (let a = 0; a < tops.length; a++) for (let b = a + 1; b < tops.length; b++) {
       if (tops[a].plan[0].pile === tops[b].plan[0].pile) continue;
       const plan = [tops[a].plan[0], tops[b].plan[0]];
-      top.push({ plan, s: score(plan, 24, rival) });
+      top.push({ plan, s: score(plan, 30, rival) });
     }
     // 村・引く札は単独では弱くて上位 3 に残らないことが多いが、組ませて初めて強い（エンジン）ので、
     // 上位 2 つずつの組はいつも試す（片方しか上位に残らなくても）
@@ -525,14 +523,14 @@ export function planFor(game, pi, level) {
       if (v.plan[0].pile === d.plan[0].pile) continue;
       const plan = [v.plan[0], d.plan[0]];
       if (top.some((r) => r.plan.length === 2 && r.plan.every((x) => plan.some((y) => y.pile === x.pile)))) continue;
-      top.push({ plan, s: score(plan, 24, rival) });
+      top.push({ plan, s: score(plan, 30, rival) });
     }
     // 一番良い村＋引く札に、お金・購入を生む村も 1 枚混ぜた組も試す（お金を生まないエンジンの弱さを補う）
     if (village && draw) for (const pay of payers) {
       const piles = new Set([village.plan[0].pile, draw.plan[0].pile, pay.plan[0].pile]);
       if (piles.size < 3) continue;
       const plan = [village.plan[0], draw.plan[0], pay.plan[0]];
-      top.push({ plan, s: score(plan, 24, rival) });
+      top.push({ plan, s: score(plan, 30, rival) });
     }
     results = top.sort((a, b) => b.s - a.s);
     // 村＋引く札の組（エンジン）は、単独で決めた枚数では足りないことが多いので、枚数も試し直す
@@ -546,7 +544,7 @@ export function planFor(game, pi, level) {
         for (const vl of [2, 3, 4]) for (const dl of [2, 3, 4]) {
           if (vl === villagePart.limit && dl === drawPart.limit) continue;
           const plan = [{ pile: villagePart.pile, limit: vl }, { pile: drawPart.pile, limit: dl }, ...rest];
-          const sc = score(plan, 24, rival);
+          const sc = score(plan, 30, rival);
           if (sc > base0.s) results.push({ plan, s: sc });
         }
         results.sort((a2, b2) => b2.s - a2.s);
@@ -557,7 +555,7 @@ export function planFor(game, pi, level) {
     if (base && base.plan.length) {
       for (const d of [2, 3, 5, 6]) {
         const plan = Object.assign([...base.plan], { duchyAt: d });
-        const sc = score(plan, 24, rival);
+        const sc = score(plan, 30, rival);
         if (sc > base.s) results.unshift({ plan, s: sc });
       }
       results.sort((a, b) => b.s - a.s);
