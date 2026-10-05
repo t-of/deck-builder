@@ -32,7 +32,7 @@ function divineWind(g) {
   const basics = ['copper', 'silver', 'gold', 'platinum', 'potion', 'estate', 'duchy', 'province', 'colony', 'curse'];
   const old = Object.keys(g.supply).filter((id) => !basics.includes(id));
   const pool = kingdomPool(WIND_SETS).filter((id) => !old.includes(id) && !CARDS[id].pile && !['traderoute', 'apprentice', 'ferry', 'duel', 'tourney', 'breadmaker'].includes(id));
-  const next = shuffle(pool).slice(0, 10);
+  const next = shuffle(pool, g).slice(0, 10);
   const vp = g.players.length === 2 ? 8 : 12;
   // 取り除いた札の数は g.windRemoved に残す（札の数を確かめるテストのため）。足した札は g.windAdded
   for (const id of old) { g.windRemoved = (g.windRemoved || 0) + g.supply[id]; delete g.supply[id]; delete g.stacks[id]; }
@@ -257,16 +257,16 @@ const events = [
 HOOKS.setup.push((g) => {
   const n = g.players.length;
   const omen = g.kingdom.some((id) => is(id, 'omen'));
-  if (omen && !prophecy(g)) g.landscapes.push(shuffle(prophecies.map((x) => x.id))[0]);
+  if (omen && !prophecy(g)) g.landscapes.push(shuffle(prophecies.map((x) => x.id), g)[0]);
   if (prophecy(g)) g.sun = n === 2 ? 5 : n === 3 ? 8 : 10;
   // 迫る軍勢: アタックの王国カードがなければ 1 山足す
   if (g.landscapes.includes('r_army') && !g.kingdom.some((id) => is(id, 'attack'))) {
     const pool = kingdomPool().filter((id) => !(id in g.supply) && is(id, 'attack') && !CARDS[id].pile && !['knights', 'castles'].includes(id) && !id.startsWith('p_'));
-    if (pool.length) { const a = shuffle(pool)[0]; g.supply[a] = 10; g.kingdom.push(a); }
+    if (pool.length) { const a = shuffle(pool, g)[0]; g.supply[a] = 10; g.kingdom.push(a); }
   }
   if (g.kingdom.includes('ferryboat')) {
     const pool = kingdomPool().filter((id) => !(id in g.supply) && CARDS[id].cost === 5 && is(id, 'action') && !is(id, 'duration') && CARDS[id].play && !CARDS[id].pile);
-    g.ferryCard = pool.length ? shuffle(pool)[0] : null;
+    g.ferryCard = pool.length ? shuffle(pool, g)[0] : null;
   }
 });
 HOOKS.cost.push((g) => (g.landscapes && active(g, 'r_trade') ? 1 : 0));

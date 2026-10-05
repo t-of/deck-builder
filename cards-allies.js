@@ -472,7 +472,7 @@ HOOKS.setup.push((g) => {
   }
   // 連携の札があれば、同盟を 1 つ入れる。同盟があれば全員が好意 1 から
   const liaison = [...g.kingdom, ...Object.values(ROT).filter((ids, k) => g.kingdom.includes(Object.keys(ROT)[k])).flat()].some((id) => is(id, 'liaison'));
-  if (liaison && !g.landscapes.some((id) => is(id, 'ally'))) g.landscapes.push(shuffle(allies.map((a) => a.id))[0]);
+  if (liaison && !g.landscapes.some((id) => is(id, 'ally'))) g.landscapes.push(shuffle(allies.map((a) => a.id), g)[0]);
   if (g.landscapes.some((id) => is(id, 'ally'))) for (const p of g.players) p.tokens.favors = 1;
   if (g.kingdom.includes('importer')) for (const p of g.players) p.tokens.favors = (p.tokens.favors || 0) + 4;
   g.pileFavor = {};

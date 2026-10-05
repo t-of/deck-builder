@@ -433,7 +433,7 @@ const events = [
       const stay = p.discard.filter((_, i) => keep.includes(i));
       p.deck.push(...p.discard.filter((_, i) => !keep.includes(i)));
       p.discard = stay;
-      shuffle(p.deck);
+      shuffle(p.deck, g);
       yield* gain(g, pi, 'duchy');
     },
   },
@@ -503,7 +503,7 @@ HOOKS.setup.push((g) => {
     g.landmarkVP.l_ruinedtemple = 0;
     for (const id of Object.keys(g.supply)) if (is(id, 'action') && !is(id, 'gathering')) g.pileVP[id] = (g.pileVP[id] || 0) + 2;
   }
-  if (lm(g, 'l_pillar')) { const acts = Object.keys(g.supply).filter((id) => is(id, 'action')); g.pillar = acts.length ? shuffle(acts)[0] : null; }
+  if (lm(g, 'l_pillar')) { const acts = Object.keys(g.supply).filter((id) => is(id, 'action')); g.pillar = acts.length ? shuffle(acts, g)[0] : null; }
   if (lm(g, 'e_levy')) for (const id of Object.keys(g.supply)) g.pileDebt[id] = 1;
 });
 HOOKS.gain.push(function* (g, got) {
@@ -548,7 +548,7 @@ HOOKS.afterCleanup.push(function* (g, p, pi) {
     g.turn.donate = false;
     p.hand.push(...p.deck.splice(0), ...p.discard.splice(0));
     yield* trashCards(g, p, takeFromHand(p, yield* askHand(g, pi, '喜捨: 廃棄する札（好きな枚数）', 0, p.hand.length)));
-    p.deck = shuffle(p.hand.splice(0));
+    p.deck = shuffle(p.hand.splice(0), g);
     drawCards(p, 5);
   }
   // 峠: 最初の属州が獲得された手番のあと、左の人から順に 1 回ずつ入札

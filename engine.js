@@ -69,9 +69,21 @@ export function kingdomPool(setIds) {
   return Object.values(CARDS).filter((c) => isKingdom(c.id) && (!setIds || setIds.includes(c.set))).map((c) => c.id);
 }
 
-export function shuffle(arr) {
+// game に紐づく種つき乱数（mulberry32）。状態は game.rngState という数値そのもの。
+// structuredClone・JSON の行き来でそのまま写るので、控えから作り直しても同じ続きが出る（オンライン対戦のホスト引き継ぎ用）。
+// game が無い（対局の外、王国選び等）ときは Math.random にそのまま任せてよい。
+export function rng(game) {
+  // 古い保存データ（rngState の無い game）を読んだときは、その場で種を振る
+  if (game.rngState == null) game.rngState = (Date.now() ^ (Math.random() * 0x100000000)) >>> 0;
+  let t = (game.rngState = (game.rngState + 0x6d2b79f5) >>> 0);
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+export function shuffle(arr, game) {
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor((game ? rng(game) : Math.random()) * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
@@ -85,6 +97,7 @@ export function randomKingdom(pool, n = 10) {
 // opts.colony: 植民地・白金貨を使うか。省略すると、王国カードのうち「繁栄」の割合の確率で使う
 // opts.shelters: 初めの小屋 3 枚を避難所にするか。省略すると「暗黒時代」の割合の確率
 // opts.landscapes: イベントなど、サプライの横に置く札の id
+// opts.seed: 乱数の種（省略すると Date.now() 等から）。同じ種なら同じ盤・同じ手札になる
 export function newGame(numPlayers, kingdom, names, opts = {}) {
   const vp = numPlayers === 2 ? 8 : 12;
   const supply = {
@@ -94,24 +107,10 @@ export function newGame(numPlayers, kingdom, names, opts = {}) {
   const sorted = [...kingdom].sort((a, b) => CARDS[a].cost - CARDS[b].cost || CARDS[a].name.localeCompare(CARDS[b].name, 'ja'));
   for (const id of sorted) supply[id] = is(id, 'victory') ? vp : 10;
   const prosperity = kingdom.filter((id) => CARDS[id].set.startsWith('prosperity')).length;
-  const colony = opts.colony ?? (CARDS.colony && Math.random() * kingdom.length < prosperity);
-  if (colony && CARDS.colony) { supply.platinum = 12; supply.colony = vp; }
-  if (kingdom.some((id) => CARDS[id].potion)) supply.potion = 16;
 
-  const dark = kingdom.filter((id) => CARDS[id].set.startsWith('darkages')).length;
-  const shelters = CARDS.shack && (opts.shelters ?? Math.random() * kingdom.length < dark);
-  const players = Array.from({ length: numPlayers }, (_, i) => {
-    const deck = shuffle([...Array(7).fill('copper'), ...(shelters ? ['shack', 'tombs', 'wildestate'] : Array(3).fill('estate'))]);
-    // inPlay: 前の手番から場に残っているカード（持続）。nextTurn: 次の手番の始めに行う効果。mats: 脇に置いたカード。tokens: コインなどの印
-    // states: 状態の札（森の迷い子・ふしあわせなど）の id
-    // projects: 買ったプロジェクトの id
-    const p = { name: (names && names[i]) || `${i + 1}人目`, deck, hand: [], discard: [], turnsTaken: 0, inPlay: [], nextTurn: [], mats: {}, tokens: { journey: true, pile: {} }, lastGains: [], states: [], projects: [] };
-    drawCards(p, 5);
-    return p;
-  });
-
+  // game を先に作ってから players を作る（players の山札混ぜが game.rngState を使うため）
   const game = {
-    players, supply, kingdom: sorted, trash: [], landscapes: [...(opts.landscapes || [])],
+    players: [], supply, kingdom: sorted, trash: [], landscapes: [...(opts.landscapes || [])],
     current: 0,
     turn: freshTurn(),
     playArea: [],
@@ -125,11 +124,28 @@ export function newGame(numPlayers, kingdom, names, opts = {}) {
     embargo: {},      // サプライの山に置かれた印の数（買うと 1 つにつき呪い）
     extraTurn: false, // 今の手番が追加の手番か
     over: false,
-    log: [`${players[0].name}の番です。`],
+    log: [],
     turnSummaries: [], // 終わった手番のまとめ（{ pi, name, played, gained, trashed }）。画面の「相手の手番」帯用
+    rngState: (opts.seed ?? Date.now()) >>> 0,
   };
-  // プレイヤーから対局をたどれるように（混ぜるときの決まりが対局を見るため。JSON には出ない）
-  for (const p of players) Object.defineProperty(p, 'game', { value: game, enumerable: false });
+
+  const colony = opts.colony ?? (CARDS.colony && rng(game) * kingdom.length < prosperity);
+  if (colony && CARDS.colony) { supply.platinum = 12; supply.colony = vp; }
+  if (kingdom.some((id) => CARDS[id].potion)) supply.potion = 16;
+
+  const dark = kingdom.filter((id) => CARDS[id].set.startsWith('darkages')).length;
+  const shelters = CARDS.shack && (opts.shelters ?? rng(game) * kingdom.length < dark);
+  game.players = Array.from({ length: numPlayers }, (_, i) => {
+    const deck = shuffle([...Array(7).fill('copper'), ...(shelters ? ['shack', 'tombs', 'wildestate'] : Array(3).fill('estate'))], game);
+    // inPlay: 前の手番から場に残っているカード（持続）。nextTurn: 次の手番の始めに行う効果。mats: 脇に置いたカード。tokens: コインなどの印
+    // states: 状態の札（森の迷い子・ふしあわせなど）の id
+    // projects: 買ったプロジェクトの id
+    const p = { name: (names && names[i]) || `${i + 1}人目`, deck, hand: [], discard: [], turnsTaken: 0, inPlay: [], nextTurn: [], mats: {}, tokens: { journey: true, pile: {} }, lastGains: [], states: [], projects: [] };
+    Object.defineProperty(p, 'game', { value: game, enumerable: false }); // プレイヤーから対局をたどれるように（混ぜるときの決まりが対局を見るため。JSON には出ない）
+    drawCards(p, 5);
+    return p;
+  });
+  game.log = [`${game.players[0].name}の番です。`];
   for (const c of Object.values(CARDS)) if (c.reset) c.reset();
   for (const h of HOOKS.setup) h(game);
   return game;
@@ -155,7 +171,7 @@ const log = (game, text) => { game.log.push(text); };
 export function takeTop(player) {
   if (player.deck.length === 0) {
     if (player.discard.length === 0) return null;
-    player.deck = shuffle(player.discard);
+    player.deck = shuffle(player.discard, player.game);
     player.discard = [];
     // 画面の演出用: 何回目の混ぜか、そのとき手札が何枚だったか（この後に引いた札は捨て札から補充した札）
     player.topKnown = null;

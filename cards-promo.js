@@ -196,7 +196,7 @@ const events = [
 // ---- 決まり ----
 HOOKS.setup.push((g) => {
   if (g.kingdom.includes('p_sauna')) { g.stacks.p_sauna = [...Array(5).fill('icebath'), ...Array(5).fill('steambath')]; g.supply.p_sauna = 10; }
-  if (g.kingdom.includes('darkmarket')) g.blackMarket = shuffle(kingdomPool().filter((id) => !(id in g.supply) && !['knights', 'castles'].includes(id) && !id.startsWith('p_'))).slice(0, 15);
+  if (g.kingdom.includes('darkmarket')) g.blackMarket = shuffle(kingdomPool().filter((id) => !(id in g.supply) && !['knights', 'castles'].includes(id) && !id.startsWith('p_')), g).slice(0, 15);
 });
 // サウナ: 場にあるあいだ、銀貨を出すたびに手札を 1 枚廃棄してよい
 HOOKS.treasure.push(function* (g, id) {

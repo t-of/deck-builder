@@ -486,9 +486,9 @@ HOOKS.play.push(function* (g, id) {
 HOOKS.setup.push((g) => {
   const k = g.kingdom;
   const n = g.players.length;
-  if (k.includes('knights')) { g.stacks.knights = shuffle(knights.map((c) => c.id)); g.supply.knights = 10; }
+  if (k.includes('knights')) { g.stacks.knights = shuffle(knights.map((c) => c.id), g); g.supply.knights = 10; }
   if (k.some((id) => is(id, 'looter'))) {
-    const all = shuffle(['ruin_mine', 'ruin_library', 'ruin_market', 'ruin_village', 'ruin_survivors'].flatMap((id) => Array(10).fill(id)));
+    const all = shuffle(['ruin_mine', 'ruin_library', 'ruin_market', 'ruin_village', 'ruin_survivors'].flatMap((id) => Array(10).fill(id)), g);
     g.stacks.ruins = all.slice(0, 10 * (n - 1));
     g.supply.ruins = g.stacks.ruins.length;
   }

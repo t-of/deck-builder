@@ -518,7 +518,7 @@ const firstEdition = [
 // ---- 対局の準備 ----
 function pickPile(g, pred) {
   const pool = kingdomPool().filter((id) => !(id in g.supply) && !(id in g.nonSupply) && pred(id));
-  return pool.length ? shuffle(pool)[0] : null;
+  return pool.length ? shuffle(pool, g)[0] : null;
 }
 const pileSize = (g, id) => (is(id, 'victory') ? (g.players.length === 2 ? 8 : 12) : 10);
 HOOKS.setup.push((g) => {

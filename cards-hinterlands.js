@@ -194,7 +194,7 @@ const kingdom = [
       const idx = yield* askCards(g, got.pi, '山札に混ぜるアクションを選ぶ（好きな枚数）', acts, 0, acts.length);
       if (!idx.length) return;
       for (const id of idx.map((i) => acts[i])) p.discard.splice(p.discard.indexOf(id), 1) && p.deck.push(id);
-      shuffle(p.deck);
+      shuffle(p.deck, g);
       if (got.to === 'discard' && p.deck.includes('hatago') && !p.discard.includes('hatago')) got.to = 'deck';
     },
   },

@@ -411,7 +411,7 @@ HOOKS.setup.push((g) => {
   if ([...g.kingdom, ...g.landscapes].some((id) => HORSE_USERS.includes(id))) g.nonSupply.pony = 30;
   if (g.landscapes.includes('w_mouse')) {
     const pool = kingdomPool().filter((id) => !(id in g.supply) && is(id, 'action') && (CARDS[id].cost === 2 || CARDS[id].cost === 3) && CARDS[id].play);
-    g.mouseCard = pool.length ? shuffle(pool)[0] : null;
+    g.mouseCard = pool.length ? shuffle(pool, g)[0] : null;
   }
 });
 HOOKS.gain.push(function* (g, got) {

@@ -390,10 +390,10 @@ const hasTrait = (g, t, id) => g.traits[t] && pileOf(id) === g.traits[t];
 // ---- 決まり ----
 HOOKS.setup.push((g) => {
   const needsLoot = [...g.kingdom, ...g.landscapes].some((id) => ['jewelegg', 'search', 'slasher', 'pickaxe', 'lootsack', 'wealthyvillage', 'pe_peril', 'pe_foray', 'pe_looting', 'pe_invasion', 'pe_prosper', 't_cursed'].includes(id));
-  if (needsLoot) { g.stacks.loot = shuffle(lootCards.flatMap((c) => [c.id, c.id])); g.nonSupply.loot = 30; }
+  if (needsLoot) { g.stacks.loot = shuffle(lootCards.flatMap((c) => [c.id, c.id]), g); g.nonSupply.loot = 30; }
   for (const t of g.landscapes.filter((id) => is(id, 'trait'))) {
     const piles = g.kingdom.filter((id) => (is(id, 'action') || is(id, 'treasure')) && !Object.values(g.traits).includes(id));
-    if (piles.length) g.traits[t] = shuffle([...piles])[0];
+    if (piles.length) g.traits[t] = shuffle([...piles], g)[0];
   }
   if (g.traits.t_inherited) {
     for (const p of g.players) {

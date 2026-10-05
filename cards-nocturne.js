@@ -5,7 +5,7 @@ import {
   CARDS, HOOKS, defineCards, is, drawCards, takeTop, putOnDeck, takeFromHand, trashCards, discardCards,
   gain, costOf, askHand, askSupply, askCards, askChoose, askYesNo, attackOthers, eachOther, resolve, reveal,
   putBackInOrder, relocate, playOutOfTurn, treasureEffect, later, returnCard, returnToPile, currentPlayer,
-  allCards, shuffle, receive,
+  allCards, shuffle, receive, rng,
 } from './engine.js';
 
 const log = (g, text) => g.log.push(text);
@@ -34,15 +34,15 @@ function* discardDownTo(g, ti, n) {
 // 恵み・呪詛の山からめくる（空なら捨てた分を混ぜ直す）
 // 山がない対局（なりすまし・覇王などで別の札として使った）では、その場で作る
 function pileFor(g, key) {
-  if (!g[key]) g[key] = { deck: shuffle((key === 'boons' ? boons : hexes).map((c) => c.id)), discard: [] };
+  if (!g[key]) g[key] = { deck: shuffle((key === 'boons' ? boons : hexes).map((c) => c.id), g), discard: [] };
   return g[key];
 }
-function drawFrom(pile) {
-  if (!pile.deck.length) { pile.deck = shuffle(pile.discard); pile.discard = []; }
+function drawFrom(g, pile) {
+  if (!pile.deck.length) { pile.deck = shuffle(pile.discard, g); pile.discard = []; }
   return pile.deck.pop();
 }
 export function* receiveBoon(g, pi, id) {
-  const b = id || drawFrom(pileFor(g, 'boons'));
+  const b = id || drawFrom(g, pileFor(g, 'boons'));
   if (!b) return null;
   log(g, `${g.players[pi].name}が${nm(b)}を受けた。`);
   yield* CARDS[b].receive(g, g.players[pi], pi);
@@ -50,7 +50,7 @@ export function* receiveBoon(g, pi, id) {
   return b;
 }
 function* receiveHex(g, pi, id) {
-  const h = id || drawFrom(pileFor(g, 'hexes'));
+  const h = id || drawFrom(g, pileFor(g, 'hexes'));
   if (!h) return null;
   log(g, `${g.players[pi].name}が${nm(h)}を受けた。`);
   yield* CARDS[h].receive(g, g.players[pi], pi);
@@ -118,7 +118,7 @@ const hexes = [
       const shown = reveal(p, 3);
       yield* discardCards(g, p, shown.filter((id) => is(id, 'action')), true);
       p.deck.push(...shown.filter((id) => !is(id, 'action')));
-      shuffle(p.deck);
+      shuffle(p.deck, g);
     } },
   { id: 'h_fear', name: '恐怖', types: H, cost: 0, notSupply: true, main: 'アクションか財宝を捨てる', desc: '手札が 5 枚以上なら、アクションか財宝を 1 枚捨てる',
     *receive(g, p, pi) { if (p.hand.length >= 5) yield* discardCards(g, p, takeFromHand(p, yield* askHand(g, pi, '捨てるアクションか財宝', 1, 1, (id) => is(id, 'action') || is(id, 'treasure')))); } },
@@ -262,7 +262,7 @@ const kingdom = [
   { id: 'sprite', name: 'ピクシー', types: FATE, cost: 2, main: '+1 カード\n+1 アクション', desc: '恵みの山の一番上を捨てる。これを廃棄して、その恵みを 2 回受けてよい',
     *play(g, p, pi) {
       drawCards(p, 1); g.turn.actions += 1;
-      const b = drawFrom(pileFor(g, 'boons'));
+      const b = drawFrom(g, pileFor(g, 'boons'));
       if (!b) return;
       pileFor(g, 'boons').discard.push(b);
       log(g, `恵みの山の一番上は${nm(b)}。`);
@@ -286,7 +286,7 @@ const kingdom = [
     *play(g, p, pi) {
       if (p.states.includes('s_lost')) return;
       takeState(g, pi, 's_lost');
-      const got = [drawFrom(pileFor(g, 'boons')), drawFrom(pileFor(g, 'boons')), drawFrom(pileFor(g, 'boons'))].filter(Boolean);
+      const got = [drawFrom(g, pileFor(g, 'boons')), drawFrom(g, pileFor(g, 'boons')), drawFrom(g, pileFor(g, 'boons'))].filter(Boolean);
       while (got.length) {
         const [i] = yield* askCards(g, pi, '次に受ける恵み', got, 1, 1);
         const b = got.splice(i ?? 0, 1)[0];
@@ -319,7 +319,7 @@ const kingdom = [
   { id: 'luckyvillage', name: '恵みの村', types: FATE, cost: 4, main: '+1 カード\n+2 アクション', desc: '獲得したとき、恵みをめくり、今か次の手番の始めに受ける',
     *play(g, p) { drawCards(p, 1); g.turn.actions += 2; },
     *onGain(g, got) {
-      const b = drawFrom(pileFor(g, 'boons'));
+      const b = drawFrom(g, pileFor(g, 'boons'));
       if (!b) return;
       pileFor(g, 'boons').discard.push(b);
       if (yield* askYesNo(g, got.pi, `${nm(b)}をいつ受けますか？`, '今', '次の手番の始め', [b])) yield* receiveBoon(g, got.pi, b);
@@ -374,7 +374,7 @@ const kingdom = [
   { id: 'sneak', name: '暗躍者', types: ['action', 'attack', 'doom'], cost: 4, main: '+1 購入', desc: '他の人は次の呪詛を受ける。獲得したとき金貨を獲得する',
     *play(g) {
       g.turn.buys += 1;
-      const h = drawFrom(pileFor(g, 'hexes'));
+      const h = drawFrom(g, pileFor(g, 'hexes'));
       if (!h) return;
       yield* attackOthers(g, function* (ti) { yield* receiveHex(g, ti, h); });
       pileFor(g, 'hexes').discard.push(h);
@@ -422,7 +422,7 @@ const kingdom = [
   { id: 'holygrove', name: '聖なる木立ち', types: FATE, cost: 5, main: '+1 購入\n+3 金', desc: '恵みを受ける。それが +1 金の恵みでなければ、他の人もそれを受けてよい',
     *play(g, p, pi) {
       g.turn.buys += 1; g.turn.money += 3;
-      const b = drawFrom(pileFor(g, 'boons'));
+      const b = drawFrom(g, pileFor(g, 'boons'));
       if (!b) return;
       yield* receiveBoon(g, pi, b);
       if (b !== 'b_field' && b !== 'b_forest') {
@@ -434,7 +434,7 @@ const kingdom = [
     *play(g, p, pi) {
       g.turn.money += 2;
       if (g.playArea.length === 1) { yield* gain(g, pi, 'imp2'); yield* attackOthers(g, function* () {}); return; }
-      const h = drawFrom(pileFor(g, 'hexes'));
+      const h = drawFrom(g, pileFor(g, 'hexes'));
       if (!h) return;
       yield* attackOthers(g, function* (ti) { yield* receiveHex(g, ti, h); });
       pileFor(g, 'hexes').discard.push(h);
@@ -446,7 +446,7 @@ const kingdom = [
     } },
   { id: 'bloodsucker', name: '吸血鬼', types: ['night', 'attack', 'doom'], cost: 5, main: '呪詛と獲得', desc: '他の人は次の呪詛を受ける。コスト 5 以下の（吸血鬼以外の）札を獲得し、これをコウモリと取り替える',
     *play(g, p, pi) {
-      const h = drawFrom(pileFor(g, 'hexes'));
+      const h = drawFrom(g, pileFor(g, 'hexes'));
       if (h) { yield* attackOthers(g, function* (ti) { yield* receiveHex(g, ti, h); }); pileFor(g, 'hexes').discard.push(h); }
       yield* gain(g, pi, yield* askSupply(g, pi, 'コスト 5 以下を獲得', 5, (id) => id !== 'bloodsucker'));
       if (g.nonSupply.nightwing > 0 && returnToPile(g, 'bloodsucker')) { g.nonSupply.nightwing -= 1; p.discard.push('nightwing'); log(g, `${p.name}が吸血鬼をコウモリと取り替えた。`); }
@@ -454,7 +454,7 @@ const kingdom = [
   { id: 'wolfman', name: '人狼', types: ['action', 'night', 'attack', 'doom'], cost: 5, main: '昼 +3 カード\n夜 呪詛', desc: '夜のフェイズなら他の人は次の呪詛を受ける。そうでなければ +3 カード',
     *play(g, p) {
       if (g.turn.phase !== 'night') { drawCards(p, 3); return; }
-      const h = drawFrom(pileFor(g, 'hexes'));
+      const h = drawFrom(g, pileFor(g, 'hexes'));
       if (!h) return;
       yield* attackOthers(g, function* (ti) { yield* receiveHex(g, ti, h); });
       pileFor(g, 'hexes').discard.push(h);
@@ -478,8 +478,8 @@ const HEIRLOOM = { graveyard: 'dimmirror', simpleton: 'luckycoin', sprite: 'kid'
 HOOKS.setup.push((g) => {
   const k = g.kingdom;
   const uses = (t) => k.some((id) => is(id, t));
-  if (uses('fate')) { g.boons = { deck: shuffle(boons.map((b) => b.id)), discard: [] }; }
-  if (uses('doom')) g.hexes = { deck: shuffle(hexes.map((h) => h.id)), discard: [] };
+  if (uses('fate')) { g.boons = { deck: shuffle(boons.map((b) => b.id), g), discard: [] }; }
+  if (uses('doom')) g.hexes = { deck: shuffle(hexes.map((h) => h.id), g), discard: [] };
   if (k.includes('druid') && g.boons) g.druidBoons = g.boons.deck.splice(-3);
   if (g.boons && boons.length) g.nonSupply.wisp = 12;
   if (k.includes('bully') || k.includes('demonforge')) g.nonSupply.imp2 = 13;
@@ -493,7 +493,7 @@ HOOKS.setup.push((g) => {
     if (!k.includes(card)) continue;
     for (const p of g.players) {
       const inHand = p.hand.indexOf('copper');
-      if (inHand >= 0 && Math.random() < 0.5) p.hand[inHand] = h;
+      if (inHand >= 0 && rng(g) < 0.5) p.hand[inHand] = h;
       else { const i = p.deck.indexOf('copper'); if (i >= 0) p.deck[i] = h; else if (inHand >= 0) p.hand[inHand] = h; }
     }
   }
