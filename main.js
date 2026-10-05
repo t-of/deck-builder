@@ -968,7 +968,12 @@ function publishOnlineGame(q) {
 // hostState（{ game, inProgress }）を読み、inProgress があれば控え（before）から action を打ち直し、
 // answers を流し込んで同じ game に作り直す。answers を流し終えてまだ問いの途中（まさに引き継いだ瞬間）なら、
 // 生きたジェネレータ（pendingGen）を据えてそこから続ける
-async function resumeHostFromHostState() {
+let hostResuming = null; // 引き継ぎ（hostGoneBtn）と onMeta の両方から呼ばれても 1 回だけ作り直す
+function resumeHostFromHostState() {
+  if (!hostResuming) hostResuming = resumeHostOnce().finally(() => { hostResuming = null; });
+  return hostResuming;
+}
+async function resumeHostOnce() {
   if (!onlineRoom || !onlineRoom.isHost) return;
   let full;
   try { full = await onlineRoom.fetchHostState(); } catch { full = null; }
@@ -2301,10 +2306,15 @@ document.getElementById('hostGoneBtn').addEventListener('click', async () => {
   // 古い（ホストが生きていた頃の）ボタンを誤って押せないようにしておく。押すとisHostの切り替わりの
   // わずかな間に act() がゲストのまま room.send され、そのまま自分あてに届いて混ざった game を publish してしまう
   for (const id of ['turnButtons', 'choiceButtons', 'choiceGrid']) { const el_ = document.getElementById(id); if (el_) el_.innerHTML = ''; }
-  try { await onlineRoom.takeOver(); } catch { return; } // rules がだめなら何もせず終わる（もう誰かが引き継いだ等）
+  // ゲストの game は他人の手札が {length:n} に伏せてある。isHost になった直後から hostState を読み終えるまでの間に、
+  // 溜まっていた操作・代打CPU がこの伏せた盤で act() すると beginTurn で落ち、伏せた盤を hostState に書いてしまう。
+  // なので game を外し（ホストの処理はどれも !game で止まる）、操作を受けるのも作り直したあとにする
+  const guestGame = game;
+  game = null;
+  try { await onlineRoom.takeOver(); } catch { game = guestGame; return; } // rules がだめなら何もせず終わる（もう誰かが引き継いだ等）
   document.getElementById('hostGoneBar').hidden = true;
-  onlineRoom.onAction(({ uid, name, args }) => hostApplyAction(uid, name, args));
   await resumeHostFromHostState();
+  onlineRoom.onAction(({ uid, name, args }) => hostApplyAction(uid, name, args));
 });
 
 renderSetup();
