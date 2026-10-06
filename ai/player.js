@@ -106,6 +106,8 @@ export function expertActor({ onDecision } = {}) {
   };
 }
 
+const STALL = new Error('問いが終わらない');
+
 // cpu.js の simulate と同じ進め方で 1 局打つ
 export function playGame({ kingdom, landscapes = [], actors, seed }) {
   const g = newGame(actors.length, kingdom, actors.map((_, i) => `P${i + 1}`), { landscapes, ...(seed != null ? { seed } : {}) });
@@ -114,30 +116,32 @@ export function playGame({ kingdom, landscapes = [], actors, seed }) {
   const run = (gen) => {
     let st = gen.next();
     for (let k = 0; !st.done; k++) {
-      if (k > 3000) throw new Error('問いが終わらない');
+      if (k > 3000) throw STALL;
       st = gen.next(actors[st.value.player].answer(g, st.value));
     }
     return st.value;
   };
-  for (let turns = 0; !g.over; turns++) {
-    if (turns > 300) return null;
-    run(beginTurn(g));
-    const a = actors[turnController(g)];
-    for (let steps = 0; steps < 400; steps++) {
-      const m = a.nextMove(g);
-      if (m.type === 'action') run(playAction(g, m.id));
-      else if (m.type === 'shadow') run(playShadow(g, m.id));
-      else if (m.type === 'villager') spendVillager(g);
-      else if (m.type === 'buyPhase') run(enterBuyPhase(g));
-      else if (m.type === 'treasure') run(playTreasureGen(g, m.id));
-      else if (m.type === 'coffers') spendCoffers(g, m.n);
-      else if (m.type === 'buy') { if (!run(buyCard(g, m.id))) break; }
-      else if (m.type === 'event') run(buyEvent(g, m.id));
-      else if (m.type === 'nightPhase') enterNightPhase(g);
-      else if (m.type === 'night') run(playNight(g, m.id));
-      else break;
+  try {
+    for (let turns = 0; !g.over; turns++) {
+      if (turns > 300) return null;
+      run(beginTurn(g));
+      const a = actors[turnController(g)];
+      for (let steps = 0; steps < 400; steps++) {
+        const m = a.nextMove(g);
+        if (m.type === 'action') run(playAction(g, m.id));
+        else if (m.type === 'shadow') run(playShadow(g, m.id));
+        else if (m.type === 'villager') spendVillager(g);
+        else if (m.type === 'buyPhase') run(enterBuyPhase(g));
+        else if (m.type === 'treasure') run(playTreasureGen(g, m.id));
+        else if (m.type === 'coffers') spendCoffers(g, m.n);
+        else if (m.type === 'buy') { if (!run(buyCard(g, m.id))) break; }
+        else if (m.type === 'event') run(buyEvent(g, m.id));
+        else if (m.type === 'nightPhase') enterNightPhase(g);
+        else if (m.type === 'night') run(playNight(g, m.id));
+        else break;
+      }
+      run(endTurn(g));
     }
-    run(endTurn(g));
-  }
+  } catch (e) { if (e === STALL) return null; throw e; } // 問いが終わらない局も打ち切り扱い
   return g;
 }
