@@ -22,7 +22,7 @@ import {
   CARDS, SETS, PRESETS, BASIC_IDS, kingdomPool, randomKingdom, styleType, costOf, is, pileOf, isLandscape,
   newGame, currentPlayer, turnController, canBuy, finalResults, allCards,
   landscapePool, canBuyEvent, canPlayNight, canPlayAction, shadowsInDeck, isTreasureNow, emptyPiles,
-  EMPTY_PILES_LIMIT, canUndoToAction, canUndoBuy, PUBLIC_MATS, viewFor, questionForAnswerer, questionSummary,
+  EMPTY_PILES_LIMIT, canUndoToAction, canUndoBuy, PUBLIC_MATS, viewFor, cloneGame, questionForAnswerer, questionSummary,
 } from './engine.js';
 // 盤を動かす「1手」の中身（main.js の act() とオンライン対戦の再生が共有する）。replay はホストの引き継ぎ用
 import { actionGen, replay } from './actions.js';
@@ -1850,7 +1850,7 @@ function act(type, args = {}, onDone) {
   if (isOnlineGuest()) { onlineRoom.send(type, args); return; }
   const done = onDone || backToTurn;
   // 引き継ぎ用の控え（段階4で使う。今の手の打ち直しに要る情報だけ持つ）。手が終わると run() の中で null に戻す
-  inProgress = { before: structuredClone(game), action: { type, args }, answers: [] };
+  inProgress = { before: cloneGame(game), action: { type, args }, answers: [] };
   switch (type) {
     case 'beginTurn': case 'action': case 'shadow': case 'villager': case 'coffers': case 'payDebt':
     case 'treasure': case 'allTreasures': case 'nightPhase': case 'night':
@@ -1862,14 +1862,14 @@ function act(type, args = {}, onDone) {
       const human = isHumanSeat(game.current);
       args = { ...args, auto: human && autoPlayTreasures };
       inProgress.action.args = args;
-      const preBuySnapshot = human ? structuredClone(game) : null;
+      const preBuySnapshot = human ? cloneGame(game) : null;
       const askedBefore = questionsAsked;
       run(actionGen(game, type, args), () => {
         if (human) {
           // 購入フェイズの始めの効果で何も起きておらず、問いも出ていなければ、ここへ戻れるようにしておく
           undoStack = [];
           if (questionsAsked === askedBefore && canUndoToAction(game, preBuySnapshot)) {
-            undoStack.push({ snap: preBuySnapshot, base: structuredClone(game), label: 'アクションフェイズに戻る' });
+            undoStack.push({ snap: preBuySnapshot, base: cloneGame(game), label: 'アクションフェイズに戻る' });
           }
         }
         done();
@@ -1879,7 +1879,7 @@ function act(type, args = {}, onDone) {
     case 'buy': {
       const id = args.id;
       const human = isHumanSeat(game.current);
-      const pre = human ? structuredClone(game) : null;
+      const pre = human ? cloneGame(game) : null;
       const askedBefore = questionsAsked;
       run(actionGen(game, type, args), (ok) => {
         if (ok) {
@@ -1888,7 +1888,7 @@ function act(type, args = {}, onDone) {
           if (human) {
             humanBought[id] = (humanBought[id] || 0) + 1;
             // 問いが出ず、伏せた札も見えていなければ取り消せる（続けて買えば、さらに前へ戻れる）
-            if (questionsAsked === askedBefore && canUndoBuy(game, pre)) undoStack.push({ snap: pre, base: structuredClone(game), label: `${CARDS[id].name}の購入を取り消す`, bought: id });
+            if (questionsAsked === askedBefore && canUndoBuy(game, pre)) undoStack.push({ snap: pre, base: cloneGame(game), label: `${CARDS[id].name}の購入を取り消す`, bought: id });
             else undoStack = [];
           }
         }
@@ -1950,7 +1950,7 @@ function undoLast() {
   Object.assign(game, snap);
   for (const pl of game.players) Object.defineProperty(pl, 'game', { value: game, enumerable: false }); // newGame と同じ、非列挙の複製（structuredClone で消える）を作り直す
   game.log.push(bought ? `${CARDS[bought].name}の購入を取り消した。` : 'アクションフェイズに戻した。');
-  if (undoStack.length) undoStack.at(-1).base = structuredClone(game); // 足したログで、一つ前へ戻るボタンが消えないように
+  if (undoStack.length) undoStack.at(-1).base = cloneGame(game); // 足したログで、一つ前へ戻るボタンが消えないように
   renderTurn();
 }
 

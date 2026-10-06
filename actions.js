@@ -8,7 +8,7 @@
 import {
   beginTurn, playAction, playShadow, spendVillager, spendCoffers, payDebt, enterBuyPhase,
   playTreasureGen, playAllTreasures, enterNightPhase, playNight, buyCard, buyEvent, endTurn,
-  currentPlayer, is, CARDS, playTreasure,
+  currentPlayer, is, CARDS, playTreasure, cloneGame,
 } from './engine.js';
 
 // 「財宝を自動で出す」設定用。効果のある財宝（手で出す順番・可否に意味があるもの）は残す
@@ -49,7 +49,7 @@ export function* actionGen(game, type, args = {}) {
 // 生きたジェネレータ（gen）と、途中なら今出ている問い（question）もあわせて返す。
 // gen.next(ans) を続けて呼べば、その場から続きを進められる（question が null なら、もうこの手は終わっている）
 export function replay(before, action, answers) {
-  const game = structuredClone(before);
+  const game = cloneGame(before);
   for (const p of game.players) Object.defineProperty(p, 'game', { value: game, enumerable: false });
   const gen = actionGen(game, action.type, action.args);
   let step = gen.next();

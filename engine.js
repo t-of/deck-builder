@@ -69,6 +69,17 @@ export function kingdomPool(setIds) {
   return Object.values(CARDS).filter((c) => isKingdom(c.id) && (!setIds || setIds.includes(c.set))).map((c) => c.id);
 }
 
+// game の複製。structuredClone は持続の効果（p.nextTurn の関数）で DataCloneError になるので、関数は同じものを共有して写す。
+// ponytail: 関数が閉じ込めた p・g は元の game のまま（複製の中の p を直接は触らない）。(gg, pp, ppi) を使う札なら複製でも正しく動く。全札を引数渡しにするまでの暫定
+export function cloneGame(v, seen = new Map()) {
+  if (typeof v !== 'object' || v === null) return v;
+  if (seen.has(v)) return seen.get(v);
+  const out = Array.isArray(v) ? [] : {};
+  seen.set(v, out);
+  for (const k of Object.keys(v)) out[k] = cloneGame(v[k], seen);
+  return out;
+}
+
 // game に紐づく種つき乱数（mulberry32）。状態は game.rngState という数値そのもの。
 // structuredClone・JSON の行き来でそのまま写るので、控えから作り直しても同じ続きが出る（オンライン対戦のホスト引き継ぎ用）。
 // game が無い（対局の外、王国選び等）ときは Math.random にそのまま任せてよい。
@@ -424,7 +435,7 @@ export const PUBLIC_MATS = ['tavern', 'exile'];
 // seat を渡すとその席だけ手札・山札をそのまま残す＝その人の priv。
 // 公開された場（playArea・supply・discard・trash・landscapes 等）は元々全員に見えているので触らない
 export function viewFor(game, seat) {
-  const view = structuredClone(game);
+  const view = cloneGame(game);
   view.players.forEach((p, i) => {
     if (i === seat) return;
     p.hand = { length: p.hand.length };
@@ -753,7 +764,7 @@ export function* beginTurn(game) {
   // -1 金の印: 次に得るお金が 1 少ない（お金を -1 から始め、手番の終わりにまだ 0 未満なら印を戻す）
   // ponytail: 「次にお金を得るとき」を、手番の始めのお金 -1 で近似している。財宝を 1 枚も出さずに 0 金の札を買えない、などの差が出る
   if (p.tokens.minusCoin) { p.tokens.minusCoin = false; game.turn.money -= 1; }
-  for (const job of p.nextTurn.splice(0)) yield* job(game, p, game.current);
+  for (const job of p.nextTurn.splice(0)) if (typeof job === 'function') yield* job(game, p, game.current); // JSON 往復で関数が null になった控えは飛ばす
   yield* offerCalls(game, game.current, 'start');
   for (const h of HOOKS.turnStart) yield* h(game, p, game.current);
   for (const id of [...new Set(p.hand)]) if (CARDS[id].atTurnStart && p.hand.includes(id)) yield* CARDS[id].atTurnStart(game, p, game.current);
