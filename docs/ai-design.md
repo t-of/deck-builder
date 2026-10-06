@@ -269,7 +269,7 @@ node train/selfplay.mjs --games 20 --mode expert|ai --out runs/x/shard0 [--seed 
 ```
 
 `<out>.json`（`arrays` に名前・型・長さ・バイト位置）と `<out>.bin`（配列を順に並べただけ。リトルエンディアン）。Python は `np.fromfile(bin, dtype, count=length, offset=offset)` で読む。
-`mode=expert` は さいきょう同士（棋譜）、`mode=ai` は AI（席は局ごとに交代）対 さいきょう。どちらも両方の席の判断を記録する。1 ファイル = 1 プロセス = 1 シャード。
+`mode=expert` は さいきょう同士（棋譜）、`mode=ai` は AI（席は局ごとに交代）対 さいきょう、`mode=self` は AI 同士（`--opp-model` で相手の席を別の世代に）。どちらも両方の席の判断を記録する。1 ファイル = 1 プロセス = 1 シャード。
 
 判断 D 個・候補 C 個・局 G 個・ID の数 V（= len(ids)+1）。NS = 32、P = 35。
 
@@ -279,19 +279,20 @@ node train/selfplay.mjs --games 20 --mode expert|ai --out runs/x/shard0 [--seed 
 | `decSeat` | int8 | D | 判断した席（特徴量はこの席から見たもの） |
 | `decSource` | int8 | D | 0 さいきょう・1 AI |
 | `decChosen` | int16 | D | 選んだ候補の番号（その判断の中での） |
-| `scalars` | float32 | D×NS | 数値 |
+| `scalars` | float16（`--f32` なら float32） | D×NS | 数値 |
 | `bagOff` | int32 | D×5+1 | 判断 d・袋 b の中身は `bagIdx[bagOff[d*5+b] : bagOff[d*5+b+1]]`（最後に番兵） |
 | `bagIdx`・`bagCnt` | int16 | 合計 | 袋の札の ID の番号（0 = 並びにない）と枚数。重みは log(1+枚数) |
 | `supOff` | int32 | D+1 | 判断 d のサプライは `supIdx[supOff[d] : supOff[d+1]]` |
 | `supIdx` | int16 | 合計 | 山の一番上の札の ID の番号 |
-| `supExt` | float32 | 合計×4 | 残り/10・コスト/10・禁輸/3・勝利点トークン/10 |
+| `supExt` | float16（同上） | 合計×4 | 残り/10・コスト/10・禁輸/3・勝利点トークン/10 |
 | `candOff` | int32 | D+1 | 判断 d の候補は `[candOff[d], candOff[d+1])` |
 | `candKind` | int8 | C | 0 買う・1 獲得・2 イベント・3 何もしない |
 | `candIdx` | int16 | C | 候補の札（イベントはそのイベント）の ID の番号。3 は 0 |
-| `candExt` | float32 | C×4 | コスト/10・使う財源/8・点/10・属州か植民地か |
+| `candExt` | float16（同上） | C×4 | コスト/10・使う財源/8・点/10・属州か植民地か |
 | `gameResult` | float32 | G×2 | 席ごとの結果（勝ち 1・引き分け 0.5・負け 0） |
 | `gameTurns` | int16 | G | 席 0 の手番数 |
-| `gameSeatAI` | int8 | G | AI の席（expert モードは -1） |
+| `gameSeatAI` | int8 | G | AI の席（expert モードは -1、self は 2） |
+| `checkOut` | float32 | 最初の N 判断の候補数×2 | `--check N` のときだけ。JS の net の出力（`train/check_equiv.py` 用） |
 | `cardProps` | float32 | V×P | ID の番号ごとのカードの性質（行 0 は 0） |
 
 - 学習の目標: 判断 d の目標 = `gameResult[decGame[d]][decSeat[d]]`。損失は、選んだ候補の「自分の勝つ見込み」への回帰（`decSource=0` の棋譜では、選んだ候補の値が一番高くなる順位の損失も）。
@@ -304,3 +305,48 @@ node train/selfplay.mjs --games 20 --mode expert|ai --out runs/x/shard0 [--seed 
 - 記録 1 局: さいきょう同士 約 7 秒、AI（乱数の重み）対 さいきょう 約 7〜9 秒（時間の大半は さいきょう の型選び）。AI 同士は 1 局 約 0.5 秒（net の推論は 1 判断 約 5 ms）。
 - 1 局あたり: 判断 約 65〜75、候補 約 800〜870、`.bin` 約 75 KB。10 万局で約 7.5 GB なので、シャードに分けて学習のたびに読み捨てる。
 - 20 局（4 プロセスで 5 局ずつ）: 約 47 秒。判断 1,366、候補 15,450。
+
+## 11. 段階 0-B でできたもの（2026-10-06）: 学習・書き出し・ジョブ
+
+| ファイル | 内容 |
+|---|---|
+| `train/train.py` | PyTorch の `Net`（net.js と同じ形）と学習。`python3 train/train.py --init <重み> --out <出力> --shards <フォルダ>... [--epochs 2]`。`--init` で前の世代から続ける |
+| `train/export.py` | `read_model(prefix)`・`write_model(prefix, meta, weights)`。model.json/.bin（float16）の読み書き |
+| `train/check_equiv.py` | JS と PyTorch の推論の一致（差 1e-4 以下）の試験。`python3 train/check_equiv.py`（Node も使う。数秒） |
+| `train/match.mjs` | A 対 B の強さの測定（先手交互、王国は共通）。最後の行 `RESULT 勝 分 負 局` |
+| `train/f16.mjs` | float16 への丸め（init-weights.mjs・selfplay.mjs が使う） |
+| `jobs/job_ai_bench.sh`・`jobs/job_ai.sh` | HAKUSAN のジョブ（下） |
+
+- **損失**: 選んだ候補の「自分の勝つ見込み」を最後の結果へ（交差エントロピー、モンテカルロの目標）。さいきょうの判断（decSource=0）の 25% では全候補を通し、
+  （自分の logit − 相手の logit）の softmax が選んだ候補を当てる順位の損失（重み 0.1）も足す。サンプルの重みは判断ごとに等しい。
+  ID の埋め込みは、バッチごとに ID の 10% を 0 にする。最後のシャード 1 つを検証に取り、回帰の損失と「さいきょうの手との一致率」を出す。
+- **記録の小型化**: 数値を float16 にした。1 局 約 24 KB（手元の実測。従来 約 75 KB の 3 分の 1）。10 万局で約 2.4 GB。
+  シャードごとに cardProps（約 120 KB）が入るが、シャードが数百局あれば無視できる。
+- 手元の 1 周（Mac）: さいきょう 40 局（8 プロセス、約 80 秒）→ 学習 約 1 万サンプル 約 9 秒 → 書き出し → 対 ふつう 40 局 数秒。仕組みは通った（学習が少なすぎて勝率は 3/40）。
+- 手元の学習の速さ: 約 5,000 サンプル／秒（Mac のスレッド数 10。HAKUSAN は計測ジョブで測る）。§4 の「10 万サンプル／秒」は届かない見込みなので、1 世代 1,000 万サンプルなら
+  約 30 分（32 コアなら）〜と見る。計測ジョブの値で直す。
+- 0-A の直し: `features.js` の `encode` が、ランドスケープ「砦」（l_donjon）の点を相手の手札・山札から数えて落ちるのを直した（公開の情報だけの game では砦を点に入れない）。
+
+### オーナーが HAKUSAN で打つコマンド
+
+準備（1 回だけ）。Node は `~/opt/node/bin`、PyTorch は `--user` で入っている前提。
+
+```sh
+cd ~ && git clone https://github.com/t-of/deck-builder.git && cd deck-builder
+mkdir -p logs
+sbatch -p DEF -n 64 jobs/job_ai_bench.sh      # 計測ジョブ（数分）。ジョブ番号が出る
+squeue -u $USER                               # 終わるまで待つ
+sed -n '/==== 結果/,$p' logs/aibench-*.out     # ← この出力を貼る
+```
+
+- 貼ってほしいもの: 上の結果（1 局の時間、記録の大きさ、学習の速さ［スレッド 64 と 8］、測定の時間）。失敗したときは `logs/aibench-*.out` の末尾 40 行。
+- 更新があったとき: `cd ~/deck-builder && git pull`。
+- 本番（計測の値を見てから。局数は環境変数で変える）:
+
+```sh
+sbatch -p DEF -n 64 jobs/job_ai.sh base1 0 30 base    # 段階 1: 世代 0〜29。止まったら同じコマンドで続きから
+tail -3 runs/base1/log.tsv                            # 世代、サンプル数、対 前の世代、対 さいきょう、対 ふつう、採用（1/0）、秒
+```
+
+- 重みは `runs/<名前>/gen_<n>.bin/.json`、今の最良の番号は `runs/<名前>/best`。持ち帰るのは `scp hakusan1:deck-builder/runs/base1/gen_<best>.* .`。
+- 棋譜が多いと既定（`EXPERT_GAMES=20000`・`GEN_GAMES=20000`・`EVAL_GAMES=400`）は重い。`EXPERT_GAMES=5000 sbatch ...` のように環境変数で変える。

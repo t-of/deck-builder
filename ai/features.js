@@ -90,8 +90,10 @@ export function encode(game, me) {
   // 台帳がないときは、見えている場所（捨て札・場・伏せないマット）だけ
   const oppAll = oppMap ? toArr(oppMap) : [...q.discard, ...q.inPlay, ...(q.mats.tavern || []), ...(q.mats.exile || []), ...(g.current === opp ? g.playArea : [])];
   const oppTotal = oppMap ? oppAll.length : oppAll.length + q.hand.length + q.deck.length;
-  const myScore = score({ ...p, inPlay: [...p.inPlay, ...(mine ? g.playArea : [])] }, g);
-  const oppScore = score({ ...q, deck: oppAll, hand: [], discard: [], inPlay: [], mats: {} }, g);
+  // 砦（l_donjon）は相手の手札・山札の中身を数えるので、公開の情報だけの game では点に入れない（入れると落ちる）
+  const gs = { ...g, landscapes: g.landscapes.filter((id) => id !== 'l_donjon') };
+  const myScore = score({ ...p, inPlay: [...p.inPlay, ...(mine ? g.playArea : [])] }, gs);
+  const oppScore = score({ ...q, deck: oppAll, hand: [], discard: [], inPlay: [], mats: {} }, gs);
 
   const big = 'colony' in g.supply ? 'colony' : 'province';
   const full = n === 2 ? 8 : 12;
