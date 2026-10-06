@@ -1,12 +1,14 @@
 #!/bin/bash
 # 世代ごとに「自己対局 → 学習 → 測定」を回す（docs/ai-design.md §4）。止まったら同じコマンドで続きから回せる。
-# usage: cd deck-builder && sbatch -p DEF -n 64 jobs/job_ai.sh <名前> <始める世代> <世代数> [full|base]
+# usage: cd deck-builder && sbatch -p DEF -n 64 jobs/job_ai.sh <名前> <始める世代> <世代数> [full|base|preset:<id>]
 #   例: sbatch -p DEF -n 64 jobs/job_ai.sh base1 0 30 base      段階 1（基本の王国だけ）
 #       sbatch -p DEF -n 64 jobs/job_ai.sh full1 0 100 full     段階 2（全拡張）
+#       INIT_MODEL=runs/base1/gen_13 REF_MODEL=runs/base1/gen_13 sbatch -p DEF -n 64 jobs/job_ai.sh p-first 0 15 preset:first   1 つの王国に特化（§11）
 # 世代 0 は「さいきょう同士の棋譜を作って学ぶ」。世代 n（1 から）は「重み gen_best で自己対局 → 学ぶ → 測る」。
 # 結果: runs/<名前>/log.tsv（1 世代 1 行）、runs/<名前>/gen_<n>.bin/.json、runs/<名前>/best（今の最良の世代の番号）。
 # 環境変数（省略できる。bench の結果を見て決める）: EXPERT_GAMES 棋譜の局数, GEN_GAMES 1 世代の自己対局の局数, EVAL_GAMES 測る局数（相手ごと）,
-#   EXPERT_EPOCHS・EPOCHS 学習の周回数, TEMP0 最初の温度（世代ごとに ×0.93、下限 0.02）, ACCEPT 新しい世代にする勝率
+#   EXPERT_EPOCHS・EPOCHS 学習の周回数, TEMP0 最初の温度（世代ごとに ×0.93、下限 0.02）, ACCEPT 新しい世代にする勝率,
+#   INIT_MODEL 世代 0 を棋譜の模倣ではなくこのモデル（拡張子なしのパス）の写しにする, REF_MODEL あれば log.tsv の最後に vs_ref 列（gen_N 対 REF_MODEL）を足す
 #SBATCH -J ai
 #SBATCH -p DEF
 #SBATCH -N 1
@@ -20,10 +22,10 @@ set -eo pipefail   # 途中で失敗したらそこで止める（続きは同�
 NC=${SLURM_NTASKS:-$(nproc)}
 EXPERT_GAMES=${EXPERT_GAMES:-20000}; GEN_GAMES=${GEN_GAMES:-20000}; EVAL_GAMES=${EVAL_GAMES:-400}
 EXPERT_EPOCHS=${EXPERT_EPOCHS:-4}; EPOCHS=${EPOCHS:-2}; TEMP0=${TEMP0:-0.15}; ACCEPT=${ACCEPT:-0.55}
-BASE=""; [ "$stage" = base ] && BASE="--base"
+BASE=""; [ "$stage" = base ] && BASE="--base"; [[ "$stage" == preset:* ]] && BASE="--preset ${stage#preset:}"
 R=runs/$name; mkdir -p $R logs
 LOG=$R/log.tsv
-[ -f $LOG ] || printf 'gen\tsamples\tvs_prev\tvs_expert\tvs_normal\taccepted\tsec\n' > $LOG
+[ -f $LOG ] || printf 'gen\tsamples\tvs_prev\tvs_expert\tvs_normal\taccepted\tsec%s\n' "${REF_MODEL:+$(printf '\tvs_ref')}" > $LOG
 [ -f $R/init.bin ] || node train/init-weights.mjs $R/init 1 | tail -1
 best=$(cat $R/best 2>/dev/null || echo 0)
 echo "$(date) start $name gen $g0..$((g0+ng-1)) stage=$stage NC=$NC best=$best"
@@ -54,6 +56,11 @@ rate() { # a b seed
 for N in $(seq $g0 $((g0 + ng - 1))); do
   [ -f $R/gen_$N.bin ] && { echo "gen $N は済み"; continue; }
   s=$SECONDS
+  if [ $N -eq 0 ] && [ -n "$INIT_MODEL" ]; then   # 世代 0 はこのモデルの写し（学習しない）
+    echo "$(date) gen 0: INIT_MODEL=$INIT_MODEL を写す"
+    cp $INIT_MODEL.bin $R/gen_0.bin.tmp && cp $INIT_MODEL.json $R/gen_0.json && mv $R/gen_0.bin.tmp $R/gen_0.bin
+    samples=-
+  else
   best=$(cat $R/best 2>/dev/null || echo 0)
   TEMP=$(awk -v n=$N -v t=$TEMP0 'BEGIN{x=t; for(i=1;i<n;i++) x*=0.93; if (x<0.02) x=0.02; print x}')
   if [ $N -eq 0 ]; then PLAY_MODE=expert; PLAY_GAMES=$EXPERT_GAMES; PLAY_DIR=$R/expert; init=$R/init; ep=$EXPERT_EPOCHS
@@ -65,6 +72,7 @@ for N in $(seq $g0 $((g0 + ng - 1))); do
   echo "$(date) gen $N: 学習 init=$init"
   python3 train/train.py --init $init --out $R/gen_$N --shards $PLAY_DIR --epochs $ep | tee $R/train_$N.log | tail -3
   samples=$(grep -o 'samples=[0-9]*' $R/train_$N.log | tail -1 | cut -d= -f2)
+  fi
   echo "$(date) gen $N: 測定"
   seed=$(( 5000000 + N * 1000 ))
   vs_exp=$(rate $R/gen_$N expert $seed)
@@ -75,7 +83,8 @@ for N in $(seq $g0 $((g0 + ng - 1))); do
     acc=$(awk -v r=$vs_prev -v a=$ACCEPT 'BEGIN{print (r >= a) ? 1 : 0}')
   fi
   [ $acc -eq 1 ] && echo $N > $R/best
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' $N $samples $vs_prev $vs_exp $vs_nor $acc $((SECONDS - s)) | tee -a $LOG
+  ref=""; [ -n "$REF_MODEL" ] && ref=$(printf '\t%s' $(rate $R/gen_$N $REF_MODEL $seed))
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s%s\n' $N $samples $vs_prev $vs_exp $vs_nor $acc $((SECONDS - s)) "$ref" | tee -a $LOG
   [ $N -ge 2 ] && rm -rf $R/play_$((N - 1))   # 古い記録は捨てる（棋譜 expert は残す）
 done
 echo "$(date) done"; tail -3 $LOG

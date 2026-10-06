@@ -1,12 +1,12 @@
 // 自己対局の記録（docs/ai-design.md §4・「記録の形」）。N 局打って、買う・獲得する判断ごとの特徴量と、最後の結果を書く。
-//   node train/selfplay.mjs --games 20 --mode expert|ai|self --out runs/x/shard0 [--seed 1] [--model ai/model] [--temp 0.05] [--base]
+//   node train/selfplay.mjs --games 20 --mode expert|ai|self --out runs/x/shard0 [--seed 1] [--model ai/model] [--temp 0.05] [--base] [--preset <id>]
 //                           [--opp-model 名前（self で、相手の席を別のモデルにする）] [--f32（小数を float32 で書く）] [--check N（最初の N 判断の全候補を JS の net で評価して checkOut に書く。train/check_equiv.py 用）]
 //   expert … さいきょう同士の棋譜（約 20 秒／局）。ai … AI（席は局ごとに交代）対 さいきょう。AI のも さいきょう のも記録する。self … AI 同士
 //   --base: 基本の王国だけ（段階 1）。省略すると全拡張・ランドスケープ 0〜2 枚
 // 出力: <out>.json（配列の名前・型・形・オフセット）と <out>.bin（配列を順に並べたもの。リトルエンディアン）
 import fs from 'node:fs';
 import path from 'node:path';
-import { kingdomPool, landscapePool, randomKingdom, finalResults, CARDS } from '../engine.js';
+import { kingdomPool, landscapePool, randomKingdom, PRESETS, finalResults, CARDS } from '../engine.js';
 import { encode, cardProps, supplyExt, candExt, BAGS, SCALARS, NS, P, SUPPLY_EXT, CAND_EXT } from '../ai/features.js';
 import { loadModel, evaluate } from '../ai/net.js';
 import { toF16 } from './f16.mjs';
@@ -22,6 +22,9 @@ const out = arg('out', 'runs/test/shard0');
 let seed = Number(arg('seed', 1)) >>> 0;
 const temp = Number(arg('temp', 0.05));
 const onlyBase = process.argv.includes('--base');
+const presetId = arg('preset', null); // 指定したら毎局その王国（--base より優先）
+const preset = presetId && PRESETS.find((p) => p.id === presetId);
+if (presetId && !preset) { console.error(`知らない preset: ${presetId}`); process.exit(1); }
 const modelPath = arg('model', `${dir}ai/model`);
 
 const f32 = process.argv.includes('--f32');
@@ -66,8 +69,8 @@ function record({ me, base, cands, chosen, source }) {
 const t0 = Date.now();
 let stalls = 0;
 for (gi = 0; gi < games; gi++) {
-  const kingdom = randomKingdom(pool);
-  const landscapes = randomKingdom(lpool, lpool.length ? Math.floor(rnd() * 3) : 0);
+  const kingdom = preset ? [...preset.cards] : randomKingdom(pool);
+  const landscapes = preset ? [...(preset.landscapes || [])] : randomKingdom(lpool, lpool.length ? Math.floor(rnd() * 3) : 0);
   const onDecision = (d) => record(d);
   seat = gi % 2;
   const ai = (m) => createAI(m, { temperature: temp, rand: rnd, onDecision });

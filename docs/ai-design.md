@@ -350,3 +350,10 @@ tail -3 runs/base1/log.tsv                            # 世代、サンプル数
 
 - 重みは `runs/<名前>/gen_<n>.bin/.json`、今の最良の番号は `runs/<名前>/best`。持ち帰るのは `scp hakusan1:deck-builder/runs/base1/gen_<best>.* .`。
 - 棋譜が多いと既定（`EXPERT_GAMES=20000`・`GEN_GAMES=20000`・`EVAL_GAMES=400`）は重い。`EXPERT_GAMES=5000 sbatch ...` のように環境変数で変える。
+
+### 1 つの王国に特化した AI（微調整）
+
+- 汎用モデルを初期値にして、`PRESETS` の 1 つ（おすすめの王国）だけで自己対局 → 学習を回す。`train/selfplay.mjs`・`train/match.mjs` の `--preset <id>`（`--base` より優先、知らない id は止まる）と、`jobs/job_ai.sh` の第 4 引数 `preset:<id>` を使う。
+- 環境変数: `INIT_MODEL=<パス（拡張子なし）>` で世代 0 をそのモデルの写しにする（模倣の学習はしない）。`REF_MODEL=<パス>` で log.tsv の最後に `vs_ref`（gen_N 対 REF_MODEL）を足す（なければ列なし）。
+- 例: `INIT_MODEL=runs/base1/gen_13 REF_MODEL=runs/base1/gen_13 sbatch -p DEF -n 64 jobs/job_ai.sh p-first 0 15 preset:first`。`vs_ref` が 0.5 を超えれば、汎用より強い。
+- 最初に試す王国は、基本セットの先頭 `first`（はじめてのゲーム）。
