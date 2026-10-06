@@ -201,7 +201,7 @@ def main():
     ap.add_argument('--val', type=int, default=1, help='最後の何シャードを検証に取っておくか（シャードが 2 つ以上のとき）')
     ap.add_argument('--seed', type=int, default=1); ap.add_argument('--max-seconds', type=float, default=0)
     a = ap.parse_args()
-    torch.set_num_threads(int(os.environ.get('SLURM_NTASKS') or os.cpu_count() or 1))
+    torch.set_num_threads(int(os.environ.get('TORCH_THREADS') or 8))  # HAKUSAN の bench で 8 スレッドが 64 の 5 倍速かった
     torch.manual_seed(a.seed); rng = np.random.default_rng(a.seed)
     meta, w = read_model(a.init)
     net = Net(meta); net.load(w)
