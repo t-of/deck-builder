@@ -216,3 +216,91 @@ HAKUSAN の 1 コアを手元の半分の速さと仮定する。
    おすすめ: 入れる。
 5. **計算の量**: 1 ノード（SINGLE）× 合わせて 1〜2 日、ジョブ 4〜5 本でよいか。
    おすすめ: 段階 0 の計測ジョブ（数分）をまず 1 本だけ出し、その値で見積もりを直してから続ける。
+
+## 10. 段階 0-A でできたもの（2026-10-06）: ファイルと記録の形
+
+段階 0 の前半（JS 側）。Python 側（段階 0-B）は、このセクションを見て書く。
+
+### ファイル
+
+| ファイル | 内容 |
+|---|---|
+| `ai/features.js` | 特徴量。`encode(game, me)`（状態）、`buyCandidates(base)`・`gainCandidates(base, q)`（候補）、`postState(base, cand)`（選んだあとの状態）、`startLedger(game)`（相手のデッキの台帳） |
+| `ai/net.js` | 手書きの推論。`loadModel(meta, buffer)`、`evaluate`、`scoreCandidates` |
+| `ai/player.js` | `createAI(model, {temperature, onDecision})`、`expertActor({onDecision})`、`playGame({kingdom, landscapes, actors, seed})`（cpu.js の simulate と同じ進め方） |
+| `ai/model.json`・`ai/model.bin` | 形・ID の並び・版／float16 の重み。**今のは `train/init-weights.mjs` が作った乱数の重み（学習していない）** |
+| `train/init-weights.mjs` | 決まった種の乱数で上の 2 つを作る（`node train/init-weights.mjs [出力名] [種]`） |
+| `train/selfplay.mjs` | 自己対局の記録（下） |
+| `test/ai.mjs` | 隠れた情報のテストと、net・AI の 1 局の確認 |
+
+cpu.js は `feats`・`wantedDirection` に `export` を足しただけ。`ai/` は SW の SHELL にまだ入れていない（画面に出す段階 2.5 で入れる）。
+
+### 特徴量（次元）
+
+- カードの性質 P = 35（種類 20 + コスト・ポーション・借金・点・財宝の額・+カード・+アクション・+購入・+金・引くまで・廃棄・呪い・獲得・終点）。名前の並びは `PROP_NAMES`。
+- 袋（枚数の集合）5 つ: `BAGS` = 自分のデッキ全体・自分の手札・自分の場・相手のデッキ全体（台帳）・廃棄置き場。重みは log(1+枚数)。
+- サプライ: 山（と、あれば場のランドスケープ）ごとに ID・残り/10・コスト/10・禁輸の印/3・勝利点トークン/10。
+- 数値 NS = 32（`SCALARS` の順。手番数・点・点差・空の山・属州・終盤度・枚数・財源・村人・借金・勝利点トークン・今のお金・購入・アクション …）。
+- 相手は次の席 1 人だけ（2 人対戦）。相手のデッキは、`startLedger` が対局の始めに作る台帳（獲得・廃棄の公開の記録）から数える。台帳がなければ見えている札（捨て札・場・伏せないマット）だけ。
+  台帳は札が山に戻る・席の間で渡る効果（大使など）を数えない。
+- **隠れた情報**: `encode` は手札・山札を `{length}` にした `publicView`（viewFor と同じ隠し方。viewFor は持続の効果が残る場面で structuredClone に失敗するので、浅く写す自前のもの）の上で作る。
+  相手の手札・山札（中身も順も）、伏せたマット、自分の山札の並びを入れ替えても同じ値になることを test/ai.mjs が毎判断で見る（viewFor を通した game からも同じになることも）。
+
+### 候補（`cand`）
+
+`{ kind, pile, id, cost, coffers }`。`kind`: 0 買う・1 効果で獲得・2 イベント等を買う・3 何もしない。`pile` は山の ID（買う・獲得に渡す名前）、`id` は山の一番上の札。
+`coffers` > 0 は「財源を n 使ってから買う」（買えないものを財源で届くときだけ。必要な最小の n）。呪いは候補に入れない。
+自分の判断のうち、買う（購入が残り、財宝を出し終えたとき）と、自分が獲得する supply の問い（`wantedDirection` が `best`）だけが候補つき。
+
+**選んだあとの状態**（`postState`）: kind が 0・1 のとき、自分のデッキの袋に `id` を 1 枚足し、サプライの同じ山の残りを 1 減らす。ほかの変化は候補の値（`candExt` = コスト/10・使う財源/8・点/10・属州か植民地か）から学ぶ。
+
+### モデルの形（model.json）と推論
+
+- D = 32、隠れ層 H = 256、出力 2（自分・相手の勝つ見込み。softmax）。パラメータ 163,778（emb 853×32 = 27,296、W1 は 256×264、W2 は 256×256 など。入力 264 = 5×32+32+32+32+4+4）。
+- 重みは `shapes` の順（emb, Wp, bp, Ws, bs, W1, b1, W2, b2, W3, b3）に float16 で並ぶ。Linear は `[出, 入]`（PyTorch の `nn.Linear.weight` と同じ並び）。
+- カードのベクトル = `Wp·性質 + bp + emb[ID の番号]`（番号 0 = 並びにない札は埋め込みなし）。ID の番号は model.json の `ids`（1 から）。
+- 入力 x = [袋 5 つ（各 D）; サプライ（D）; 数値（NS）; 候補のベクトル（D）; 候補の種類 one-hot（4）; candExt（4）]。サプライ = Σ relu(Ws·[カードのベクトル; 山の値 4] + bs)。
+- 出力 = softmax(W3·relu(W2·relu(W1·x + b1) + b2) + b3)。候補の値打ち = 出力の 0 番目（自分が勝つ見込み）。
+
+### 記録の形（`train/selfplay.mjs`）
+
+```sh
+node train/selfplay.mjs --games 20 --mode expert|ai --out runs/x/shard0 [--seed 1] [--model ai/model] [--temp 0.05] [--base]
+```
+
+`<out>.json`（`arrays` に名前・型・長さ・バイト位置）と `<out>.bin`（配列を順に並べただけ。リトルエンディアン）。Python は `np.fromfile(bin, dtype, count=length, offset=offset)` で読む。
+`mode=expert` は さいきょう同士（棋譜）、`mode=ai` は AI（席は局ごとに交代）対 さいきょう。どちらも両方の席の判断を記録する。1 ファイル = 1 プロセス = 1 シャード。
+
+判断 D 個・候補 C 個・局 G 個・ID の数 V（= len(ids)+1）。NS = 32、P = 35。
+
+| 配列 | 型 | 長さ | 中身 |
+|---|---|---|---|
+| `decGame` | int32 | D | 判断が属する局の番号（0 から。打ち切りの局は除いて詰める） |
+| `decSeat` | int8 | D | 判断した席（特徴量はこの席から見たもの） |
+| `decSource` | int8 | D | 0 さいきょう・1 AI |
+| `decChosen` | int16 | D | 選んだ候補の番号（その判断の中での） |
+| `scalars` | float32 | D×NS | 数値 |
+| `bagOff` | int32 | D×5+1 | 判断 d・袋 b の中身は `bagIdx[bagOff[d*5+b] : bagOff[d*5+b+1]]`（最後に番兵） |
+| `bagIdx`・`bagCnt` | int16 | 合計 | 袋の札の ID の番号（0 = 並びにない）と枚数。重みは log(1+枚数) |
+| `supOff` | int32 | D+1 | 判断 d のサプライは `supIdx[supOff[d] : supOff[d+1]]` |
+| `supIdx` | int16 | 合計 | 山の一番上の札の ID の番号 |
+| `supExt` | float32 | 合計×4 | 残り/10・コスト/10・禁輸/3・勝利点トークン/10 |
+| `candOff` | int32 | D+1 | 判断 d の候補は `[candOff[d], candOff[d+1])` |
+| `candKind` | int8 | C | 0 買う・1 獲得・2 イベント・3 何もしない |
+| `candIdx` | int16 | C | 候補の札（イベントはそのイベント）の ID の番号。3 は 0 |
+| `candExt` | float32 | C×4 | コスト/10・使う財源/8・点/10・属州か植民地か |
+| `gameResult` | float32 | G×2 | 席ごとの結果（勝ち 1・引き分け 0.5・負け 0） |
+| `gameTurns` | int16 | G | 席 0 の手番数 |
+| `gameSeatAI` | int8 | G | AI の席（expert モードは -1） |
+| `cardProps` | float32 | V×P | ID の番号ごとのカードの性質（行 0 は 0） |
+
+- 学習の目標: 判断 d の目標 = `gameResult[decGame[d]][decSeat[d]]`。損失は、選んだ候補の「自分の勝つ見込み」への回帰（`decSource=0` の棋譜では、選んだ候補の値が一番高くなる順位の損失も）。
+- **選んだあとの状態を Python で作る規則**（`postState` と同じ）: 候補 kind が 0 か 1 のとき、判断の袋 0（自分のデッキ）の `candIdx` の枚数を +1（なければ足す）、サプライの `supIdx == candIdx` の山の残り（`supExt[:, 0]`）を −0.1。kind 2・3 は変えない。そのうえで候補のベクトル・種類・candExt を入力に足す。
+- 台帳（相手のデッキ）は袋 3 に入っている。Python は特徴量を作り直さない。
+- 判断が少ない局もあるので、サンプルの重みは判断ごとに等しくしてよいし、局ごとに等しくしてもよい（0-B で決める）。
+
+### 実測（手元の Mac、全拡張のランダムな王国・ランドスケープ 0〜2 枚）
+
+- 記録 1 局: さいきょう同士 約 7 秒、AI（乱数の重み）対 さいきょう 約 7〜9 秒（時間の大半は さいきょう の型選び）。AI 同士は 1 局 約 0.5 秒（net の推論は 1 判断 約 5 ms）。
+- 1 局あたり: 判断 約 65〜75、候補 約 800〜870、`.bin` 約 75 KB。10 万局で約 7.5 GB なので、シャードに分けて学習のたびに読み捨てる。
+- 20 局（4 プロセスで 5 局ずつ）: 約 47 秒。判断 1,366、候補 15,450。

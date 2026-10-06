@@ -24,7 +24,7 @@ const topOf = (game, id) => (game.stacks[id] && game.stacks[id].length ? game.st
 
 // ---- カードの読み取り（main の「+N カード」などの文言から） ----
 const featCache = new Map();
-function feats(id) {
+export function feats(id) {
   if (featCache.has(id)) return featCache.get(id);
   const c = CARDS[id];
   const text = `${c.main || ''} ${c.desc || ''}`;
@@ -127,7 +127,7 @@ function junkScore(game, pi, id) {
 // ---- 問いへの答え ----
 const BAD_DIR = /捨て(?!札から)|廃棄|渡す|追放|手放|戻す（しなくてもよい）|山に戻す/;
 const GOOD_TO_OTHER = /獲得させる|させる 1 枚|捨てさせる/;
-function wantedDirection(q, game) {
+export function wantedDirection(q, game) {
   const s = q.purpose || '';
   // 他の人の手番に、自分の札を山札の上に置かされる（役人など）→ 要らない札を置く
   if (/山札の上に置く/.test(s) && game && q.player !== game.current) return 'junk';
