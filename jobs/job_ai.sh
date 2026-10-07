@@ -8,7 +8,9 @@
 # 結果: runs/<名前>/log.tsv（1 世代 1 行）、runs/<名前>/gen_<n>.bin/.json、runs/<名前>/best（今の最良の世代の番号）。
 # 環境変数（省略できる。bench の結果を見て決める）: EXPERT_GAMES 棋譜の局数, GEN_GAMES 1 世代の自己対局の局数, EVAL_GAMES 測る局数（相手ごと）,
 #   EXPERT_EPOCHS・EPOCHS 学習の周回数, TEMP0 最初の温度（世代ごとに ×0.93、下限 0.02）, ACCEPT 新しい世代にする勝率,
-#   INIT_MODEL 世代 0 を棋譜の模倣ではなくこのモデル（拡張子なしのパス）の写しにする, REF_MODEL あれば log.tsv の最後に vs_ref 列（gen_N 対 REF_MODEL）を足す
+#   INIT_MODEL 世代 0 を棋譜の模倣ではなくこのモデル（拡張子なしのパス）の写しにする, REF_MODEL あれば log.tsv の最後に vs_ref 列（gen_N 対 REF_MODEL）を足す,
+#   （微調整用）PREV_GAMES 対 前の最良の局数（既定 EVAL_GAMES）, REF_GAMES vs_ref の局数（既定 4000）, LR 学習率（既定は train.py の 1e-3）,
+#   KL_W 元のモデル（gen_0）との出力のずれを損失に足す重み（既定は足さない）
 #SBATCH -J ai
 #SBATCH -p DEF
 #SBATCH -N 1
@@ -22,6 +24,8 @@ set -eo pipefail   # 途中で失敗したらそこで止める（続きは同�
 NC=${SLURM_NTASKS:-$(nproc)}
 EXPERT_GAMES=${EXPERT_GAMES:-20000}; GEN_GAMES=${GEN_GAMES:-20000}; EVAL_GAMES=${EVAL_GAMES:-400}
 EXPERT_EPOCHS=${EXPERT_EPOCHS:-4}; EPOCHS=${EPOCHS:-2}; TEMP0=${TEMP0:-0.15}; ACCEPT=${ACCEPT:-0.55}
+PREV_GAMES=${PREV_GAMES:-$EVAL_GAMES}; REF_GAMES=${REF_GAMES:-4000}   # 世代の比べ・vs_ref の局数（微調整は docs/ai-design.md）
+TRAIN_OPTS=""; [ -n "$LR" ] && TRAIN_OPTS="--lr $LR"; [ -n "$KL_W" ] && TRAIN_OPTS="$TRAIN_OPTS --ref runs/$name/gen_0 --kl-w $KL_W"
 BASE=""; [ "$stage" = base ] && BASE="--base"; [[ "$stage" == preset:* ]] && BASE="--preset ${stage#preset:}"
 R=runs/$name; mkdir -p $R logs
 LOG=$R/log.tsv
@@ -48,8 +52,9 @@ export -f play_shard
 export R NC BASE
 
 # A 対 B を EVAL_GAMES 局（NC プロセスで割る）。勝率（引き分けは 0.5）を出す
-rate() { # a b seed
-  seq $3 $(($3 + NC - 1)) | xargs -P $NC -I{} node train/match.mjs --a $1 --b $2 --games $(( (EVAL_GAMES + NC - 1) / NC )) --seed {} $BASE 2>/dev/null \
+rate() { # a b seed [games]
+  local G=${4:-$EVAL_GAMES}
+  seq $3 $(($3 + NC - 1)) | xargs -P $NC -I{} node train/match.mjs --a $1 --b $2 --games $(( (G + NC - 1) / NC )) --seed {} $BASE 2>/dev/null \
     | grep RESULT | awk '{w+=$2;d+=$3;n+=$5} END{printf "%.3f", n ? (w + d / 2) / n : 0}'
 }
 
@@ -70,7 +75,7 @@ for N in $(seq $g0 $((g0 + ng - 1))); do
   echo "$(date) gen $N: 自己対局 mode=$PLAY_MODE games=$PLAY_GAMES temp=$TEMP best=$best"
   seq 0 $((NC-1)) | xargs -P $NC -I{} bash -c 'play_shard {}'
   echo "$(date) gen $N: 学習 init=$init"
-  python3 train/train.py --init $init --out $R/gen_$N --shards $PLAY_DIR --epochs $ep | tee $R/train_$N.log | tail -3
+  python3 train/train.py --init $init --out $R/gen_$N --shards $PLAY_DIR --epochs $ep $TRAIN_OPTS | tee $R/train_$N.log | tail -3
   samples=$(grep -o 'samples=[0-9]*' $R/train_$N.log | tail -1 | cut -d= -f2)
   fi
   echo "$(date) gen $N: 測定"
@@ -79,11 +84,11 @@ for N in $(seq $g0 $((g0 + ng - 1))); do
   vs_nor=$(rate $R/gen_$N normal $seed)
   if [ $N -eq 0 ]; then vs_prev=-; acc=1
   else
-    vs_prev=$(rate $R/gen_$N $R/gen_$best $seed)
+    vs_prev=$(rate $R/gen_$N $R/gen_$best $seed $PREV_GAMES)
     acc=$(awk -v r=$vs_prev -v a=$ACCEPT 'BEGIN{print (r >= a) ? 1 : 0}')
   fi
   [ $acc -eq 1 ] && echo $N > $R/best
-  ref=""; [ -n "$REF_MODEL" ] && ref=$(printf '\t%s' $(rate $R/gen_$N $REF_MODEL $seed))
+  ref=""; [ -n "$REF_MODEL" ] && ref=$(printf '\t%s' $(rate $R/gen_$N $REF_MODEL $seed $REF_GAMES))
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s%s\n' $N $samples $vs_prev $vs_exp $vs_nor $acc $((SECONDS - s)) "$ref" | tee -a $LOG
   [ $N -ge 2 ] && rm -rf $R/play_$((N - 1))   # 古い記録は捨てる（棋譜 expert は残す）
 done

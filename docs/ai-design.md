@@ -356,4 +356,13 @@ tail -3 runs/base1/log.tsv                            # 世代、サンプル数
 - 汎用モデルを初期値にして、`PRESETS` の 1 つ（おすすめの王国）だけで自己対局 → 学習を回す。`train/selfplay.mjs`・`train/match.mjs` の `--preset <id>`（`--base` より優先、知らない id は止まる）と、`jobs/job_ai.sh` の第 4 引数 `preset:<id>` を使う。
 - 環境変数: `INIT_MODEL=<パス（拡張子なし）>` で世代 0 をそのモデルの写しにする（模倣の学習はしない）。`REF_MODEL=<パス>` で log.tsv の最後に `vs_ref`（gen_N 対 REF_MODEL）を足す（なければ列なし）。
 - 例: `INIT_MODEL=runs/base1/gen_13 REF_MODEL=runs/base1/gen_13 sbatch -p DEF -n 64 jobs/job_ai.sh p-first 0 15 preset:first`。`vs_ref` が 0.5 を超えれば、汎用より強い。
+- 微調整用の環境変数（既定は本番のまま）: `ACCEPT`（採用の線）、`PREV_GAMES`（対 前の最良の局数。既定 `EVAL_GAMES`）、`REF_GAMES`（`vs_ref` の局数。既定 4000）、`TEMP0`、`LR`（学習率。省略で train.py の 1e-3）、`KL_W`（gen_0 との出力のずれ［ロジットの二乗］を損失に足す重み。省略で足さない。train.py の `--ref`・`--kl-w`）。
+- 推奨（ai-specialize.md §3-0）で 15 世代やり直す（ジョブは自分で投入する）:
+
+```sh
+INIT_MODEL=runs/base1/gen_13 REF_MODEL=runs/base1/gen_13 ACCEPT=0.5 PREV_GAMES=1600 REF_GAMES=4000 \
+  LR=1e-4 TEMP0=0.05 KL_W=0.1 sbatch -p DEF -n 64 --nice=10000 jobs/job_ai.sh p-first2 0 15 preset:first
+tail -3 runs/p-first2/log.tsv    # accepted が 1 になる世代が出るか、vs_ref の 4000 局の平均が 0.52 以上か
+```
+
 - 最初に試す王国は、基本セットの先頭 `first`（はじめてのゲーム）。

@@ -200,6 +200,8 @@ def main():
     ap.add_argument('--id-drop', type=float, default=0.1); ap.add_argument('--rank-frac', type=float, default=0.25); ap.add_argument('--rank-w', type=float, default=0.1)
     ap.add_argument('--val', type=int, default=1, help='最後の何シャードを検証に取っておくか（シャードが 2 つ以上のとき）')
     ap.add_argument('--seed', type=int, default=1); ap.add_argument('--max-seconds', type=float, default=0)
+    ap.add_argument('--ref', default='', help='元のモデル（拡張子なし）。--kl-w と合わせて、出力がここから離れすぎないようにする')
+    ap.add_argument('--kl-w', type=float, default=0, help='元のモデルとの出力（ロジット）の二乗のずれを損失に足す重み（既定 0 = 足さない）')
     a = ap.parse_args()
     torch.set_num_threads(int(os.environ.get('TORCH_THREADS') or 8))  # HAKUSAN の bench で 8 スレッドが 64 の 5 倍速かった
     torch.manual_seed(a.seed); rng = np.random.default_rng(a.seed)
@@ -209,6 +211,9 @@ def main():
     nval = a.val if len(paths) >= 2 else 0
     train_p, val_p = paths[:len(paths) - nval], paths[len(paths) - nval:]
     val = [load_shard(p) for p in val_p]
+    ref = None
+    if a.kl_w > 0 and a.ref:
+        ref = Net(read_model(a.ref)[0]); ref.load(read_model(a.ref)[1])
     opt = torch.optim.Adam(net.parameters(), lr=a.lr)
     t0 = time.time(); seen = 0; total = a.epochs * len(train_p); step = 0
     print(f'シャード {len(train_p)}（検証 {len(val_p)}）、スレッド {torch.get_num_threads()}', flush=True)
@@ -225,8 +230,12 @@ def main():
                 rank = (A['decSource'][sel] == 0) & (rng.random(len(sel)) < a.rank_frac)
                 b = build_batch(A, sel, rank)
                 mask = (torch.rand(net.V) >= a.id_drop).float()
-                reg, rk = losses(net(b, mask), b, a.rank_w)
+                lg = net(b, mask)
+                reg, rk = losses(lg, b, a.rank_w)
                 loss = reg + a.rank_w * rk
+                if ref is not None:
+                    with torch.no_grad(): lr_ = ref(b, mask)
+                    loss = loss + a.kl_w * ((lg - lr_) ** 2).mean()
                 opt.zero_grad(); loss.backward()
                 nn.utils.clip_grad_norm_(net.parameters(), 5.0)
                 opt.step()
