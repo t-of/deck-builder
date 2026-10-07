@@ -23,7 +23,7 @@ export function isGainQuestion(game, q) {
 }
 
 // 買う判断の場面か（財宝を出し終わって、購入が残っている）
-function isBuyDecision(game) {
+export function isBuyDecision(game) {
   const p = currentPlayer(game);
   const t = game.turn;
   if (t.phase !== 'buy' || t.buys <= 0) return false;
@@ -31,7 +31,7 @@ function isBuyDecision(game) {
   return limited || !p.hand.some((id) => isTreasureNow(game, id));
 }
 
-const noBuyMove = (p) => (p.hand.some((id) => is(id, 'night')) ? { type: 'nightPhase' } : { type: 'end' });
+export const noBuyMove = (p) => (p.hand.some((id) => is(id, 'night')) ? { type: 'nightPhase' } : { type: 'end' });
 
 function softmaxPick(scores, temperature, rand) {
   if (!(temperature > 0)) return scores.indexOf(Math.max(...scores));

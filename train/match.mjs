@@ -1,11 +1,12 @@
 // 強さの測定（docs/ai-design.md §7）。A 対 B を N 局、先手を交互にして、王国は A・B で同じ列。
-//   node train/match.mjs --a runs/x/gen_3 --b expert|strong|normal|weak|<モデル> --games 40 [--seed 1] [--temp 0] [--base] [--preset <id>]
+//   node train/match.mjs --a runs/x/gen_3 --b expert|strong|normal|weak|<モデル>|table:<表の JSON>|table:seed:<定石> --games 40 [--seed 1] [--temp 0] [--base] [--preset <id>]
 // 最後の行: RESULT <A の勝ち> <引き分け> <A の負け> <局数>（HAKUSAN では複数の種で並べて足す）
 import fs from 'node:fs';
 import { kingdomPool, landscapePool, randomKingdom, PRESETS, finalResults } from '../engine.js';
 import { loadModel } from '../ai/net.js';
 import { createAI, playGame } from '../ai/player.js';
 import { nextMove as cpuMove, answer as cpuAnswer } from '../cpu.js';
+import { tableActor, SEEDS } from '../ai/table.js';
 
 const dir = new URL('..', import.meta.url).pathname;
 for (const f of fs.readdirSync(dir).filter((f) => /^cards-.*\.js$/.test(f)).sort()) await import(`../${f}`);
@@ -20,7 +21,9 @@ if (presetId && !preset) { console.error(`知らない preset: ${presetId}`); pr
 const load = (p) => { const b = fs.readFileSync(`${p}.bin`); return loadModel(JSON.parse(fs.readFileSync(`${p}.json`, 'utf8')), b.buffer.slice(b.byteOffset, b.byteOffset + b.length)); };
 const rnd = () => { seed = (seed + 0x6d2b79f5) >>> 0; let t = Math.imul(seed ^ (seed >>> 15), seed | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 Math.random = rnd;
-const mk = (who) => (['weak', 'normal', 'strong', 'expert'].includes(who)
+// 買い方表: table:<JSON のパス>（表そのもの、または train/evolve.mjs の gen_N.json＝top[0]）か table:seed:<定石の名前>
+const loadTable = (w) => { const k = w.slice(11); if (w.startsWith('table:seed:')) return SEEDS[k]; const j = JSON.parse(fs.readFileSync(w.slice(6), 'utf8')); return j.top ? j.top[0].table : j; };
+const mk = (who) => (who.startsWith('table:') ? (() => { const t = loadTable(who); return () => tableActor(t); })() : ['weak', 'normal', 'strong', 'expert'].includes(who)
   ? () => ({ nextMove: (g) => cpuMove(g, who), answer: (g, q) => cpuAnswer(g, q, who) })
   : ((m) => () => createAI(m, { temperature: temp, rand: rnd }))(load(who)));
 const makeA = mk(arg('a'));

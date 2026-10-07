@@ -126,6 +126,13 @@ HAKUSAN の速さの見積もりは設計メモ §4 の手元の値（ルール 
 コスト: 中（表の形と進化の仕組みで 1〜2 日の実装、計算は数時間）。
 合格: 表の bot 対 さいきょう 400 局で 60% 以上、さらに表の bot 対 汎用（4,000 局）の値を出す。
 
+使い方（実装済み。`ai/table.js`・`train/evolve.mjs`・`train/match.mjs`・`jobs/job_evolve.sh`）:
+- 表の形: `{ duchyAt, estateAt, rules: [{ card, max, minDeck, minMoney, maxProv }] }`。属州（8 金〜）→ 公領（5 金〜・属州の残り ≤ duchyAt）→ 屋敷（残り ≤ estateAt）→ rules を上から。card を max 枚未満で、山札全体が minDeck 枚以上・お金が minMoney 以上・属州の残りが maxProv 以下なら買う。買う以外はさいきょう CPU。手書きの定石 7 つ（`SEEDS`）が初期集団。
+- 進化: `node train/evolve.mjs --name e1 --gens 300 [--pop 64 --opps 8 --games 50 --procs N --preset first]`。各個体が hof（最初は手書き、あとは各世代の最高）8 個と 50 局ずつ。`runs/e1/gen_N.json`（top 8・hof・次の集団）が世代ごとに出て、同じコマンドで続きから。
+- 測る: `node train/match.mjs --a table:runs/e1/gen_N.json --b expert|<モデル> --games 400 --preset first`（`table:seed:bigsmithy` なら手書きの定石）。
+- HAKUSAN: `sbatch -p DEF -n 64 --nice=10000 jobs/job_evolve.sh e1 300 runs/base1/gen_28`（進化のあと、最後の表を対 expert・対 モデルで 400 局ずつ測って、ログの「==== 結果」に出す）。
+- 速さ: 表同士は約 4 ms／局（手元 4 プロセスで 1,280 局 約 1.3 秒）。1 世代 25,600 局は 64 コアで数秒〜十数秒。対 expert は約 2.5 秒／局（手元）なので 400 局でも 64 コアで 20 秒前後。
+
 ### 3-2. ロールアウトで学習の目標を作る（次点）
 
 効きそうな理由:
